@@ -1,0 +1,21 @@
+{
+  "name": "scouting-platform",
+  "private": true,
+  "packageManager": "pnpm@10.6.1",
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "dev:web": "pnpm --filter @scouting-platform/web dev",
+    "dev:worker": "pnpm --filter @scouting-platform/worker dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "db:generate": "pnpm --filter @scouting-platform/db db:generate",
+    "db:migrate": "pnpm --filter @scouting-platform/db db:migrate",
+    "db:studio": "pnpm --filter @scouting-platform/db db:studio"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.0",
+    "typescript": "^5.8.2"
+  }
+}

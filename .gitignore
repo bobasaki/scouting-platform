@@ -1,0 +1,15 @@
+node_modules
+.pnpm-store
+.next
+.turbo
+dist
+coverage
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log
+apps/web/.next
+apps/web/out
+apps/worker/dist
+packages/*/dist
