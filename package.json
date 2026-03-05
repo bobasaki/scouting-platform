@@ -20,6 +20,7 @@
     "db:validate": "sh -ac 'set -a; [ -f .env ] && . ./.env; set +a; pnpm --filter @scouting-platform/db exec prisma validate'",
     "db:generate": "sh -ac 'set -a; [ -f .env ] && . ./.env; set +a; pnpm --filter @scouting-platform/db db:generate'",
     "db:migrate": "sh -ac 'set -a; [ -f .env ] && . ./.env; set +a; pnpm --filter @scouting-platform/db db:migrate'",
+    "db:migrate:deploy": "sh -ac 'set -a; [ -f .env ] && . ./.env; set +a; pnpm --filter @scouting-platform/db db:migrate:deploy'",
     "db:studio": "sh -ac 'set -a; [ -f .env ] && . ./.env; set +a; pnpm --filter @scouting-platform/db db:studio'"
   },
   "devDependencies": {

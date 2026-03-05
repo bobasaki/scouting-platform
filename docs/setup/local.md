@@ -2,6 +2,8 @@
 
 This setup targets macOS and Linux with Docker Compose-compatible runtimes.
 
+For staging deployment, use [`/docs/setup/staging-railway.md`](./staging-railway.md).
+
 ## Prerequisites
 
 Install:
@@ -30,6 +32,7 @@ cp .env.example .env
 pnpm install
 pnpm infra:up
 pnpm db:wait
+pnpm db:migrate
 pnpm db:validate
 pnpm lint
 pnpm typecheck

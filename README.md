@@ -79,6 +79,7 @@ docs/
 - `/TASKS.md`: milestone plan and GitHub issue backlog
 - `/AGENTS.md`: contributor and AI-agent rules for working in this repo
 - `/docs/setup/local.md`: local environment bootstrap (Docker + tooling)
+- `/docs/setup/staging-railway.md`: staging deployment runbook (Railway)
 
 ## Delivery Strategy
 
@@ -98,6 +99,10 @@ Do not add new product branches until the items in `/TASKS.md` for the active mi
 ## Local Setup
 
 Use the local runbook at [`/docs/setup/local.md`](./docs/setup/local.md).
+
+## Staging Setup
+
+Use the staging runbook at [`/docs/setup/staging-railway.md`](./docs/setup/staging-railway.md).
 
 ## Hosting Recommendation
 

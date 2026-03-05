@@ -64,14 +64,34 @@ jobs:
       - name: Prisma validate
         run: pnpm db:validate
 
+      - name: Prisma generate
+        run: pnpm db:generate
+
+      - name: Migrate primary database
+        run: pnpm db:migrate:deploy
+
+      - name: Migrate test database
+        run: pnpm --filter @scouting-platform/db db:migrate:deploy
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL_TEST }}
+
       - name: Lint
         run: pnpm lint
 
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Build
-        run: pnpm build
+      - name: Build web
+        run: pnpm --filter @scouting-platform/web build
+
+      - name: Build worker
+        run: pnpm --filter @scouting-platform/worker build
 
       - name: Test
         run: pnpm test
+
+      - name: Install Playwright browser
+        run: pnpm --filter @scouting-platform/web exec playwright install --with-deps chromium
+
+      - name: Playwright smoke
+        run: pnpm --filter @scouting-platform/web test:smoke
