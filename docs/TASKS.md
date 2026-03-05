@@ -56,7 +56,7 @@ Assuming 30h/week each, this is a realistic 6 to 7 week build.
 
 #### Marin:
 
-- bootstrap Next app
+- [done] bootstrap Next app
 - set up design tokens/layout/navigation
 - set up Auth.js UI flow
 - create base route protection and role-aware layout
