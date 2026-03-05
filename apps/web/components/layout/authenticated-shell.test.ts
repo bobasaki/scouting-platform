@@ -15,6 +15,7 @@ describe("authenticated shell", () => {
     expect(html).toContain('href="/catalog"');
     expect(html).toContain('href="/runs"');
     expect(html).not.toContain('href="/admin"');
+    expect(html).toContain("Sign out");
     expect(html).toContain("catalog page");
   });
 

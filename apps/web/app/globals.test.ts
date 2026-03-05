@@ -19,7 +19,16 @@ describe("global design tokens and shell styles", () => {
     expect(css).toContain(".auth-shell");
     expect(css).toContain(".auth-shell__sidebar");
     expect(css).toContain(".auth-shell__content");
+    expect(css).toContain(".auth-shell__signout");
     expect(css).toContain(".app-nav");
     expect(css).toContain(".app-nav__link");
+  });
+
+  it("includes login form state styles", () => {
+    expect(css).toContain(".login-page");
+    expect(css).toContain(".login-form");
+    expect(css).toContain(".login-form__status--idle");
+    expect(css).toContain(".login-form__status--submitting");
+    expect(css).toContain(".login-form__status--error");
   });
 });

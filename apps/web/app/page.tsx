@@ -7,7 +7,10 @@ export default function HomePage() {
       <h1>{APP_TITLE}</h1>
       <p>Week 0 scaffold is ready.</p>
       <p>
-        Open <Link href="/catalog">the authenticated shell placeholder</Link>.
+        Continue with the <Link href="/login">Auth.js sign-in scaffold</Link>.
+      </p>
+      <p>
+        Or open <Link href="/catalog">the authenticated shell placeholder</Link>.
       </p>
     </main>
   );
