@@ -81,6 +81,9 @@ describe("admin page", () => {
 
     expect(redirectMock).not.toHaveBeenCalled();
     expect(html).toContain("Admin");
-    expect(html).toContain("Admin dashboard and management screens land in Week 5.");
+    expect(html).toContain(
+      "Admin user management shells start in Week 1. Dashboard and import workflows land in Week 5."
+    );
+    expect(html).toContain("/admin/users");
   });
 });
