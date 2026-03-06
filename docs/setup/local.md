@@ -33,6 +33,10 @@ pnpm install
 pnpm infra:up
 pnpm db:wait
 pnpm db:migrate
+export INITIAL_ADMIN_EMAIL="admin@example.com"
+export INITIAL_ADMIN_PASSWORD="replace-me-strong-password"
+export INITIAL_ADMIN_NAME="Initial Admin"
+pnpm db:seed:admin
 pnpm db:validate
 pnpm lint
 pnpm typecheck

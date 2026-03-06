@@ -104,6 +104,18 @@ Use the local runbook at [`/docs/setup/local.md`](./docs/setup/local.md).
 
 Use the staging runbook at [`/docs/setup/staging-railway.md`](./docs/setup/staging-railway.md).
 
+## Week 1 API Quick Reference
+
+Backend endpoints available for Marin UI integration:
+
+- `POST /api/auth/[...nextauth]` credentials callback via Auth.js
+- `GET /api/admin/users`
+- `POST /api/admin/users`
+- `PUT /api/admin/users/:id/password`
+- `PUT /api/admin/users/:id/youtube-key`
+- `GET /api/channels`
+- `GET /api/channels/:id`
+
 ## Hosting Recommendation
 
 Use Railway with:

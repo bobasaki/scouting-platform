@@ -74,12 +74,12 @@ Done when:
 
 #### You:
 
-- implement user/admin schema
-- credentials auth
-- session handling
-- encrypted YouTube key storage
-- admin user management backend
-- channel schema and repositories
+- [done] implement user/admin schema
+- [done] credentials auth
+- [done] session handling
+- [done] encrypted YouTube key storage
+- [done] admin user management backend
+- [done] channel schema and repositories
 
 #### Marin:
 

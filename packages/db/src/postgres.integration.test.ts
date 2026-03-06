@@ -43,5 +43,13 @@ if (!databaseUrl) {
 
       expect(rows[0]?.relation_name).toBe("pgboss.version");
     });
+
+    it("sees week 1 tables after migrations are applied", async () => {
+      const rows = await prisma.$queryRaw<Array<{ relation_name: string | null }>>`
+        SELECT to_regclass('users') AS relation_name
+      `;
+
+      expect(rows[0]?.relation_name).toBe("users");
+    });
   });
 }
