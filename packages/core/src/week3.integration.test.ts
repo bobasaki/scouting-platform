@@ -1,10 +1,19 @@
-import { PrismaClient, RunRequestStatus, Role } from "@prisma/client";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { PrismaClient, Role, RunRequestStatus, RunResultSource } from "@prisma/client";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const databaseUrl = process.env.DATABASE_URL_TEST?.trim() ?? "";
 const integration = databaseUrl ? describe.sequential : describe.skip;
 
 type CoreModule = typeof import("./index");
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "content-type": "application/json",
+    },
+  });
+}
 
 integration("week 3 core integration", () => {
   let prisma: PrismaClient;
@@ -27,6 +36,8 @@ integration("week 3 core integration", () => {
   });
 
   beforeEach(async () => {
+    vi.restoreAllMocks();
+
     await prisma.$executeRawUnsafe(`
       TRUNCATE TABLE
         run_results,
@@ -138,20 +149,77 @@ integration("week 3 core integration", () => {
     await prisma.channel.createMany({
       data: [
         {
-          youtubeChannelId: "UC-A",
-          title: "Channel A",
+          youtubeChannelId: "UC-CATALOG-1",
+          title: "Gaming Channel A",
         },
         {
-          youtubeChannelId: "UC-B",
-          title: "Channel B",
+          youtubeChannelId: "UC-CATALOG-2",
+          title: "Gaming Channel B",
+        },
+        {
+          youtubeChannelId: "UC-NON-MATCH",
+          title: "Cooking Channel",
         },
       ],
     });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(
+          jsonResponse({
+            items: [
+              { id: { channelId: "UC-CATALOG-2" } },
+              { id: { channelId: "UC-DISCOVER-1" } },
+              { id: { channelId: "UC-DISCOVER-2" } },
+            ],
+          }),
+        )
+        .mockResolvedValueOnce(
+          jsonResponse({
+            items: [
+              {
+                id: "UC-CATALOG-2",
+                snippet: {
+                  title: "Gaming Channel B",
+                  description: "Catalog overlap",
+                  customUrl: "gaming-b",
+                  thumbnails: {
+                    default: { url: "https://img.example.com/b.jpg" },
+                  },
+                },
+              },
+              {
+                id: "UC-DISCOVER-1",
+                snippet: {
+                  title: "Gaming Discover One",
+                  description: "Discovery one",
+                  customUrl: "gaming-one",
+                  thumbnails: {
+                    default: { url: "https://img.example.com/d1.jpg" },
+                  },
+                },
+              },
+              {
+                id: "UC-DISCOVER-2",
+                snippet: {
+                  title: "Gaming Discover Two",
+                  description: "Discovery two",
+                  customUrl: "gaming-two",
+                  thumbnails: {
+                    default: { url: "https://img.example.com/d2.jpg" },
+                  },
+                },
+              },
+            ],
+          }),
+        ),
+    );
 
     const created = await core.createRunRequest({
       userId: user.id,
       name: "Gaming Run",
-      query: "gaming creators",
+      query: "gaming",
     });
 
     await core.executeRunDiscover({
@@ -176,9 +244,38 @@ integration("week 3 core integration", () => {
         rank: "asc",
       },
     });
-    expect(results).toHaveLength(2);
+    expect(results).toHaveLength(4);
     expect(results[0]?.rank).toBe(1);
-    expect(results[1]?.rank).toBe(2);
+    expect(results[0]?.source).toBe(RunResultSource.CATALOG);
+    expect(results[1]?.source).toBe(RunResultSource.CATALOG);
+    expect(results[2]?.source).toBe(RunResultSource.DISCOVERY);
+    expect(results[3]?.source).toBe(RunResultSource.DISCOVERY);
+
+    const catalogOverlapChannel = await prisma.channel.findUniqueOrThrow({
+      where: {
+        youtubeChannelId: "UC-CATALOG-2",
+      },
+      select: {
+        id: true,
+      },
+    });
+    const dedupedCatalogOverlap = results.filter(
+      (result) => result.channelId === catalogOverlapChannel.id,
+    );
+    expect(dedupedCatalogOverlap).toHaveLength(1);
+    expect(dedupedCatalogOverlap[0]?.source).toBe(RunResultSource.CATALOG);
+
+    const discoveredChannels = await prisma.channel.findMany({
+      where: {
+        youtubeChannelId: {
+          in: ["UC-DISCOVER-1", "UC-DISCOVER-2"],
+        },
+      },
+      orderBy: {
+        youtubeChannelId: "asc",
+      },
+    });
+    expect(discoveredChannels).toHaveLength(2);
   });
 
   it("persists failed status and last error when discovery validation fails", async () => {
@@ -219,6 +316,64 @@ integration("week 3 core integration", () => {
     expect(updated.lastError).toContain("YouTube API key");
   });
 
+  it("persists failed status and last error when youtube quota is exceeded", async () => {
+    const user = await prisma.user.create({
+      data: {
+        email: "manager@example.com",
+        name: "Manager",
+        role: Role.USER,
+        passwordHash: "hash",
+        isActive: true,
+      },
+    });
+
+    await core.setUserYoutubeApiKey({
+      userId: user.id,
+      rawKey: "yt-key-1",
+      actorUserId: user.id,
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValueOnce(
+        jsonResponse(
+          {
+            error: {
+              errors: [{ reason: "quotaExceeded" }],
+            },
+          },
+          403,
+        ),
+      ),
+    );
+
+    const runRequest = await prisma.runRequest.create({
+      data: {
+        requestedByUserId: user.id,
+        name: "Gaming Run",
+        query: "gaming",
+      },
+    });
+
+    await expect(
+      core.executeRunDiscover({
+        runRequestId: runRequest.id,
+        requestedByUserId: user.id,
+      }),
+    ).rejects.toMatchObject({
+      code: "YOUTUBE_QUOTA_EXCEEDED",
+      status: 429,
+    });
+
+    const updated = await prisma.runRequest.findUniqueOrThrow({
+      where: {
+        id: runRequest.id,
+      },
+    });
+    expect(updated.status).toBe(RunRequestStatus.FAILED);
+    expect(updated.lastError).toBe("YouTube API quota exceeded");
+  });
+
   it("is idempotent when duplicate discovery execution happens", async () => {
     const user = await prisma.user.create({
       data: {
@@ -239,15 +394,36 @@ integration("week 3 core integration", () => {
     await prisma.channel.create({
       data: {
         youtubeChannelId: "UC-A",
-        title: "Channel A",
+        title: "Gaming Channel A",
       },
     });
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [{ id: { channelId: "UC-A" } }],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [
+            {
+              id: "UC-A",
+              snippet: {
+                title: "Gaming Channel A",
+                thumbnails: {},
+              },
+            },
+          ],
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
 
     const runRequest = await prisma.runRequest.create({
       data: {
         requestedByUserId: user.id,
         name: "Gaming Run",
-        query: "gaming creators",
+        query: "gaming",
       },
     });
 
@@ -266,5 +442,6 @@ integration("week 3 core integration", () => {
       },
     });
     expect(resultsCount).toBe(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
