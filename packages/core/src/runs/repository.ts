@@ -1,12 +1,18 @@
 import {
   CredentialProvider,
+  type Prisma,
   RunRequestStatus as PrismaRunRequestStatus,
   RunResultSource as PrismaRunResultSource,
 } from "@prisma/client";
 import type { CreateRunResponse, RunRequestStatus, RunStatusResponse } from "@scouting-platform/contracts";
 import { prisma } from "@scouting-platform/db";
+import {
+  discoverYoutubeChannels,
+  isYoutubeDiscoveryProviderError,
+} from "@scouting-platform/integrations";
 
 import { getUserYoutubeApiKey } from "../auth";
+import { upsertChannelSkeleton } from "../channels";
 import { ServiceError } from "../errors";
 import { enqueueRunsDiscoverJob } from "./queue";
 
@@ -36,6 +42,52 @@ function toRunRequestStatus(status: PrismaRunRequestStatus): RunRequestStatus {
 
 function toRunResultSource(source: PrismaRunResultSource): "catalog" | "discovery" {
   return source === PrismaRunResultSource.DISCOVERY ? "discovery" : "catalog";
+}
+
+type CatalogCandidate = {
+  id: string;
+};
+
+async function getCatalogCandidatesForQuery(query: string): Promise<CatalogCandidate[]> {
+  const normalizedQuery = query.trim();
+
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  const where: Prisma.ChannelWhereInput = {
+    OR: [
+      {
+        title: {
+          contains: normalizedQuery,
+          mode: "insensitive",
+        },
+      },
+      {
+        handle: {
+          contains: normalizedQuery,
+          mode: "insensitive",
+        },
+      },
+      {
+        youtubeChannelId: {
+          contains: normalizedQuery,
+          mode: "insensitive",
+        },
+      },
+    ],
+  };
+
+  return prisma.channel.findMany({
+    where,
+    orderBy: {
+      createdAt: "desc",
+    },
+    take: 100,
+    select: {
+      id: true,
+    },
+  });
 }
 
 export async function createRunRequest(input: {
@@ -180,6 +232,7 @@ export async function executeRunDiscover(input: {
       id: true,
       requestedByUserId: true,
       status: true,
+      query: true,
     },
   });
 
@@ -238,37 +291,78 @@ export async function executeRunDiscover(input: {
       );
     }
 
-    const channels = await prisma.channel.findMany({
-      orderBy: {
-        createdAt: "desc",
-      },
-      take: 100,
-      select: {
-        id: true,
-      },
-    });
+    const catalogCandidates = await getCatalogCandidatesForQuery(runRequest.query);
+    const catalogCandidateIds = new Set(catalogCandidates.map((candidate) => candidate.id));
 
-    if (channels.length > 0) {
-      await prisma.runResult.createMany({
-        data: channels.map((channel, index) => ({
-          runRequestId: runRequest.id,
-          channelId: channel.id,
-          rank: index + 1,
-          source: PrismaRunResultSource.CATALOG,
-        })),
-        skipDuplicates: true,
-      });
+    const discovered = await (async () => {
+      try {
+        return await discoverYoutubeChannels({
+          apiKey: youtubeKey,
+          query: runRequest.query,
+          maxResults: 50,
+        });
+      } catch (error) {
+        if (isYoutubeDiscoveryProviderError(error)) {
+          throw new ServiceError(error.code, error.status, error.message);
+        }
+
+        throw error;
+      }
+    })();
+
+    const discoveryOnlyChannelIds: string[] = [];
+    const addedDiscoveryOnly = new Set<string>();
+
+    for (const channel of discovered) {
+      const upserted = await upsertChannelSkeleton(channel);
+
+      if (catalogCandidateIds.has(upserted.id) || addedDiscoveryOnly.has(upserted.id)) {
+        continue;
+      }
+
+      addedDiscoveryOnly.add(upserted.id);
+      discoveryOnlyChannelIds.push(upserted.id);
     }
 
-    await prisma.runRequest.update({
-      where: {
-        id: runRequest.id,
-      },
-      data: {
-        status: PrismaRunRequestStatus.COMPLETED,
-        completedAt: new Date(),
-        lastError: null,
-      },
+    const rankedResults = [
+      ...catalogCandidates.map((channelId) => ({
+        channelId: channelId.id,
+        source: PrismaRunResultSource.CATALOG,
+      })),
+      ...discoveryOnlyChannelIds.map((channelId) => ({
+        channelId,
+        source: PrismaRunResultSource.DISCOVERY,
+      })),
+    ];
+
+    await prisma.$transaction(async (tx) => {
+      await tx.runResult.deleteMany({
+        where: {
+          runRequestId: runRequest.id,
+        },
+      });
+
+      if (rankedResults.length > 0) {
+        await tx.runResult.createMany({
+          data: rankedResults.map((result, index) => ({
+            runRequestId: runRequest.id,
+            channelId: result.channelId,
+            rank: index + 1,
+            source: result.source,
+          })),
+        });
+      }
+
+      await tx.runRequest.update({
+        where: {
+          id: runRequest.id,
+        },
+        data: {
+          status: PrismaRunRequestStatus.COMPLETED,
+          completedAt: new Date(),
+          lastError: null,
+        },
+      });
     });
   } catch (error) {
     await prisma.runRequest.update({

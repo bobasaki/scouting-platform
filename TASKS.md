@@ -127,8 +127,8 @@ Done when:
 
 - [done] run request model (phase 1: run request lifecycle persistence in `run_requests`)
 - [done] run execution service (phase 1: queued -> running -> completed/failed transitions with persisted `last_error`)
-- YouTube discovery adapter using per-user key
-- dedupe/union with catalog
+- [done] YouTube discovery adapter using per-user key
+- [done] dedupe/union with catalog
 - [done] run result snapshot model (phase 1: `run_results` snapshot rows with rank/source)
 - [done] background job for discovery (phase 1: `runs.discover` queue + worker execution wiring)
 
@@ -145,7 +145,7 @@ Done when:
 - manager can create a run
 - run uses both catalog and new discovery
 - results are saved and viewable
-- phased delivery note: Week 3 phase 1 backend is delivered (`POST /api/runs`, `GET /api/runs/:id`, queue/worker lifecycle, and snapshot persistence); YouTube adapter and catalog+discovery union ranking remain open.
+- phased delivery note: Week 3 backend is delivered end-to-end (`POST /api/runs`, `GET /api/runs/:id`, queue/worker lifecycle, per-user-key YouTube discovery, deduped catalog+discovery union ranking, and snapshot persistence); Marin Week 3 UI items remain open.
 
 ### Week 4: LLM enrichment
 
