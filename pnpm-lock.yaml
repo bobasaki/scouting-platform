@@ -133,6 +133,9 @@ importers:
       '@scouting-platform/db':
         specifier: workspace:*
         version: link:../db
+      '@scouting-platform/integrations':
+        specifier: workspace:*
+        version: link:../integrations
       argon2:
         specifier: ^0.43.0
         version: 0.43.1
@@ -150,7 +153,11 @@ importers:
         specifier: ^6.5.0
         version: 6.19.2(typescript@5.9.3)
 
-  packages/integrations: {}
+  packages/integrations:
+    dependencies:
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
 
 packages:
 
