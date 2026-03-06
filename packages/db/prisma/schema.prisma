@@ -35,23 +35,35 @@ enum RunResultSource {
 
   @@map("run_result_source")
 }
+
+enum ChannelManualOverrideField {
+  TITLE         @map("title")
+  HANDLE        @map("handle")
+  DESCRIPTION   @map("description")
+  THUMBNAIL_URL @map("thumbnail_url")
+
+  @@map("channel_manual_override_field")
+}
+
 model User {
-  id            String    @id @default(uuid()) @db.Uuid
-  name          String?
-  email         String    @unique
-  emailVerified DateTime? @map("email_verified")
-  image         String?
-  passwordHash  String    @map("password_hash")
-  role          Role      @default(USER)
-  isActive      Boolean   @default(true) @map("is_active")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
-  accounts      Account[]
-  sessions      Session[]
-  credentials   UserProviderCredential[]
-  auditEvents   AuditEvent[]            @relation("AuditActor")
-  savedSegments SavedSegment[]
-  runRequests   RunRequest[]            @relation("RunRequestedBy")
+  id                            String                  @id @default(uuid()) @db.Uuid
+  name                          String?
+  email                         String                  @unique
+  emailVerified                 DateTime?               @map("email_verified")
+  image                         String?
+  passwordHash                  String                  @map("password_hash")
+  role                          Role                    @default(USER)
+  isActive                      Boolean                 @default(true) @map("is_active")
+  createdAt                     DateTime                @default(now()) @map("created_at")
+  updatedAt                     DateTime                @updatedAt @map("updated_at")
+  accounts                      Account[]
+  sessions                      Session[]
+  credentials                   UserProviderCredential[]
+  auditEvents                   AuditEvent[]            @relation("AuditActor")
+  savedSegments                 SavedSegment[]
+  runRequests                   RunRequest[]            @relation("RunRequestedBy")
+  createdChannelManualOverrides ChannelManualOverride[] @relation("ChannelManualOverrideCreatedBy")
+  updatedChannelManualOverrides ChannelManualOverride[] @relation("ChannelManualOverrideUpdatedBy")
 
   @@map("users")
 }
@@ -119,18 +131,41 @@ model UserProviderCredential {
 }
 
 model Channel {
-  id               String   @id @default(uuid()) @db.Uuid
-  youtubeChannelId String   @unique @map("youtube_channel_id")
-  title            String
-  handle           String?
-  description      String?  @db.Text
-  thumbnailUrl     String?  @map("thumbnail_url")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
-  runResults       RunResult[]
+  id              String                  @id @default(uuid()) @db.Uuid
+  youtubeChannelId String                 @unique @map("youtube_channel_id")
+  title           String
+  handle          String?
+  description     String?                 @db.Text
+  thumbnailUrl    String?                 @map("thumbnail_url")
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+  runResults      RunResult[]
+  manualOverrides ChannelManualOverride[]
 
   @@index([youtubeChannelId], map: "channels_youtube_channel_id_idx")
   @@map("channels")
+}
+
+model ChannelManualOverride {
+  id              String                     @id @default(uuid()) @db.Uuid
+  channelId       String                     @map("channel_id") @db.Uuid
+  field           ChannelManualOverrideField
+  value           String?                    @db.Text
+  fallbackValue   String?                    @map("fallback_value") @db.Text
+  createdByUserId String                     @map("created_by_user_id") @db.Uuid
+  updatedByUserId String                     @map("updated_by_user_id") @db.Uuid
+  createdAt       DateTime                   @default(now()) @map("created_at")
+  updatedAt       DateTime                   @updatedAt @map("updated_at")
+  channel         Channel                    @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  createdByUser   User                       @relation("ChannelManualOverrideCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  updatedByUser   User                       @relation("ChannelManualOverrideUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([channelId, field], map: "channel_manual_overrides_channel_id_field_key")
+  @@index([channelId], map: "channel_manual_overrides_channel_id_idx")
+  @@index([updatedAt], map: "channel_manual_overrides_updated_at_idx")
+  @@index([createdByUserId], map: "channel_manual_overrides_created_by_user_id_idx")
+  @@index([updatedByUserId], map: "channel_manual_overrides_updated_by_user_id_idx")
+  @@map("channel_manual_overrides")
 }
 
 model AuditEvent {
