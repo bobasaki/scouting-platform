@@ -87,22 +87,6 @@ integration("credentials auth flow", () => {
   it("authorizes valid credentials and rejects invalid/inactive users", async () => {
     const authorize = getCredentialsAuthorize();
 
-    // Week 0 fallback mode (no DB adapter): only demo credential flow is available.
-    if (!getAuthAdapter()) {
-      const demoResult = await authorize(
-        {
-          email: process.env.AUTH_DEMO_EMAIL ?? "demo@scouting.local",
-          password: process.env.AUTH_DEMO_PASSWORD ?? "demo-password",
-        },
-        new Request("http://localhost/api/auth/callback/credentials"),
-      );
-
-      expect(demoResult).toMatchObject({
-        id: "week0-demo-user",
-      });
-      return;
-    }
-
     const userPassword = "StrongPassword123";
     const userPasswordHash = await hashPassword(userPassword);
 
