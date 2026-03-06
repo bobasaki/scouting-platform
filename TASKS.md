@@ -119,8 +119,7 @@ Done when:
 - segments save/load
 - admin manual edits persist and override automated values
 - evidence note: backend catalog queries are live via `GET /api/channels` and `GET /api/channels/:id` with integration coverage in `apps/web/app/api/week1.integration.test.ts`
-- phased delivery note: segment persistence backend is delivered as personal saved filter segments CRUD
-- phased delivery note: manual override backend + audit events for admin edits are delivered; Marin UI integration remains
+- phased delivery note: segment persistence backend is delivered as personal saved filter segments CRUD; remaining Week 2 items stay open
 
 ### Week 3: Runs and discovery
 

@@ -31,7 +31,6 @@ integration("week 3 core integration", () => {
       TRUNCATE TABLE
         run_results,
         run_requests,
-        channel_manual_overrides,
         saved_segments,
         audit_events,
         user_provider_credentials,

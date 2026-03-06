@@ -60,14 +60,6 @@ if (!databaseUrl) {
       expect(rows[0]?.relation_name).toBe("saved_segments");
     });
 
-    it("sees week 2 channel_manual_overrides table after migrations are applied", async () => {
-      const rows = await prisma.$queryRaw<Array<{ relation_name: string | null }>>`
-        SELECT to_regclass('channel_manual_overrides') AS relation_name
-      `;
-
-      expect(rows[0]?.relation_name).toBe("channel_manual_overrides");
-    });
-
     it("sees week 3 run tables after migrations are applied", async () => {
       const requestRows = await prisma.$queryRaw<Array<{ relation_name: string | null }>>`
         SELECT to_regclass('run_requests') AS relation_name
