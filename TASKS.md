@@ -83,9 +83,9 @@ Done when (Week 0 completion checkpoint):
 
 #### Marin:
 
-- login screen
-- admin user management UI
-- account detail UI for user YouTube credential state
+- [done] login screen
+- [done] admin user management UI
+- [done] account detail UI for user YouTube credential state
 - catalog table shell
 - channel detail shell
 
