@@ -41,6 +41,8 @@ integration("credentials auth flow", () => {
   beforeEach(async () => {
     await prisma.$executeRawUnsafe(`
       TRUNCATE TABLE
+        channel_manual_overrides,
+        saved_segments,
         audit_events,
         user_provider_credentials,
         sessions,

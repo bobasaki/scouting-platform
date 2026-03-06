@@ -18,6 +18,10 @@ const week2MigrationPath = path.resolve(
   currentDir,
   "../prisma/migrations/20260306123000_week2_saved_segments/migration.sql",
 );
+const week2ManualOverrideMigrationPath = path.resolve(
+  currentDir,
+  "../prisma/migrations/20260306163000_week2_channel_manual_overrides/migration.sql",
+);
 
 describe("pg-boss migration", () => {
   it("installs the pgboss schema and version table", () => {
@@ -50,6 +54,21 @@ describe("week 2 segments migration", () => {
     expect(migrationSql).toContain("CREATE INDEX IF NOT EXISTS saved_segments_user_id_idx");
     expect(migrationSql).toContain(
       "CREATE INDEX IF NOT EXISTS saved_segments_user_id_updated_at_idx",
+    );
+  });
+});
+
+describe("week 2 manual overrides migration", () => {
+  it("creates channel_manual_overrides with unique field constraint and indexes", () => {
+    const migrationSql = readFileSync(week2ManualOverrideMigrationPath, "utf-8");
+
+    expect(migrationSql).toContain("CREATE TYPE channel_manual_override_field AS ENUM");
+    expect(migrationSql).toContain("CREATE TABLE IF NOT EXISTS channel_manual_overrides");
+    expect(migrationSql).toContain(
+      "CREATE UNIQUE INDEX IF NOT EXISTS channel_manual_overrides_channel_id_field_key",
+    );
+    expect(migrationSql).toContain(
+      "CREATE INDEX IF NOT EXISTS channel_manual_overrides_updated_by_user_id_idx",
     );
   });
 });

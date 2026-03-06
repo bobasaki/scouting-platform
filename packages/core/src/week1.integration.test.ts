@@ -30,6 +30,7 @@ integration("week 1 core integration", () => {
   beforeEach(async () => {
     await prisma.$executeRawUnsafe(`
       TRUNCATE TABLE
+        channel_manual_overrides,
         audit_events,
         user_provider_credentials,
         sessions,
