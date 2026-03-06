@@ -102,8 +102,8 @@ Done when:
 
 - channel list/detail queries
 - [done] segment persistence (phase 1: personal saved filter segments CRUD)
-- manual override model and merge logic
-- audit events for edits
+- [done] manual override model and merge logic (phase 2: per-field channel overrides with precedence-safe fallback restore)
+- [done] audit events for edits (phase 2: admin channel override patches)
 
 #### Marin:
 
@@ -118,7 +118,8 @@ Done when:
 - catalog list/detail works
 - segments save/load
 - admin manual edits persist and override automated values
-- phased delivery note: segment persistence backend is now delivered as personal saved filter segments CRUD; remaining Week 2 items stay open
+- phased delivery note: segment persistence backend is delivered as personal saved filter segments CRUD
+- phased delivery note: manual override backend + audit events for admin edits are delivered; Marin UI integration remains
 
 ### Week 3: Runs and discovery
 

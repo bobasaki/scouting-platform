@@ -1,5 +1,15 @@
-import type { Prisma } from "@prisma/client";
-import { prisma } from "@scouting-platform/db";
+import {
+  ChannelManualOverrideField as PrismaChannelManualOverrideField,
+  type Prisma,
+} from "@prisma/client";
+import type {
+  ChannelManualOverrideField,
+  ChannelManualOverrideOperation,
+  PatchChannelManualOverridesResponse,
+} from "@scouting-platform/contracts";
+import { prisma, withDbTransaction } from "@scouting-platform/db";
+
+import { ServiceError } from "../errors";
 
 export type ListChannelsInput = {
   page: number;
@@ -20,6 +30,145 @@ export type ChannelDetail = ChannelSummary & {
   createdAt: string;
   updatedAt: string;
 };
+
+type MutableChannelField = "title" | "handle" | "description" | "thumbnailUrl";
+
+type MutableChannelValues = {
+  title: string;
+  handle: string | null;
+  description: string | null;
+  thumbnailUrl: string | null;
+};
+
+type ManualOverrideFieldConfig = {
+  contractField: ChannelManualOverrideField;
+  prismaField: PrismaChannelManualOverrideField;
+  channelField: MutableChannelField;
+  nullable: boolean;
+};
+
+const channelDetailSelect = {
+  id: true,
+  youtubeChannelId: true,
+  title: true,
+  handle: true,
+  description: true,
+  thumbnailUrl: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+const manualOverrideFieldConfigs: Record<ChannelManualOverrideField, ManualOverrideFieldConfig> = {
+  title: {
+    contractField: "title",
+    prismaField: PrismaChannelManualOverrideField.TITLE,
+    channelField: "title",
+    nullable: false,
+  },
+  handle: {
+    contractField: "handle",
+    prismaField: PrismaChannelManualOverrideField.HANDLE,
+    channelField: "handle",
+    nullable: true,
+  },
+  description: {
+    contractField: "description",
+    prismaField: PrismaChannelManualOverrideField.DESCRIPTION,
+    channelField: "description",
+    nullable: true,
+  },
+  thumbnailUrl: {
+    contractField: "thumbnailUrl",
+    prismaField: PrismaChannelManualOverrideField.THUMBNAIL_URL,
+    channelField: "thumbnailUrl",
+    nullable: true,
+  },
+};
+
+const manualOverrideConfigByPrismaField = new Map<PrismaChannelManualOverrideField, ManualOverrideFieldConfig>(
+  Object.values(manualOverrideFieldConfigs).map((config) => [config.prismaField, config]),
+);
+
+function getManualOverrideConfigByContractField(
+  field: ChannelManualOverrideField,
+): ManualOverrideFieldConfig {
+  return manualOverrideFieldConfigs[field];
+}
+
+function getManualOverrideConfigByPrismaField(
+  field: PrismaChannelManualOverrideField,
+): ManualOverrideFieldConfig {
+  const config = manualOverrideConfigByPrismaField.get(field);
+
+  if (!config) {
+    throw new ServiceError("INVALID_OVERRIDE_FIELD", 500, "Invalid manual override field");
+  }
+
+  return config;
+}
+
+function getMutableChannelFieldValue(
+  source: MutableChannelValues,
+  field: MutableChannelField,
+): string | null {
+  return source[field];
+}
+
+function setMutableChannelFieldValue(
+  target: Prisma.ChannelUpdateInput,
+  field: MutableChannelField,
+  value: string | null,
+): void {
+  if (field === "title") {
+    if (value === null) {
+      throw new ServiceError("INVALID_OVERRIDE_VALUE", 400, "Title cannot be null");
+    }
+    target.title = value;
+    return;
+  }
+
+  if (field === "handle") {
+    target.handle = value;
+    return;
+  }
+
+  if (field === "description") {
+    target.description = value;
+    return;
+  }
+
+  target.thumbnailUrl = value;
+}
+
+function normalizeManualSetValue(
+  operation: Extract<ChannelManualOverrideOperation, { op: "set" }>,
+): string | null {
+  const config = getManualOverrideConfigByContractField(operation.field);
+  const rawValue = operation.value;
+
+  if (rawValue === null) {
+    if (!config.nullable) {
+      throw new ServiceError(
+        "INVALID_OVERRIDE_VALUE",
+        400,
+        `${operation.field} override cannot be null`,
+      );
+    }
+    return null;
+  }
+
+  const value = rawValue.trim();
+
+  if (!value) {
+    throw new ServiceError(
+      "INVALID_OVERRIDE_VALUE",
+      400,
+      `${operation.field} override cannot be empty`,
+    );
+  }
+
+  return value;
+}
 
 function toChannelSummary(channel: {
   id: string;
@@ -120,16 +269,7 @@ export async function listChannels(input: ListChannelsInput): Promise<{
 export async function getChannelById(id: string): Promise<ChannelDetail | null> {
   const channel = await prisma.channel.findUnique({
     where: { id },
-    select: {
-      id: true,
-      youtubeChannelId: true,
-      title: true,
-      handle: true,
-      description: true,
-      thumbnailUrl: true,
-      createdAt: true,
-      updatedAt: true,
-    },
+    select: channelDetailSelect,
   });
 
   if (!channel) {
@@ -142,16 +282,7 @@ export async function getChannelById(id: string): Promise<ChannelDetail | null> 
 export async function getChannelByYoutubeId(youtubeChannelId: string): Promise<ChannelDetail | null> {
   const channel = await prisma.channel.findUnique({
     where: { youtubeChannelId },
-    select: {
-      id: true,
-      youtubeChannelId: true,
-      title: true,
-      handle: true,
-      description: true,
-      thumbnailUrl: true,
-      createdAt: true,
-      updatedAt: true,
-    },
+    select: channelDetailSelect,
   });
 
   if (!channel) {
@@ -168,32 +299,241 @@ export async function upsertChannelSkeleton(input: {
   description?: string | null;
   thumbnailUrl?: string | null;
 }): Promise<ChannelDetail> {
-  const channel = await prisma.channel.upsert({
-    where: { youtubeChannelId: input.youtubeChannelId },
-    create: {
-      youtubeChannelId: input.youtubeChannelId,
-      title: input.title,
-      handle: input.handle ?? null,
-      description: input.description ?? null,
-      thumbnailUrl: input.thumbnailUrl ?? null,
-    },
-    update: {
-      title: input.title,
-      handle: input.handle ?? null,
-      description: input.description ?? null,
-      thumbnailUrl: input.thumbnailUrl ?? null,
-    },
-    select: {
-      id: true,
-      youtubeChannelId: true,
-      title: true,
-      handle: true,
-      description: true,
-      thumbnailUrl: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
+  const automatedValues: MutableChannelValues = {
+    title: input.title,
+    handle: input.handle ?? null,
+    description: input.description ?? null,
+    thumbnailUrl: input.thumbnailUrl ?? null,
+  };
 
-  return toChannelDetail(channel);
+  return withDbTransaction(async (tx) => {
+    const existing = await tx.channel.findUnique({
+      where: {
+        youtubeChannelId: input.youtubeChannelId,
+      },
+      select: {
+        id: true,
+        title: true,
+        handle: true,
+        description: true,
+        thumbnailUrl: true,
+        manualOverrides: {
+          select: {
+            id: true,
+            field: true,
+            value: true,
+            fallbackValue: true,
+          },
+        },
+      },
+    });
+
+    if (!existing) {
+      const created = await tx.channel.create({
+        data: {
+          youtubeChannelId: input.youtubeChannelId,
+          title: automatedValues.title,
+          handle: automatedValues.handle,
+          description: automatedValues.description,
+          thumbnailUrl: automatedValues.thumbnailUrl,
+        },
+        select: channelDetailSelect,
+      });
+
+      return toChannelDetail(created);
+    }
+
+    const updateData: Prisma.ChannelUpdateInput = {
+      title: automatedValues.title,
+      handle: automatedValues.handle,
+      description: automatedValues.description,
+      thumbnailUrl: automatedValues.thumbnailUrl,
+    };
+
+    for (const manualOverride of existing.manualOverrides) {
+      const config = getManualOverrideConfigByPrismaField(manualOverride.field);
+      const automatedValue = getMutableChannelFieldValue(automatedValues, config.channelField);
+
+      if (manualOverride.fallbackValue !== automatedValue) {
+        await tx.channelManualOverride.update({
+          where: {
+            id: manualOverride.id,
+          },
+          data: {
+            fallbackValue: automatedValue,
+          },
+        });
+      }
+
+      if (config.channelField === "title") {
+        updateData.title = manualOverride.value ?? existing.title;
+      } else {
+        setMutableChannelFieldValue(updateData, config.channelField, manualOverride.value);
+      }
+    }
+
+    const updated = await tx.channel.update({
+      where: {
+        id: existing.id,
+      },
+      data: updateData,
+      select: channelDetailSelect,
+    });
+
+    return toChannelDetail(updated);
+  });
+}
+
+export async function patchChannelManualOverrides(input: {
+  channelId: string;
+  actorUserId: string;
+  operations: ChannelManualOverrideOperation[];
+}): Promise<PatchChannelManualOverridesResponse> {
+  return withDbTransaction(async (tx) => {
+    const channel = await tx.channel.findUnique({
+      where: {
+        id: input.channelId,
+      },
+      select: {
+        id: true,
+        title: true,
+        handle: true,
+        description: true,
+        thumbnailUrl: true,
+      },
+    });
+
+    if (!channel) {
+      throw new ServiceError("CHANNEL_NOT_FOUND", 404, "Channel not found");
+    }
+
+    const operationsByField = new Set<ChannelManualOverrideField>();
+
+    for (const operation of input.operations) {
+      if (operationsByField.has(operation.field)) {
+        throw new ServiceError(
+          "INVALID_OVERRIDE_PAYLOAD",
+          400,
+          "Each field can be patched at most once per request",
+        );
+      }
+      operationsByField.add(operation.field);
+    }
+
+    const requestedPrismaFields = input.operations.map(
+      (operation) => getManualOverrideConfigByContractField(operation.field).prismaField,
+    );
+    const existingOverrides = await tx.channelManualOverride.findMany({
+      where: {
+        channelId: input.channelId,
+        field: {
+          in: requestedPrismaFields,
+        },
+      },
+      select: {
+        id: true,
+        field: true,
+        value: true,
+        fallbackValue: true,
+      },
+    });
+    const existingOverridesByField = new Map(
+      existingOverrides.map((manualOverride) => [manualOverride.field, manualOverride]),
+    );
+
+    const channelUpdateData: Prisma.ChannelUpdateInput = {};
+    const applied: PatchChannelManualOverridesResponse["applied"] = [];
+
+    for (const operation of input.operations) {
+      const config = getManualOverrideConfigByContractField(operation.field);
+      const existingManualOverride = existingOverridesByField.get(config.prismaField);
+
+      if (operation.op === "set") {
+        const value = normalizeManualSetValue(operation);
+        const fallbackValue =
+          existingManualOverride?.fallbackValue ??
+          getMutableChannelFieldValue(channel, config.channelField);
+
+        if (existingManualOverride) {
+          await tx.channelManualOverride.update({
+            where: {
+              id: existingManualOverride.id,
+            },
+            data: {
+              value,
+              fallbackValue,
+              updatedByUserId: input.actorUserId,
+            },
+          });
+        } else {
+          await tx.channelManualOverride.create({
+            data: {
+              channelId: input.channelId,
+              field: config.prismaField,
+              value,
+              fallbackValue,
+              createdByUserId: input.actorUserId,
+              updatedByUserId: input.actorUserId,
+            },
+          });
+        }
+
+        setMutableChannelFieldValue(channelUpdateData, config.channelField, value);
+      } else if (existingManualOverride) {
+        await tx.channelManualOverride.delete({
+          where: {
+            id: existingManualOverride.id,
+          },
+        });
+
+        if (config.channelField === "title") {
+          channelUpdateData.title = existingManualOverride.fallbackValue ?? channel.title;
+        } else {
+          setMutableChannelFieldValue(
+            channelUpdateData,
+            config.channelField,
+            existingManualOverride.fallbackValue,
+          );
+        }
+      }
+
+      applied.push({
+        field: operation.field,
+        op: operation.op,
+      });
+    }
+
+    const updatedChannel =
+      Object.keys(channelUpdateData).length > 0
+        ? await tx.channel.update({
+            where: {
+              id: input.channelId,
+            },
+            data: channelUpdateData,
+            select: channelDetailSelect,
+          })
+        : await tx.channel.findUniqueOrThrow({
+            where: {
+              id: input.channelId,
+            },
+            select: channelDetailSelect,
+          });
+
+    await tx.auditEvent.create({
+      data: {
+        actorUserId: input.actorUserId,
+        action: "channel.manual_override.patched",
+        entityType: "channel",
+        entityId: input.channelId,
+        metadata: {
+          operations: applied,
+        },
+      },
+    });
+
+    return {
+      channel: toChannelDetail(updatedChannel),
+      applied,
+    };
+  });
 }

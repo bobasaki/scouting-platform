@@ -16,6 +16,7 @@ integration("week 2 API integration", () => {
   let prisma: PrismaClient;
   let segmentsRoute: typeof import("./segments/route");
   let segmentDetailRoute: typeof import("./segments/[id]/route");
+  let adminChannelManualOverridesRoute: typeof import("./admin/channels/[id]/manual-overrides/route");
 
   beforeAll(async () => {
     process.env.DATABASE_URL = databaseUrl;
@@ -32,12 +33,16 @@ integration("week 2 API integration", () => {
     await prisma.$connect();
     segmentsRoute = await import("./segments/route");
     segmentDetailRoute = await import("./segments/[id]/route");
+    adminChannelManualOverridesRoute = await import(
+      "./admin/channels/[id]/manual-overrides/route"
+    );
   });
 
   beforeEach(async () => {
     currentSessionUser = null;
     await prisma.$executeRawUnsafe(`
       TRUNCATE TABLE
+        channel_manual_overrides,
         saved_segments,
         audit_events,
         user_provider_credentials,
@@ -61,6 +66,21 @@ integration("week 2 API integration", () => {
         name: "User",
         role: Role.USER,
         passwordHash: "user-hash",
+        isActive: true,
+      },
+      select: {
+        id: true,
+      },
+    });
+  }
+
+  async function createAdminUser(email: string): Promise<{ id: string }> {
+    return prisma.user.create({
+      data: {
+        email,
+        name: "Admin",
+        role: Role.ADMIN,
+        passwordHash: "admin-hash",
         isActive: true,
       },
       select: {
@@ -217,5 +237,147 @@ integration("week 2 API integration", () => {
       { params: Promise.resolve({ id: segment.id }) },
     );
     expect(deleteResponse.status).toBe(404);
+  });
+
+  it("enforces admin-only access on channel manual override route", async () => {
+    const user = await createUser("user@example.com");
+    const channel = await prisma.channel.create({
+      data: {
+        youtubeChannelId: "UC-ADMIN-GUARD",
+        title: "Title",
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    currentSessionUser = null;
+    const unauthenticated = await adminChannelManualOverridesRoute.PATCH(
+      new Request(`http://localhost/api/admin/channels/${channel.id}/manual-overrides`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          operations: [{ field: "title", op: "set", value: "Manual" }],
+        }),
+      }),
+      { params: Promise.resolve({ id: channel.id }) },
+    );
+    expect(unauthenticated.status).toBe(401);
+
+    currentSessionUser = { id: user.id, role: "user" };
+    const forbidden = await adminChannelManualOverridesRoute.PATCH(
+      new Request(`http://localhost/api/admin/channels/${channel.id}/manual-overrides`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          operations: [{ field: "title", op: "set", value: "Manual" }],
+        }),
+      }),
+      { params: Promise.resolve({ id: channel.id }) },
+    );
+    expect(forbidden.status).toBe(403);
+  });
+
+  it("patches manual overrides, applies set/clear semantics, and records audit event", async () => {
+    const admin = await createAdminUser("admin@example.com");
+    const channel = await prisma.channel.create({
+      data: {
+        youtubeChannelId: "UC-MANUAL-1",
+        title: "Auto Title",
+        description: "Auto Description",
+      },
+    });
+
+    currentSessionUser = { id: admin.id, role: "admin" };
+
+    const setResponse = await adminChannelManualOverridesRoute.PATCH(
+      new Request(`http://localhost/api/admin/channels/${channel.id}/manual-overrides`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          operations: [
+            { field: "title", op: "set", value: "Manual Title" },
+            { field: "description", op: "set", value: "Manual Description" },
+          ],
+        }),
+      }),
+      { params: Promise.resolve({ id: channel.id }) },
+    );
+
+    expect(setResponse.status).toBe(200);
+    const setPayload = await setResponse.json();
+    expect(setPayload.channel.title).toBe("Manual Title");
+    expect(setPayload.channel.description).toBe("Manual Description");
+
+    const clearResponse = await adminChannelManualOverridesRoute.PATCH(
+      new Request(`http://localhost/api/admin/channels/${channel.id}/manual-overrides`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          operations: [
+            { field: "title", op: "clear" },
+            { field: "description", op: "clear" },
+          ],
+        }),
+      }),
+      { params: Promise.resolve({ id: channel.id }) },
+    );
+
+    expect(clearResponse.status).toBe(200);
+    const clearPayload = await clearResponse.json();
+    expect(clearPayload.channel.title).toBe("Auto Title");
+    expect(clearPayload.channel.description).toBe("Auto Description");
+
+    const auditEvent = await prisma.auditEvent.findFirst({
+      where: {
+        action: "channel.manual_override.patched",
+        entityId: channel.id,
+      },
+    });
+    expect(auditEvent).not.toBeNull();
+  });
+
+  it("returns 400/404 for invalid channel override patch requests", async () => {
+    const admin = await createAdminUser("admin@example.com");
+    currentSessionUser = { id: admin.id, role: "admin" };
+
+    const invalidParamResponse = await adminChannelManualOverridesRoute.PATCH(
+      new Request("http://localhost/api/admin/channels/not-a-uuid/manual-overrides", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          operations: [{ field: "title", op: "set", value: "Manual Title" }],
+        }),
+      }),
+      { params: Promise.resolve({ id: "not-a-uuid" }) },
+    );
+    expect(invalidParamResponse.status).toBe(400);
+
+    const invalidPayloadResponse = await adminChannelManualOverridesRoute.PATCH(
+      new Request("http://localhost/api/admin/channels/95fe0cf0-f8bc-4edf-b9c3-007ac5973e37/manual-overrides", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          operations: [
+            { field: "title", op: "set", value: "Manual Title" },
+            { field: "title", op: "clear" },
+          ],
+        }),
+      }),
+      { params: Promise.resolve({ id: "95fe0cf0-f8bc-4edf-b9c3-007ac5973e37" }) },
+    );
+    expect(invalidPayloadResponse.status).toBe(400);
+
+    const missingChannelResponse = await adminChannelManualOverridesRoute.PATCH(
+      new Request("http://localhost/api/admin/channels/95fe0cf0-f8bc-4edf-b9c3-007ac5973e37/manual-overrides", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          operations: [{ field: "title", op: "set", value: "Manual Title" }],
+        }),
+      }),
+      { params: Promise.resolve({ id: "95fe0cf0-f8bc-4edf-b9c3-007ac5973e37" }) },
+    );
+    expect(missingChannelResponse.status).toBe(404);
   });
 });
