@@ -101,7 +101,7 @@ Done when:
 #### You:
 
 - channel list/detail queries
-- segment persistence
+- [done] segment persistence (phase 1: personal saved filter segments CRUD)
 - manual override model and merge logic
 - audit events for edits
 
@@ -118,6 +118,7 @@ Done when:
 - catalog list/detail works
 - segments save/load
 - admin manual edits persist and override automated values
+- phased delivery note: segment persistence backend is now delivered as personal saved filter segments CRUD; remaining Week 2 items stay open
 
 ### Week 3: Runs and discovery
 

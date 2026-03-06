@@ -14,6 +14,10 @@ const week1MigrationPath = path.resolve(
   currentDir,
   "../prisma/migrations/20260305213000_week1_auth_catalog/migration.sql",
 );
+const week2MigrationPath = path.resolve(
+  currentDir,
+  "../prisma/migrations/20260306123000_week2_saved_segments/migration.sql",
+);
 
 describe("pg-boss migration", () => {
   it("installs the pgboss schema and version table", () => {
@@ -34,5 +38,18 @@ describe("week 1 auth/catalog migration", () => {
     expect(migrationSql).toContain("CREATE TABLE IF NOT EXISTS user_provider_credentials");
     expect(migrationSql).toContain("CREATE TABLE IF NOT EXISTS channels");
     expect(migrationSql).toContain("CREATE TABLE IF NOT EXISTS audit_events");
+  });
+});
+
+describe("week 2 segments migration", () => {
+  it("creates saved_segments with ownership and list indexes", () => {
+    const migrationSql = readFileSync(week2MigrationPath, "utf-8");
+
+    expect(migrationSql).toContain("CREATE TABLE IF NOT EXISTS saved_segments");
+    expect(migrationSql).toContain("REFERENCES users (id) ON DELETE CASCADE");
+    expect(migrationSql).toContain("CREATE INDEX IF NOT EXISTS saved_segments_user_id_idx");
+    expect(migrationSql).toContain(
+      "CREATE INDEX IF NOT EXISTS saved_segments_user_id_updated_at_idx",
+    );
   });
 });

@@ -35,6 +35,7 @@ model User {
   sessions      Session[]
   credentials   UserProviderCredential[]
   auditEvents   AuditEvent[]            @relation("AuditActor")
+  savedSegments SavedSegment[]
 
   @@map("users")
 }
@@ -128,4 +129,18 @@ model AuditEvent {
   @@index([actorUserId], map: "audit_events_actor_user_id_idx")
   @@index([entityType, entityId], map: "audit_events_entity_idx")
   @@map("audit_events")
+}
+
+model SavedSegment {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  name      String
+  filters   Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "saved_segments_user_id_idx")
+  @@index([userId, updatedAt], map: "saved_segments_user_id_updated_at_idx")
+  @@map("saved_segments")
 }
