@@ -39,6 +39,8 @@ integration("week 2 API integration", () => {
     await prisma.$executeRawUnsafe(`
       TRUNCATE TABLE
         saved_segments,
+        run_results,
+        run_requests,
         audit_events,
         user_provider_credentials,
         sessions,

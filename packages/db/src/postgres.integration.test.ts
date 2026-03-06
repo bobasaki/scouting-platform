@@ -59,5 +59,17 @@ if (!databaseUrl) {
 
       expect(rows[0]?.relation_name).toBe("saved_segments");
     });
+
+    it("sees week 3 run tables after migrations are applied", async () => {
+      const requestRows = await prisma.$queryRaw<Array<{ relation_name: string | null }>>`
+        SELECT to_regclass('run_requests') AS relation_name
+      `;
+      const resultRows = await prisma.$queryRaw<Array<{ relation_name: string | null }>>`
+        SELECT to_regclass('run_results') AS relation_name
+      `;
+
+      expect(requestRows[0]?.relation_name).toBe("run_requests");
+      expect(resultRows[0]?.relation_name).toBe("run_results");
+    });
   });
 }

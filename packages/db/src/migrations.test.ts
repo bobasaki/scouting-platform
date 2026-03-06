@@ -18,6 +18,10 @@ const week2MigrationPath = path.resolve(
   currentDir,
   "../prisma/migrations/20260306123000_week2_saved_segments/migration.sql",
 );
+const week3RunsFoundationMigrationPath = path.resolve(
+  currentDir,
+  "../prisma/migrations/20260306190000_week3_runs_foundation/migration.sql",
+);
 
 describe("pg-boss migration", () => {
   it("installs the pgboss schema and version table", () => {
@@ -50,6 +54,20 @@ describe("week 2 segments migration", () => {
     expect(migrationSql).toContain("CREATE INDEX IF NOT EXISTS saved_segments_user_id_idx");
     expect(migrationSql).toContain(
       "CREATE INDEX IF NOT EXISTS saved_segments_user_id_updated_at_idx",
+    );
+  });
+});
+
+describe("week 3 runs foundation migration", () => {
+  it("creates run_requests and run_results with lifecycle indexes", () => {
+    const migrationSql = readFileSync(week3RunsFoundationMigrationPath, "utf-8");
+
+    expect(migrationSql).toContain("CREATE TYPE run_request_status AS ENUM");
+    expect(migrationSql).toContain("CREATE TABLE IF NOT EXISTS run_requests");
+    expect(migrationSql).toContain("CREATE TABLE IF NOT EXISTS run_results");
+    expect(migrationSql).toContain("CREATE INDEX IF NOT EXISTS run_requests_status_idx");
+    expect(migrationSql).toContain(
+      "CREATE UNIQUE INDEX IF NOT EXISTS run_results_run_request_id_channel_id_key",
     );
   });
 });
