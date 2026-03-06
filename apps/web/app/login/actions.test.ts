@@ -41,14 +41,14 @@ describe("login actions", () => {
     const result = await signInWithCredentials(
       LOGIN_INITIAL_STATE,
       createFormData({
-        email: "demo@scouting.local",
-        password: "demo-password"
+        email: "active@example.com",
+        password: "StrongPassword123"
       })
     );
 
     expect(signInMock).toHaveBeenCalledWith("credentials", {
-      email: "demo@scouting.local",
-      password: "demo-password",
+      email: "active@example.com",
+      password: "StrongPassword123",
       redirectTo: "/catalog"
     });
     expect(result).toEqual(LOGIN_INITIAL_STATE);
@@ -60,8 +60,8 @@ describe("login actions", () => {
     await signInWithCredentials(
       LOGIN_INITIAL_STATE,
       createFormData({
-        email: new Blob(["demo@scouting.local"]),
-        password: new Blob(["demo-password"])
+        email: new Blob(["active@example.com"]),
+        password: new Blob(["StrongPassword123"])
       })
     );
 
@@ -80,7 +80,7 @@ describe("login actions", () => {
     const result = await signInWithCredentials(
       LOGIN_INITIAL_STATE,
       createFormData({
-        email: "demo@scouting.local",
+        email: "active@example.com",
         password: "bad-password"
       })
     );
@@ -99,8 +99,8 @@ describe("login actions", () => {
     const result = await signInWithCredentials(
       LOGIN_INITIAL_STATE,
       createFormData({
-        email: "demo@scouting.local",
-        password: "demo-password"
+        email: "active@example.com",
+        password: "StrongPassword123"
       })
     );
 
@@ -118,8 +118,8 @@ describe("login actions", () => {
       signInWithCredentials(
         LOGIN_INITIAL_STATE,
         createFormData({
-          email: "demo@scouting.local",
-          password: "demo-password"
+          email: "active@example.com",
+          password: "StrongPassword123"
         })
       )
     ).rejects.toBe(redirectError);

@@ -6,21 +6,14 @@ export default function LoginPage() {
   return (
     <main className="login-page">
       <section className="login-card">
-        <p className="login-card__eyebrow">Week 0 Auth.js UI Scaffold</p>
+        <p className="login-card__eyebrow">Internal access</p>
         <h1>{APP_TITLE}</h1>
         <p className="login-card__copy">
-          Sign in to continue. This scaffold uses demo credentials until Week 1 backend auth lands.
+          Sign in with your assigned work email and password to continue to the catalog.
         </p>
         <LoginForm />
         <p className="login-card__note">
-          Demo credentials: <code>demo@scouting.local</code> / <code>demo-password</code>
-        </p>
-        <p className="login-card__note">
-          You can override them with <code>AUTH_DEMO_EMAIL</code> and{" "}
-          <code>AUTH_DEMO_PASSWORD</code>.
-        </p>
-        <p className="login-card__note">
-          Set <code>AUTH_DEMO_ROLE</code> to <code>admin</code> if you need to test admin navigation.
+          Contact an admin if your account is inactive or you need a password reset.
         </p>
         <p className="login-card__back">
           <Link href="/">Back to workspace overview</Link>

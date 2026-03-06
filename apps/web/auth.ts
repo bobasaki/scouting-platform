@@ -1,16 +1,20 @@
+import { findUserForCredentials, verifyPassword } from "@scouting-platform/core";
 import NextAuth, { type NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import {
-  getWeek0DemoCredentialsFromEnv,
-  getWeek0DemoRoleFromEnv,
-  isWeek0DemoCredentialsMatch,
-  WEEK0_DEMO_ROLE_FALLBACK
-} from "./lib/auth-flow";
-import { resolveAppRole } from "./lib/navigation";
+import { resolveAppRole, type AppRole } from "./lib/navigation";
 
-const WEEK0_DEV_AUTH_SECRET = "week0-dev-auth-secret-not-for-production";
+const DEV_AUTH_SECRET = "week0-dev-auth-secret-not-for-production";
+const DEFAULT_APP_ROLE: AppRole = "user";
 
 type AuthEnv = Readonly<Record<string, string | undefined>>;
+
+function normalizeCredential(value: unknown): string {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim();
+}
 
 export function resolveAuthSecret(env: AuthEnv = process.env): string | undefined {
   const rawSecret = env.AUTH_SECRET ?? env.NEXTAUTH_SECRET;
@@ -21,14 +25,12 @@ export function resolveAuthSecret(env: AuthEnv = process.env): string | undefine
   }
 
   if (env.NODE_ENV !== "production") {
-    return WEEK0_DEV_AUTH_SECRET;
+    return DEV_AUTH_SECRET;
   }
 
   return undefined;
 }
 
-const week0DemoCredentials = getWeek0DemoCredentialsFromEnv();
-const week0DemoRole = getWeek0DemoRoleFromEnv();
 const authSecret = resolveAuthSecret();
 
 export const authConfig = {
@@ -50,16 +52,31 @@ export const authConfig = {
           type: "password"
         }
       },
-      authorize(credentials) {
-        if (!isWeek0DemoCredentialsMatch(credentials?.email, credentials?.password)) {
+      async authorize(credentials) {
+        const email = normalizeCredential(credentials?.email).toLowerCase();
+        const password = normalizeCredential(credentials?.password);
+
+        if (!email || !password) {
+          return null;
+        }
+
+        const user = await findUserForCredentials(email);
+
+        if (!user || !user.isActive) {
+          return null;
+        }
+
+        const isPasswordValid = await verifyPassword(password, user.passwordHash);
+
+        if (!isPasswordValid) {
           return null;
         }
 
         return {
-          id: "week0-demo-user",
-          name: "Week 0 User",
-          email: week0DemoCredentials.email,
-          role: week0DemoRole
+          id: user.id,
+          name: user.name ?? user.email,
+          email: user.email,
+          role: resolveAppRole(user.role, DEFAULT_APP_ROLE)
         };
       }
     })
@@ -67,9 +84,13 @@ export const authConfig = {
   callbacks: {
     jwt({ token, user }) {
       if (user) {
-        token.role = resolveAppRole(user.role, WEEK0_DEMO_ROLE_FALLBACK);
+        token.role = resolveAppRole(user.role, DEFAULT_APP_ROLE);
+
+        if (typeof user.id === "string" && user.id.length > 0) {
+          token.sub = user.id;
+        }
       } else {
-        token.role = resolveAppRole(token.role, WEEK0_DEMO_ROLE_FALLBACK);
+        token.role = resolveAppRole(token.role, DEFAULT_APP_ROLE);
       }
 
       return token;
@@ -77,7 +98,8 @@ export const authConfig = {
     session({ session, token }) {
       session.user = {
         ...session.user,
-        role: resolveAppRole(token.role, WEEK0_DEMO_ROLE_FALLBACK)
+        id: typeof token.sub === "string" ? token.sub : "",
+        role: resolveAppRole(token.role, DEFAULT_APP_ROLE)
       };
 
       return session;
