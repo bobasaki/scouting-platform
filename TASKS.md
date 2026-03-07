@@ -152,12 +152,12 @@ Done when:
 
 #### You:
 
-- cached YouTube context model
-- LLM enrichment service
-- enrichment jobs
-- stale/missing enrichment policy
-- error persistence and retry policy
-- quota-conscious YouTube fetch logic
+- [done] cached YouTube context model
+- [done] LLM enrichment service
+- [done] enrichment jobs
+- [done] stale/missing enrichment policy
+- [done] error persistence and retry policy
+- [done] quota-conscious YouTube fetch logic
 
 #### Marin:
 
@@ -171,6 +171,8 @@ Done when:
 - manager can enrich from UI
 - errors are visible
 - repeated enrich does not re-fetch wastefully
+- phased delivery note: Week 4 backend foundation is delivered end-to-end via `POST /api/channels/:id/enrich`, additive enrichment state on `GET /api/channels` and `GET /api/channels/:id`, cached YouTube context reuse/refresh, OpenAI-backed worker execution, persisted `queued/running/completed/failed/stale` lifecycle, and visible `last_error`; Marin Week 4 UI items remain open.
+- evidence note: backend coverage lives in `packages/core/src/week4.integration.test.ts`, `apps/web/app/api/week4.integration.test.ts`, and `apps/worker/src/channels-enrich-llm-worker.test.ts`.
 
 ### Week 5: HypeAuditor and admin workflows
 
