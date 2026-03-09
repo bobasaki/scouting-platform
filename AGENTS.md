@@ -68,6 +68,12 @@ Resolved field precedence is fixed:
 
 Do not change this order casually.
 
+### Migration DDL Style
+
+- Prefer deterministic Prisma-generated migration DDL.
+- Avoid `IF NOT EXISTS`, `DO $$` conditional enum creation, and similar defensive SQL guards in committed migrations unless there is a documented bootstrap or cross-environment reason.
+- If a migration intentionally uses hand-written or defensive DDL, add a short comment at the top of the migration file explaining why.
+
 ## 7. Background Job Rules
 
 Use `pg-boss` for async work.
