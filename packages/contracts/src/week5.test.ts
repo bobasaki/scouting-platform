@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   adminAdvancedReportRequestDetailSchema,
   channelDetailSchema,
+  csvImportBatchDetailSchema,
+  csvImportBatchSummarySchema,
   requestAdvancedReportResponseSchema,
 } from "./index";
 
@@ -152,5 +154,46 @@ describe("week 5 contracts", () => {
         report_state: "finished",
       },
     });
+  });
+
+  it("parses csv import batch summary and detail payloads", () => {
+    const summary = csvImportBatchSummarySchema.parse({
+      id: "6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b",
+      filename: "channels.csv",
+      status: "completed",
+      totalRows: 3,
+      processedRows: 2,
+      failedRows: 1,
+      lastError: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      startedAt: new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+    });
+
+    expect(summary.filename).toBe("channels.csv");
+
+    const detail = csvImportBatchDetailSchema.parse({
+      ...summary,
+      rows: [
+        {
+          id: "f357c9a3-c3ff-46ad-b28a-c515d73bbadc",
+          rowNumber: 2,
+          status: "failed",
+          youtubeChannelId: "UC-WEEK5-CSV",
+          channelId: null,
+          errorMessage: "Invalid contactEmail",
+          rawData: {
+            youtubeChannelId: "UC-WEEK5-CSV",
+            title: "Week 5 CSV",
+            handle: "@week5csv",
+            contactEmail: "not-an-email",
+          },
+        },
+      ],
+    });
+
+    expect(detail.rows[0]?.status).toBe("failed");
+    expect(detail.rows[0]?.rawData.contactEmail).toBe("not-an-email");
   });
 });

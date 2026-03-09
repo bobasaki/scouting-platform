@@ -23,6 +23,8 @@ integration("week 5 API integration", () => {
   let adminRequestDetailRoute: typeof import("./admin/advanced-report-requests/[id]/route");
   let adminApproveRoute: typeof import("./admin/advanced-report-requests/[id]/approve/route");
   let adminRejectRoute: typeof import("./admin/advanced-report-requests/[id]/reject/route");
+  let csvImportRoute: typeof import("./admin/csv-imports/route");
+  let csvImportDetailRoute: typeof import("./admin/csv-imports/[id]/route");
   let channelDetailRoute: typeof import("./channels/[id]/route");
   let core: typeof import("@scouting-platform/core");
 
@@ -45,6 +47,8 @@ integration("week 5 API integration", () => {
     adminRequestDetailRoute = await import("./admin/advanced-report-requests/[id]/route");
     adminApproveRoute = await import("./admin/advanced-report-requests/[id]/approve/route");
     adminRejectRoute = await import("./admin/advanced-report-requests/[id]/reject/route");
+    csvImportRoute = await import("./admin/csv-imports/route");
+    csvImportDetailRoute = await import("./admin/csv-imports/[id]/route");
     channelDetailRoute = await import("./channels/[id]/route");
   });
 
@@ -53,9 +57,13 @@ integration("week 5 API integration", () => {
 
     await prisma.$executeRawUnsafe(`
       TRUNCATE TABLE
+        csv_import_rows,
+        csv_import_batches,
         advanced_report_requests,
         channel_provider_payloads,
         channel_insights,
+        channel_metrics,
+        channel_contacts,
         channel_enrichments,
         channel_youtube_contexts,
         channel_manual_overrides,
@@ -75,10 +83,15 @@ integration("week 5 API integration", () => {
     await prisma.$executeRawUnsafe(`
       DELETE FROM pgboss.job WHERE name = 'channels.enrich.hypeauditor'
     `);
+
+    await prisma.$executeRawUnsafe(`
+      DELETE FROM pgboss.job WHERE name = 'imports.csv.process'
+    `);
   });
 
   afterAll(async () => {
     await core.stopAdvancedReportsQueue();
+    await core.stopCsvImportsQueue();
     await prisma.$disconnect();
   });
 
@@ -414,5 +427,104 @@ integration("week 5 API integration", () => {
         report_state: "finished",
       },
     });
+  });
+
+  it("supports admin csv import upload and detail routes while enforcing admin-only access", async () => {
+    const admin = await createUser("admin@example.com", Role.ADMIN);
+    const user = await createUser("manager@example.com");
+
+    currentSessionUser = { id: user.id, role: "user" };
+
+    const forbiddenFormData = new FormData();
+    forbiddenFormData.set(
+      "file",
+      new File(
+        [
+          [
+            "youtubeChannelId,title,handle,contactEmail,subscriberCount,averageViews,averageLikes,notes,sourceLabel",
+            "UC-CSV-API,CSV API,@csvapi,owner@example.com,100,50,10,Primary,Sheet A",
+          ].join("\n"),
+        ],
+        "channels.csv",
+        { type: "text/csv" },
+      ),
+    );
+
+    const forbidden = await csvImportRoute.POST(
+      new Request("http://localhost/api/admin/csv-imports", {
+        method: "POST",
+        body: forbiddenFormData,
+      }),
+    );
+    expect(forbidden.status).toBe(403);
+
+    currentSessionUser = { id: admin.id, role: "admin" };
+
+    const formData = new FormData();
+    formData.set(
+      "file",
+      new File(
+        [
+          [
+            "youtubeChannelId,title,handle,contactEmail,subscriberCount,averageViews,averageLikes,notes,sourceLabel,vertical",
+            "UC-CSV-API,CSV API,@csvapi,owner@example.com,100,50,10,Primary,Sheet A,gaming",
+            "UC-CSV-API,CSV API,@csvapi,not-an-email,,,,,Sheet B,travel",
+          ].join("\n"),
+        ],
+        "channels.csv",
+        { type: "text/csv" },
+      ),
+    );
+
+    const createResponse = await csvImportRoute.POST(
+      new Request("http://localhost/api/admin/csv-imports", {
+        method: "POST",
+        body: formData,
+      }),
+    );
+    expect(createResponse.status).toBe(202);
+
+    const createPayload = await createResponse.json();
+    expect(createPayload.status).toBe("queued");
+
+    await core.executeCsvImportBatch({
+      importBatchId: createPayload.id,
+      requestedByUserId: admin.id,
+    });
+
+    const detailResponse = await csvImportDetailRoute.GET(
+      new Request(`http://localhost/api/admin/csv-imports/${createPayload.id}`),
+      { params: Promise.resolve({ id: createPayload.id }) },
+    );
+    expect(detailResponse.status).toBe(200);
+
+    const detailPayload = await detailResponse.json();
+    expect(detailPayload.status).toBe("completed");
+    expect(detailPayload.totalRows).toBe(2);
+    expect(detailPayload.processedRows).toBe(1);
+    expect(detailPayload.failedRows).toBe(1);
+    expect(detailPayload.rows[0]?.status).toBe("processed");
+    expect(detailPayload.rows[1]?.status).toBe("failed");
+    expect(detailPayload.rows[1]?.errorMessage).toBe("Invalid contactEmail");
+    expect(detailPayload.rows[0]?.rawData.vertical).toBe("gaming");
+  });
+
+  it("rejects invalid csv uploads before enqueueing", async () => {
+    const admin = await createUser("admin@example.com", Role.ADMIN);
+    currentSessionUser = { id: admin.id, role: "admin" };
+
+    const formData = new FormData();
+    formData.set("file", new File(["hello"], "channels.txt", { type: "text/plain" }));
+
+    const response = await csvImportRoute.POST(
+      new Request("http://localhost/api/admin/csv-imports", {
+        method: "POST",
+        body: formData,
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    const payload = await response.json();
+    expect(payload.error).toBe("CSV file must use the .csv extension");
   });
 });

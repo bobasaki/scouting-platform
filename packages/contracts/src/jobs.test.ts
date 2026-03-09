@@ -46,4 +46,16 @@ describe("parseJobPayload", () => {
       requestedByUserId: TEST_UUID,
     });
   });
+
+  it("parses a valid imports.csv.process payload", () => {
+    const payload = parseJobPayload("imports.csv.process", {
+      importBatchId: TEST_UUID,
+      requestedByUserId: TEST_UUID,
+    });
+
+    expect(payload).toEqual({
+      importBatchId: TEST_UUID,
+      requestedByUserId: TEST_UUID,
+    });
+  });
 });

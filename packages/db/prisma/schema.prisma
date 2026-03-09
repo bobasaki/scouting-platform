@@ -68,6 +68,43 @@ enum AdvancedReportRequestStatus {
   @@map("advanced_report_request_status")
 }
 
+enum CsvImportBatchStatus {
+  QUEUED    @map("queued")
+  RUNNING   @map("running")
+  COMPLETED @map("completed")
+  FAILED    @map("failed")
+
+  @@map("csv_import_batch_status")
+}
+
+enum CsvImportRowStatus {
+  PROCESSED @map("processed")
+  FAILED    @map("failed")
+
+  @@map("csv_import_row_status")
+}
+
+enum ChannelContactSource {
+  ADMIN_MANUAL @map("admin_manual")
+  CSV_IMPORT   @map("csv_import")
+  HEURISTICS   @map("heuristics")
+  LLM          @map("llm")
+  YOUTUBE_RAW  @map("youtube_raw")
+
+  @@map("channel_contact_source")
+}
+
+enum ChannelMetricSource {
+  ADMIN_MANUAL @map("admin_manual")
+  CSV_IMPORT   @map("csv_import")
+  HYPEAUDITOR  @map("hypeauditor")
+  LLM          @map("llm")
+  HEURISTICS   @map("heuristics")
+  YOUTUBE_RAW  @map("youtube_raw")
+
+  @@map("channel_metric_source")
+}
+
 enum ChannelInsightSource {
   ADMIN_MANUAL @map("admin_manual")
   CSV_IMPORT   @map("csv_import")
@@ -104,6 +141,7 @@ model User {
   requestedChannelEnrichments   ChannelEnrichment[]     @relation("ChannelEnrichmentRequestedBy")
   requestedAdvancedReports      AdvancedReportRequest[] @relation("AdvancedReportRequestedBy")
   reviewedAdvancedReports       AdvancedReportRequest[] @relation("AdvancedReportReviewedBy")
+  requestedCsvImportBatches     CsvImportBatch[]        @relation("CsvImportRequestedBy")
 
   @@map("users")
 }
@@ -171,24 +209,63 @@ model UserProviderCredential {
 }
 
 model Channel {
-  id              String                  @id @default(uuid()) @db.Uuid
-  youtubeChannelId String                 @unique @map("youtube_channel_id")
-  title           String
-  handle          String?
-  description     String?                 @db.Text
-  thumbnailUrl    String?                 @map("thumbnail_url")
-  createdAt       DateTime                @default(now()) @map("created_at")
-  updatedAt       DateTime                @updatedAt @map("updated_at")
-  runResults      RunResult[]
-  manualOverrides ChannelManualOverride[]
-  youtubeContext  ChannelYoutubeContext?
-  enrichment      ChannelEnrichment?
-  insights        ChannelInsight?
-  providerPayloads ChannelProviderPayload[]
+  id                     String                   @id @default(uuid()) @db.Uuid
+  youtubeChannelId       String                   @unique @map("youtube_channel_id")
+  title                  String
+  handle                 String?
+  description            String?                  @db.Text
+  thumbnailUrl           String?                  @map("thumbnail_url")
+  createdAt              DateTime                 @default(now()) @map("created_at")
+  updatedAt              DateTime                 @updatedAt @map("updated_at")
+  runResults             RunResult[]
+  manualOverrides        ChannelManualOverride[]
+  contacts               ChannelContact[]
+  metrics                ChannelMetric?
+  youtubeContext         ChannelYoutubeContext?
+  enrichment             ChannelEnrichment?
+  insights               ChannelInsight?
+  providerPayloads       ChannelProviderPayload[]
   advancedReportRequests AdvancedReportRequest[]
+  csvImportRows          CsvImportRow[]
 
   @@index([youtubeChannelId], map: "channels_youtube_channel_id_idx")
   @@map("channels")
+}
+
+model ChannelContact {
+  id          String               @id @default(uuid()) @db.Uuid
+  channelId   String               @map("channel_id") @db.Uuid
+  email       String
+  notes       String?              @db.Text
+  sourceLabel String?              @map("source_label")
+  source      ChannelContactSource @default(CSV_IMPORT)
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+  channel     Channel              @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, email], map: "channel_contacts_channel_id_email_key")
+  @@index([channelId], map: "channel_contacts_channel_id_idx")
+  @@index([email], map: "channel_contacts_email_idx")
+  @@index([source], map: "channel_contacts_source_idx")
+  @@map("channel_contacts")
+}
+
+model ChannelMetric {
+  channelId                         String               @id @map("channel_id") @db.Uuid
+  subscriberCount                   BigInt?              @map("subscriber_count")
+  subscriberCountSource             ChannelMetricSource? @map("subscriber_count_source")
+  subscriberCountSourceUpdatedAt    DateTime?            @map("subscriber_count_source_updated_at")
+  averageViews                      BigInt?              @map("average_views")
+  averageViewsSource                ChannelMetricSource? @map("average_views_source")
+  averageViewsSourceUpdatedAt       DateTime?            @map("average_views_source_updated_at")
+  averageLikes                      BigInt?              @map("average_likes")
+  averageLikesSource                ChannelMetricSource? @map("average_likes_source")
+  averageLikesSourceUpdatedAt       DateTime?            @map("average_likes_source_updated_at")
+  createdAt                         DateTime             @default(now()) @map("created_at")
+  updatedAt                         DateTime             @updatedAt @map("updated_at")
+  channel                           Channel              @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@map("channel_metrics")
 }
 
 model ChannelManualOverride {
@@ -346,6 +423,49 @@ model SavedSegment {
   @@index([userId], map: "saved_segments_user_id_idx")
   @@index([userId, updatedAt], map: "saved_segments_user_id_updated_at_idx")
   @@map("saved_segments")
+}
+
+model CsvImportBatch {
+  id                String               @id @default(uuid()) @db.Uuid
+  requestedByUserId String               @map("requested_by_user_id") @db.Uuid
+  status            CsvImportBatchStatus @default(QUEUED)
+  filename          String
+  csvText           String               @map("csv_text") @db.Text
+  totalRows         Int                  @default(0) @map("total_rows")
+  processedRows     Int                  @default(0) @map("processed_rows")
+  failedRows        Int                  @default(0) @map("failed_rows")
+  lastError         String?              @map("last_error") @db.Text
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+  startedAt         DateTime?            @map("started_at")
+  completedAt       DateTime?            @map("completed_at")
+  requestedByUser   User                 @relation("CsvImportRequestedBy", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+  rows              CsvImportRow[]
+
+  @@index([requestedByUserId], map: "csv_import_batches_requested_by_user_id_idx")
+  @@index([status], map: "csv_import_batches_status_idx")
+  @@index([createdAt], map: "csv_import_batches_created_at_idx")
+  @@map("csv_import_batches")
+}
+
+model CsvImportRow {
+  id               String             @id @default(uuid()) @db.Uuid
+  importBatchId    String             @map("import_batch_id") @db.Uuid
+  rowNumber        Int                @map("row_number")
+  status           CsvImportRowStatus
+  youtubeChannelId String?            @map("youtube_channel_id")
+  channelId        String?            @map("channel_id") @db.Uuid
+  errorMessage     String?            @map("error_message") @db.Text
+  rawData          Json               @map("raw_data")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  importBatch      CsvImportBatch     @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+  channel          Channel?           @relation(fields: [channelId], references: [id], onDelete: SetNull)
+
+  @@unique([importBatchId, rowNumber], map: "csv_import_rows_import_batch_id_row_number_key")
+  @@index([importBatchId], map: "csv_import_rows_import_batch_id_idx")
+  @@index([status], map: "csv_import_rows_status_idx")
+  @@index([channelId], map: "csv_import_rows_channel_id_idx")
+  @@map("csv_import_rows")
 }
 
 model RunRequest {

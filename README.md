@@ -156,6 +156,8 @@ Backend endpoints available for Marin UI integration:
 - `GET /api/admin/advanced-report-requests/:id`
 - `POST /api/admin/advanced-report-requests/:id/approve`
 - `POST /api/admin/advanced-report-requests/:id/reject`
+- `POST /api/admin/csv-imports`
+- `GET /api/admin/csv-imports/:id`
 - `POST /api/runs`
 - `GET /api/runs/:id`
 

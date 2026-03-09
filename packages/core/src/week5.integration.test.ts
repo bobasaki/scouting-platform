@@ -84,9 +84,13 @@ integration("week 5 core integration", () => {
 
     await prisma.$executeRawUnsafe(`
       TRUNCATE TABLE
+        csv_import_rows,
+        csv_import_batches,
         advanced_report_requests,
         channel_provider_payloads,
         channel_insights,
+        channel_metrics,
+        channel_contacts,
         channel_enrichments,
         channel_youtube_contexts,
         channel_manual_overrides,
@@ -106,10 +110,15 @@ integration("week 5 core integration", () => {
     await prisma.$executeRawUnsafe(`
       DELETE FROM pgboss.job WHERE name = 'channels.enrich.hypeauditor'
     `);
+
+    await prisma.$executeRawUnsafe(`
+      DELETE FROM pgboss.job WHERE name = 'imports.csv.process'
+    `);
   });
 
   afterAll(async () => {
     await core.stopAdvancedReportsQueue();
+    await core.stopCsvImportsQueue();
     await prisma.$disconnect();
   });
 
@@ -479,5 +488,171 @@ integration("week 5 core integration", () => {
     expect(detail?.advancedReport.lastCompletedReport?.ageDays).toBeGreaterThan(
       ADVANCED_REPORT_FRESH_WINDOW_DAYS,
     );
+  });
+
+  it("creates a queued csv import batch, audits it, and enqueues imports.csv.process", async () => {
+    const admin = await createUser("admin@example.com", Role.ADMIN);
+
+    const batch = await core.createCsvImportBatch({
+      requestedByUserId: admin.id,
+      filename: "channels.csv",
+      csvText: [
+        "youtubeChannelId,title,handle,contactEmail,subscriberCount,averageViews,averageLikes,notes,sourceLabel",
+        "UC-CSV-QUEUE,Queued Channel,@queued,owner@example.com,1200,340,22,Primary,Sheet A",
+      ].join("\n"),
+    });
+
+    expect(batch.status).toBe("queued");
+    expect(batch.filename).toBe("channels.csv");
+
+    const auditEvent = await prisma.auditEvent.findFirst({
+      where: {
+        action: "csv_import.requested",
+        entityId: batch.id,
+      },
+    });
+    expect(auditEvent).not.toBeNull();
+
+    const jobs = await prisma.$queryRaw<Array<{ count: number }>>`
+      SELECT COUNT(*)::int AS count
+      FROM pgboss.job
+      WHERE name = 'imports.csv.process'
+    `;
+    expect(jobs[0]?.count).toBe(1);
+  });
+
+  it("processes csv imports, creates missing channels, upserts contacts and metrics, and preserves raw extras", async () => {
+    const admin = await createUser("admin@example.com", Role.ADMIN);
+    const existingChannel = await createChannel("UC-CSV-EXIST", "Existing CSV Channel");
+    const batch = await prisma.csvImportBatch.create({
+      data: {
+        requestedByUserId: admin.id,
+        filename: "channels.csv",
+        csvText: [
+          "youtubeChannelId,title,handle,contactEmail,subscriberCount,averageViews,averageLikes,notes,sourceLabel,vertical",
+          "UC-CSV-EXIST,Ignored Existing,@ignored,owner@example.com,12000,3400,210,Primary contact,Sheet A,beauty",
+          "UC-CSV-NEW,New CSV Channel,@newcsv,,8800,1200,95,,,gaming",
+          "UC-CSV-EXIST,Ignored Existing,@ignored,not-an-email,,,,,Sheet B,travel",
+        ].join("\n"),
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    await core.executeCsvImportBatch({
+      importBatchId: batch.id,
+      requestedByUserId: admin.id,
+    });
+
+    const completedBatch = await prisma.csvImportBatch.findUniqueOrThrow({
+      where: {
+        id: batch.id,
+      },
+    });
+    expect(completedBatch.status).toBe("COMPLETED");
+    expect(completedBatch.totalRows).toBe(3);
+    expect(completedBatch.processedRows).toBe(2);
+    expect(completedBatch.failedRows).toBe(1);
+    expect(completedBatch.lastError).toBeNull();
+
+    const rows = await prisma.csvImportRow.findMany({
+      where: {
+        importBatchId: batch.id,
+      },
+      orderBy: {
+        rowNumber: "asc",
+      },
+    });
+    expect(rows).toHaveLength(3);
+    expect(rows[0]?.status).toBe("PROCESSED");
+    expect(rows[1]?.status).toBe("PROCESSED");
+    expect(rows[1]?.rawData).toMatchObject({
+      vertical: "gaming",
+    });
+    expect(rows[2]?.status).toBe("FAILED");
+    expect(rows[2]?.errorMessage).toBe("Invalid contactEmail");
+
+    const contacts = await prisma.channelContact.findMany({
+      where: {
+        channelId: existingChannel.id,
+      },
+    });
+    expect(contacts).toHaveLength(1);
+    expect(contacts[0]?.email).toBe("owner@example.com");
+    expect(contacts[0]?.notes).toBe("Primary contact");
+    expect(contacts[0]?.sourceLabel).toBe("Sheet A");
+
+    const existingMetrics = await prisma.channelMetric.findUniqueOrThrow({
+      where: {
+        channelId: existingChannel.id,
+      },
+    });
+    expect(existingMetrics.subscriberCount).toBe(BigInt(12000));
+    expect(existingMetrics.averageViews).toBe(BigInt(3400));
+    expect(existingMetrics.averageLikes).toBe(BigInt(210));
+
+    const newChannel = await prisma.channel.findUniqueOrThrow({
+      where: {
+        youtubeChannelId: "UC-CSV-NEW",
+      },
+    });
+    expect(newChannel.title).toBe("New CSV Channel");
+    expect(newChannel.handle).toBe("@newcsv");
+
+    const newMetrics = await prisma.channelMetric.findUniqueOrThrow({
+      where: {
+        channelId: newChannel.id,
+      },
+    });
+    expect(newMetrics.subscriberCount).toBe(BigInt(8800));
+
+    const completedAudit = await prisma.auditEvent.findFirst({
+      where: {
+        action: "csv_import.completed",
+        entityId: batch.id,
+      },
+    });
+    expect(completedAudit).not.toBeNull();
+  });
+
+  it("marks malformed csv files as failed without throwing retryable errors", async () => {
+    const admin = await createUser("admin@example.com", Role.ADMIN);
+    const batch = await prisma.csvImportBatch.create({
+      data: {
+        requestedByUserId: admin.id,
+        filename: "broken.csv",
+        csvText: [
+          "youtubeChannelId,title",
+          "UC-BROKEN,Missing required headers",
+        ].join("\n"),
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    await expect(
+      core.executeCsvImportBatch({
+        importBatchId: batch.id,
+        requestedByUserId: admin.id,
+      }),
+    ).resolves.toBeUndefined();
+
+    const failedBatch = await prisma.csvImportBatch.findUniqueOrThrow({
+      where: {
+        id: batch.id,
+      },
+    });
+    expect(failedBatch.status).toBe("FAILED");
+    expect(failedBatch.lastError).toBe("Invalid CSV header");
+
+    const failedAudit = await prisma.auditEvent.findFirst({
+      where: {
+        action: "csv_import.failed",
+        entityId: batch.id,
+      },
+    });
+    expect(failedAudit).not.toBeNull();
   });
 });
