@@ -21,12 +21,21 @@ export const createRunResponseSchema = z.object({
   status: runRequestStatusSchema,
 });
 
+export const runResultChannelSchema = z.object({
+  id: z.uuid(),
+  youtubeChannelId: z.string(),
+  title: z.string(),
+  handle: z.string().nullable(),
+  thumbnailUrl: z.string().nullable(),
+});
+
 export const runResultItemSchema = z.object({
   id: z.uuid(),
   channelId: z.uuid(),
   rank: z.number().int().min(1),
   source: runResultSourceSchema,
   createdAt: isoDatetimeSchema,
+  channel: runResultChannelSchema,
 });
 
 export const runStatusResponseSchema = z.object({
@@ -47,5 +56,6 @@ export type RunRequestStatus = z.infer<typeof runRequestStatusSchema>;
 export type RunResultSource = z.infer<typeof runResultSourceSchema>;
 export type CreateRunRequest = z.infer<typeof createRunRequestSchema>;
 export type CreateRunResponse = z.infer<typeof createRunResponseSchema>;
+export type RunResultChannel = z.infer<typeof runResultChannelSchema>;
 export type RunResultItem = z.infer<typeof runResultItemSchema>;
 export type RunStatusResponse = z.infer<typeof runStatusResponseSchema>;

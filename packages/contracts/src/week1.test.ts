@@ -83,7 +83,22 @@ describe("week 1 and week 2 contracts", () => {
       updatedAt: new Date().toISOString(),
       startedAt: null,
       completedAt: null,
-      results: [],
+      results: [
+        {
+          id: "24a57b02-3008-4af1-9b3a-340bd0db7d1c",
+          channelId: "24a57b02-3008-4af1-9b3a-340bd0db7d1c",
+          rank: 1,
+          source: "catalog",
+          createdAt: new Date().toISOString(),
+          channel: {
+            id: "24a57b02-3008-4af1-9b3a-340bd0db7d1c",
+            youtubeChannelId: "UC_RUN_RESULT",
+            title: "Run Result Channel",
+            handle: "@runresult",
+            thumbnailUrl: null,
+          },
+        },
+      ],
     });
 
     expect(payload.status).toBe("queued");

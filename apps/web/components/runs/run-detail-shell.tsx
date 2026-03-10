@@ -1,0 +1,381 @@
+"use client";
+
+import type { RunRequestStatus, RunResultItem, RunStatusResponse } from "@scouting-platform/contracts";
+import Image from "next/image";
+import Link from "next/link";
+import React, { useEffect, useState } from "react";
+
+import { ApiRequestError, fetchRunStatus } from "../../lib/runs-api";
+
+type RunDetailShellProps = Readonly<{
+  runId: string;
+}>;
+
+type RunDetailRequestState =
+  | {
+      status: "loading";
+      data: null;
+      error: null;
+    }
+  | {
+      status: "error";
+      data: null;
+      error: string;
+    }
+  | {
+      status: "notFound";
+      data: null;
+      error: null;
+    }
+  | {
+      status: "ready";
+      data: RunStatusResponse;
+      error: null;
+    };
+
+type RunDetailShellViewProps = RunDetailShellProps & {
+  requestState: RunDetailRequestState;
+  onRetry: () => void;
+};
+
+const INITIAL_REQUEST_STATE: RunDetailRequestState = {
+  status: "loading",
+  data: null,
+  error: null,
+};
+
+const NOT_FOUND_REQUEST_STATE: RunDetailRequestState = {
+  status: "notFound",
+  data: null,
+  error: null,
+};
+
+export const RUN_STATUS_POLL_INTERVAL_MS = 3000;
+
+export function shouldPollRunStatus(status: RunRequestStatus): boolean {
+  return status === "queued" || status === "running";
+}
+
+export function formatRunStatusLabel(status: RunRequestStatus): string {
+  if (status === "queued") {
+    return "Queued";
+  }
+
+  if (status === "running") {
+    return "Running";
+  }
+
+  if (status === "completed") {
+    return "Completed";
+  }
+
+  return "Failed";
+}
+
+export function formatRunTimestamp(value: string | null): string {
+  if (!value) {
+    return "Not recorded";
+  }
+
+  const match = value.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+
+  if (!match) {
+    return value;
+  }
+
+  return `${match[1]} ${match[2]} UTC`;
+}
+
+export function formatRunResultCount(run: Pick<RunStatusResponse, "results">): string {
+  if (run.results.length === 1) {
+    return "1 result";
+  }
+
+  return `${run.results.length} results`;
+}
+
+export function getRunProgressMessage(run: Pick<RunStatusResponse, "status" | "results">): string {
+  if (run.status === "queued") {
+    return "This run is waiting for the discovery worker to pick it up.";
+  }
+
+  if (run.status === "running") {
+    return "Discovery is in progress. This page refreshes automatically while results are still changing.";
+  }
+
+  if (run.status === "completed") {
+    if (run.results.length === 0) {
+      return "Discovery completed without storing any matching channels in the snapshot.";
+    }
+
+    return "Discovery completed and the run snapshot is now fixed for review.";
+  }
+
+  return "Discovery failed before the snapshot finished.";
+}
+
+export function getRunFailureMessage(run: Pick<RunStatusResponse, "lastError">): string {
+  if (!run.lastError) {
+    return "The run failed before the worker could finish processing it.";
+  }
+
+  if (run.lastError.includes("quota exceeded")) {
+    return "YouTube API quota was exhausted before discovery completed. Retry later or ask an admin to rotate the assigned key.";
+  }
+
+  if (run.lastError.includes("YouTube API key")) {
+    return "This account needs an assigned YouTube API key before the worker can run discovery.";
+  }
+
+  return run.lastError;
+}
+
+export function getRunDetailRequestErrorMessage(error: unknown): string {
+  if (error instanceof ApiRequestError) {
+    if (error.status === 401 || error.status === 403) {
+      return "Your session does not allow access to this run anymore. Sign in again and retry.";
+    }
+
+    return error.message;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Unable to load run details. Please try again.";
+}
+
+function getResultIdentityFallback(result: RunResultItem): string {
+  return result.channel.title.trim().charAt(0).toUpperCase() || "?";
+}
+
+function renderResultCard(result: RunResultItem) {
+  return (
+    <li className="run-detail__result-card" key={result.id}>
+      <div className="run-detail__result-media">
+        {result.channel.thumbnailUrl ? (
+          <Image
+            alt={`${result.channel.title} thumbnail`}
+            className="run-detail__result-thumbnail"
+            height={64}
+            src={result.channel.thumbnailUrl}
+            width={64}
+          />
+        ) : (
+          <div
+            aria-hidden="true"
+            className="run-detail__result-thumbnail run-detail__result-thumbnail--fallback"
+          >
+            {getResultIdentityFallback(result)}
+          </div>
+        )}
+      </div>
+
+      <div className="run-detail__result-copy">
+        <div className="run-detail__result-header">
+          <p className="run-detail__result-rank">Rank {result.rank}</p>
+          <span className={`run-detail__source run-detail__source--${result.source}`}>
+            {result.source === "catalog" ? "Catalog match" : "New discovery"}
+          </span>
+        </div>
+
+        <h3>{result.channel.title}</h3>
+        <p className="run-detail__result-handle">
+          {result.channel.handle?.trim() || result.channel.youtubeChannelId}
+        </p>
+        <p className="run-detail__result-meta">
+          Catalog ID <code>{result.channelId}</code>
+        </p>
+        <div className="run-detail__result-actions">
+          <Link href={`/catalog/${result.channelId}`}>Open catalog detail</Link>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function renderReadyState(run: RunStatusResponse, onRetry: () => void) {
+  const failureMessage = run.status === "failed" ? getRunFailureMessage(run) : null;
+
+  return (
+    <>
+      <section aria-labelledby="run-detail-heading" className="run-detail__hero">
+        <div className="run-detail__hero-copy">
+          <p className="run-detail__eyebrow">Run snapshot</p>
+          <h2 id="run-detail-heading">{run.name}</h2>
+          <p className="run-detail__query">Query: {run.query}</p>
+          <div className="run-detail__status-row">
+            <span className={`run-detail__status run-detail__status--${run.status}`}>
+              {formatRunStatusLabel(run.status)}
+            </span>
+            <p className="run-detail__status-copy">{getRunProgressMessage(run)}</p>
+          </div>
+        </div>
+
+        <dl className="run-detail__meta-grid">
+          <div>
+            <dt>Run ID</dt>
+            <dd>
+              <code>{run.id}</code>
+            </dd>
+          </div>
+          <div>
+            <dt>Results</dt>
+            <dd>{formatRunResultCount(run)}</dd>
+          </div>
+          <div>
+            <dt>Created</dt>
+            <dd>{formatRunTimestamp(run.createdAt)}</dd>
+          </div>
+          <div>
+            <dt>Started</dt>
+            <dd>{formatRunTimestamp(run.startedAt)}</dd>
+          </div>
+          <div>
+            <dt>Completed</dt>
+            <dd>{formatRunTimestamp(run.completedAt)}</dd>
+          </div>
+        </dl>
+      </section>
+
+      {failureMessage ? (
+        <section aria-labelledby="run-detail-error-heading" className="run-detail__feedback run-detail__feedback--error">
+          <div>
+            <h3 id="run-detail-error-heading">Run failed</h3>
+            <p>{failureMessage}</p>
+          </div>
+          <button className="run-detail__button" onClick={onRetry} type="button">
+            Retry status check
+          </button>
+        </section>
+      ) : null}
+
+      <section aria-labelledby="run-detail-results-heading" className="run-detail__panel">
+        <header className="run-detail__panel-header">
+          <div>
+            <h2 id="run-detail-results-heading">Snapshot results</h2>
+            <p>Stored in rank order so the run remains reproducible even after catalog data changes.</p>
+          </div>
+          <button className="run-detail__button run-detail__button--secondary" onClick={onRetry} type="button">
+            Refresh now
+          </button>
+        </header>
+
+        {run.results.length > 0 ? (
+          <ul className="run-detail__results-list">{run.results.map((result) => renderResultCard(result))}</ul>
+        ) : (
+          <p className="run-detail__empty-state">{getRunProgressMessage(run)}</p>
+        )}
+      </section>
+    </>
+  );
+}
+
+export function RunDetailShellView({ runId, requestState, onRetry }: RunDetailShellViewProps) {
+  if (requestState.status === "loading") {
+    return (
+      <section className="run-detail__feedback run-detail__feedback--loading" role="status">
+        Loading run status for <code>{runId}</code>.
+      </section>
+    );
+  }
+
+  if (requestState.status === "error") {
+    return (
+      <section className="run-detail__feedback run-detail__feedback--error" role="alert">
+        <div>
+          <h2>Run status unavailable</h2>
+          <p>{requestState.error}</p>
+        </div>
+        <button className="run-detail__button" onClick={onRetry} type="button">
+          Retry
+        </button>
+      </section>
+    );
+  }
+
+  if (requestState.status === "notFound") {
+    return (
+      <section className="run-detail__feedback run-detail__feedback--empty" role="status">
+        <h2>Run not found</h2>
+        <p>The requested run does not exist or is no longer visible to this account.</p>
+      </section>
+    );
+  }
+
+  return <div className="run-detail">{renderReadyState(requestState.data, onRetry)}</div>;
+}
+
+export function RunDetailShell({ runId }: RunDetailShellProps) {
+  const [requestState, setRequestState] = useState<RunDetailRequestState>(INITIAL_REQUEST_STATE);
+  const [reloadToken, setReloadToken] = useState(0);
+
+  useEffect(() => {
+    let didCancel = false;
+    const abortController = new AbortController();
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    async function loadRun(polling = false) {
+      if (!polling) {
+        setRequestState(INITIAL_REQUEST_STATE);
+      }
+
+      try {
+        const run = await fetchRunStatus(runId, abortController.signal);
+
+        if (didCancel) {
+          return;
+        }
+
+        setRequestState({
+          status: "ready",
+          data: run,
+          error: null,
+        });
+
+        if (shouldPollRunStatus(run.status)) {
+          timeoutId = setTimeout(() => {
+            void loadRun(true);
+          }, RUN_STATUS_POLL_INTERVAL_MS);
+        }
+      } catch (error) {
+        if (didCancel) {
+          return;
+        }
+
+        if (error instanceof Error && error.name === "AbortError") {
+          return;
+        }
+
+        if (error instanceof ApiRequestError && error.status === 404) {
+          setRequestState(NOT_FOUND_REQUEST_STATE);
+          return;
+        }
+
+        setRequestState({
+          status: "error",
+          data: null,
+          error: getRunDetailRequestErrorMessage(error),
+        });
+      }
+    }
+
+    void loadRun();
+
+    return () => {
+      didCancel = true;
+      abortController.abort();
+
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [runId, reloadToken]);
+
+  function handleRetry() {
+    setReloadToken((current) => current + 1);
+  }
+
+  return <RunDetailShellView onRetry={handleRetry} requestState={requestState} runId={runId} />;
+}

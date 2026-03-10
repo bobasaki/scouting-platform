@@ -186,6 +186,15 @@ export async function getRunStatus(input: {
           rank: true,
           source: true,
           createdAt: true,
+          channel: {
+            select: {
+              id: true,
+              youtubeChannelId: true,
+              title: true,
+              handle: true,
+              thumbnailUrl: true,
+            },
+          },
         },
       },
     },
@@ -216,6 +225,13 @@ export async function getRunStatus(input: {
       rank: result.rank,
       source: toRunResultSource(result.source),
       createdAt: result.createdAt.toISOString(),
+      channel: {
+        id: result.channel.id,
+        youtubeChannelId: result.channel.youtubeChannelId,
+        title: result.channel.title,
+        handle: result.channel.handle,
+        thumbnailUrl: result.channel.thumbnailUrl,
+      },
     })),
   };
 }

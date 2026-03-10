@@ -211,6 +211,13 @@ integration("week 3 API integration", () => {
     const ownerPayload = await ownerResponse.json();
     expect(ownerPayload.results).toHaveLength(1);
     expect(ownerPayload.results[0]?.source).toBe("catalog");
+    expect(ownerPayload.results[0]?.channel).toEqual({
+      id: channel.id,
+      youtubeChannelId: "UC-RUN-1",
+      title: "Channel 1",
+      handle: null,
+      thumbnailUrl: null,
+    });
 
     currentSessionUser = { id: admin.id, role: "admin" };
     const adminResponse = await runDetailRoute.GET(
