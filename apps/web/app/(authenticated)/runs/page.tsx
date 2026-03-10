@@ -1,16 +1,13 @@
 import { PageSection } from "../../../components/layout/page-section";
-import { RouteScaffoldList } from "../../../components/layout/route-scaffold-list";
+import { CreateRunShell } from "../../../components/runs/create-run-shell";
 
 export default function RunsPage() {
   return (
     <PageSection
       title="Runs"
-      description="Run creation, status, and result UX lands in Week 3."
+      description="Start a new discovery run against the shared catalog and your assigned YouTube API key. Recent-run history remains a separate Week 3 slice."
     >
-      <RouteScaffoldList
-        heading="Week 3 shell paths"
-        paths={["/runs", "/runs/new", "/runs/[runId]"]}
-      />
+      <CreateRunShell />
     </PageSection>
   );
 }

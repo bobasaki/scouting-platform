@@ -1,16 +1,29 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { createRunShellMock } = vi.hoisted(() => ({
+  createRunShellMock: vi.fn(() => "create-run-shell"),
+}));
+
+vi.mock("../../../components/runs/create-run-shell", () => ({
+  CreateRunShell: createRunShellMock,
+}));
+
 import RunsPage from "./page";
 
 describe("runs page", () => {
-  it("renders week 3 placeholder with shell paths", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders the create run shell without fetching in the page", () => {
     const html = renderToStaticMarkup(RunsPage());
 
     expect(html).toContain("Runs");
-    expect(html).toContain("Run creation, status, and result UX lands in Week 3.");
-    expect(html).toContain("Week 3 shell paths");
-    expect(html).toMatch(/<code[^>]*>\/runs<\/code>/);
-    expect(html).toContain("/runs/new");
-    expect(html).toContain("/runs/[runId]");
+    expect(html).toContain(
+      "Start a new discovery run against the shared catalog and your assigned YouTube API key. Recent-run history remains a separate Week 3 slice.",
+    );
+    expect(createRunShellMock).toHaveBeenCalledTimes(1);
+    expect(html).toContain("create-run-shell");
   });
 });
