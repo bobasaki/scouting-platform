@@ -40,6 +40,9 @@ vi.mock("next/image", async () => {
 });
 
 import {
+  areCatalogFiltersEqual,
+  buildCatalogHref,
+  buildCatalogSearchParams,
   CatalogTableShellView,
   formatChannelCountSummary,
   getEmptyCatalogMessage,
@@ -47,6 +50,8 @@ import {
   getPreviousCatalogPage,
   hasNextCatalogPage,
   hasPreviousCatalogPage,
+  parseCatalogUrlState,
+  toggleCatalogStatusFilter,
 } from "./catalog-table-shell";
 
 function createAdvancedReportSummary() {
@@ -127,10 +132,21 @@ function buildChannelResponse(
 function renderView(requestState: Parameters<typeof CatalogTableShellView>[0]["requestState"]): string {
   return renderToStaticMarkup(
     createElement(CatalogTableShellView, {
+      draftFilters: {
+        query: "space",
+        enrichmentStatus: ["completed"],
+        advancedReportStatus: ["pending_approval"],
+      },
       requestState,
-      onRetry: vi.fn(),
-      onPreviousPage: vi.fn(),
+      hasPendingFilterChanges: true,
+      onApplyFilters: vi.fn(),
+      onDraftQueryChange: vi.fn(),
       onNextPage: vi.fn(),
+      onPreviousPage: vi.fn(),
+      onResetFilters: vi.fn(),
+      onRetry: vi.fn(),
+      onToggleAdvancedReportStatus: vi.fn(),
+      onToggleEnrichmentStatus: vi.fn(),
     }),
   );
 }
@@ -171,6 +187,45 @@ describe("catalog table shell view", () => {
     expect(getNextCatalogPage(finalPage)).toBeNull();
   });
 
+  it("parses, serializes, and compares URL-backed filter state", () => {
+    const searchParams = new URLSearchParams(
+      "page=3&query=space&enrichmentStatus=failed&enrichmentStatus=completed&advancedReportStatus=stale",
+    );
+
+    const parsed = parseCatalogUrlState(searchParams);
+
+    expect(parsed).toEqual({
+      page: 3,
+      filters: {
+        query: "space",
+        enrichmentStatus: ["completed", "failed"],
+        advancedReportStatus: ["stale"],
+      },
+    });
+
+    expect(buildCatalogSearchParams(parsed).toString()).toBe(
+      "page=3&query=space&enrichmentStatus=completed&enrichmentStatus=failed&advancedReportStatus=stale",
+    );
+    expect(buildCatalogHref("/catalog", parsed)).toBe(
+      "/catalog?page=3&query=space&enrichmentStatus=completed&enrichmentStatus=failed&advancedReportStatus=stale",
+    );
+    expect(
+      areCatalogFiltersEqual(parsed.filters, {
+        query: "space",
+        enrichmentStatus: ["completed", "failed"],
+        advancedReportStatus: ["stale"],
+      }),
+    ).toBe(true);
+  });
+
+  it("toggles status filters while preserving current selections", () => {
+    const afterAdd = toggleCatalogStatusFilter(["completed"], "failed");
+    expect(afterAdd).toEqual(["completed", "failed"]);
+
+    const afterRemove = toggleCatalogStatusFilter(afterAdd, "completed");
+    expect(afterRemove).toEqual(["failed"]);
+  });
+
   it("renders loading state", () => {
     const html = renderView({
       status: "loading",
@@ -178,6 +233,8 @@ describe("catalog table shell view", () => {
       error: null,
     });
 
+    expect(html).toContain("Filters");
+    expect(html).toContain("Apply filters");
     expect(html).toContain("Loading channels...");
   });
 
@@ -205,8 +262,9 @@ describe("catalog table shell view", () => {
       error: null,
     });
 
+    expect(html).toContain("Filters active");
     expect(html).toContain("0 channels");
-    expect(html).toContain("No channels found yet.");
+    expect(html).toContain("No channels match the current filters.");
     expect(html).toContain("Page 1");
     expect(html).toContain(">Previous</button>");
     expect(html).toContain(">Next</button>");
@@ -247,34 +305,13 @@ describe("catalog table shell view", () => {
       error: null,
     });
 
-    expect(html).toContain("Channel 1");
-    expect(html).toContain("@channelone");
-    expect(html).toContain("No handle");
-    expect(html).toContain("UC_STATUS_1");
-    expect(html).toContain("href=\"/catalog/00000000-0000-0000-0000-000000000001\"");
-    expect(html).toContain("Open channel");
-
     for (const [, label] of statuses) {
       expect(html).toContain(label);
     }
-  });
 
-  it("renders previous enabled and next disabled on the final page", () => {
-    const html = renderView({
-      status: "ready",
-      data: {
-        items: pagedChannels.items,
-        total: 22,
-        page: 2,
-        pageSize: 20,
-      },
-      error: null,
-    });
-
-    expect(html).toContain("Showing 21-22 of 22 channels");
-    expect(html).toContain("Page 2");
-    expect(html).toContain(">Previous</button>");
-    expect(html).toContain(">Next</button>");
-    expect(html.match(/disabled=""/g)).toHaveLength(1);
+    expect(html).toContain("value=\"space\"");
+    expect(html).toContain("Pending approval");
+    expect(html).toContain("href=\"/catalog/00000000-0000-0000-0000-000000000001\"");
+    expect(html).toContain("Open channel");
   });
 });

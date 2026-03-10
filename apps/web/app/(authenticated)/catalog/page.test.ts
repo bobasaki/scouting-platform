@@ -12,10 +12,10 @@ describe("catalog page", () => {
     const html = renderToStaticMarkup(CatalogPage());
 
     expect(html).toContain("Catalog");
-    expect(html).toContain("Browse the shared creator catalog. Filters land in Week 2.");
+    expect(html).toContain(
+      "Browse the shared creator catalog, search across channel identity fields, and filter by enrichment or advanced report status.",
+    );
     expect(html).toContain("catalog-table-shell");
-    expect(html).not.toContain("Catalog list and filtering UX lands in Week 1.");
-    expect(html).not.toContain("Week 1 shell paths");
-    expect(html).not.toContain("/catalog/[channelId]");
+    expect(html).not.toContain("Filters land in Week 2.");
   });
 });

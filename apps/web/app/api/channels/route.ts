@@ -19,10 +19,14 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   try {
     const url = new URL(request.url);
+    const enrichmentStatus = url.searchParams.getAll("enrichmentStatus");
+    const advancedReportStatus = url.searchParams.getAll("advancedReportStatus");
     const parsedQuery = listChannelsQuerySchema.safeParse({
       page: url.searchParams.get("page") ?? undefined,
       pageSize: url.searchParams.get("pageSize") ?? undefined,
       query: url.searchParams.get("query") ?? undefined,
+      ...(enrichmentStatus.length > 0 ? { enrichmentStatus } : {}),
+      ...(advancedReportStatus.length > 0 ? { advancedReportStatus } : {}),
     });
 
     if (!parsedQuery.success) {
@@ -39,6 +43,12 @@ export async function GET(request: Request): Promise<NextResponse> {
       page: parsedQuery.data.page,
       pageSize: parsedQuery.data.pageSize,
       ...(parsedQuery.data.query ? { query: parsedQuery.data.query } : {}),
+      ...(parsedQuery.data.enrichmentStatus
+        ? { enrichmentStatus: parsedQuery.data.enrichmentStatus }
+        : {}),
+      ...(parsedQuery.data.advancedReportStatus
+        ? { advancedReportStatus: parsedQuery.data.advancedReportStatus }
+        : {}),
     };
     const result = await listChannels(listInput);
     const payload = listChannelsResponseSchema.parse(result);

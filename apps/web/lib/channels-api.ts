@@ -1,6 +1,7 @@
 import {
   listChannelsQuerySchema,
   listChannelsResponseSchema,
+  type CatalogChannelFilters,
   type ListChannelsQuery,
   type ListChannelsResponse,
 } from "@scouting-platform/contracts";
@@ -45,7 +46,10 @@ function getApiErrorMessage(response: Response, payload: unknown): string {
 }
 
 export async function fetchChannels(
-  input: Pick<ListChannelsQuery, "page" | "pageSize" | "query">,
+  input: Pick<
+    ListChannelsQuery,
+    "page" | "pageSize" | "query" | "enrichmentStatus" | "advancedReportStatus"
+  >,
   signal?: AbortSignal,
 ): Promise<ListChannelsResponse> {
   const requestQuery = listChannelsQuerySchema.parse(input);
@@ -57,6 +61,8 @@ export async function fetchChannels(
   if (requestQuery.query) {
     searchParams.set("query", requestQuery.query);
   }
+
+  appendStatusFilters(searchParams, requestQuery);
 
   try {
     const response = await fetch(`/api/channels?${searchParams.toString()}`, {
@@ -79,5 +85,18 @@ export async function fetchChannels(
     return parsed.data;
   } catch (error) {
     throw new Error(normalizeErrorMessage(error));
+  }
+}
+
+function appendStatusFilters(
+  searchParams: URLSearchParams,
+  requestQuery: CatalogChannelFilters,
+): void {
+  for (const status of requestQuery.enrichmentStatus ?? []) {
+    searchParams.append("enrichmentStatus", status);
+  }
+
+  for (const status of requestQuery.advancedReportStatus ?? []) {
+    searchParams.append("advancedReportStatus", status);
   }
 }

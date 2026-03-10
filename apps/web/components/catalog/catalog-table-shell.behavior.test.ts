@@ -2,9 +2,21 @@ import type { ListChannelsResponse } from "@scouting-platform/contracts";
 import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { fetchChannelsMock, useEffectMock, useStateMock } = vi.hoisted(() => ({
+const {
+  fetchChannelsMock,
+  replaceMock,
+  useEffectMock,
+  usePathnameMock,
+  useRouterMock,
+  useSearchParamsMock,
+  useStateMock,
+} = vi.hoisted(() => ({
   fetchChannelsMock: vi.fn(),
+  replaceMock: vi.fn(),
   useEffectMock: vi.fn(),
+  usePathnameMock: vi.fn(),
+  useRouterMock: vi.fn(),
+  useSearchParamsMock: vi.fn(),
   useStateMock: vi.fn(),
 }));
 
@@ -18,6 +30,12 @@ vi.mock("react", async () => {
   };
 });
 
+vi.mock("next/navigation", () => ({
+  usePathname: usePathnameMock,
+  useRouter: useRouterMock,
+  useSearchParams: useSearchParamsMock,
+}));
+
 vi.mock("../../lib/channels-api", () => ({
   fetchChannels: fetchChannelsMock,
 }));
@@ -25,12 +43,22 @@ vi.mock("../../lib/channels-api", () => ({
 import { CatalogTableShell } from "./catalog-table-shell";
 
 type CatalogShellElement = ReactElement<{
+  onApplyFilters: () => void;
+  onResetFilters: () => void;
   onNextPage: () => void;
   onPreviousPage: () => void;
   onRetry: () => void;
+  onDraftQueryChange: (value: string) => void;
+  onToggleEnrichmentStatus: (value: "completed" | "failed") => void;
+  draftFilters: {
+    query: string;
+    enrichmentStatus: string[];
+    advancedReportStatus: string[];
+  };
   requestState: {
     status: "loading" | "error" | "ready";
   };
+  hasPendingFilterChanges: boolean;
 }>;
 
 function createReadyState(overrides: Partial<ListChannelsResponse>): {
@@ -51,42 +79,77 @@ function createReadyState(overrides: Partial<ListChannelsResponse>): {
   };
 }
 
-function createAdvancedReportSummary() {
-  return {
-    requestId: null,
-    status: "missing" as const,
-    updatedAt: null,
-    completedAt: null,
-    lastError: null,
-  };
+function createSearchParams(
+  input: Record<string, string | string[] | undefined>,
+): URLSearchParams {
+  const searchParams = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(input)) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        searchParams.append(key, item);
+      }
+      continue;
+    }
+
+    if (value !== undefined) {
+      searchParams.set(key, value);
+    }
+  }
+
+  return searchParams;
 }
 
 function renderShell(options?: {
-  page?: number;
-  pageSize?: number;
-  requestState?: ReturnType<typeof createReadyState> | { status: "loading"; data: null; error: null } | {
+  requestState?: ReturnType<typeof createReadyState> | {
+    status: "loading";
+    data: null;
+    error: null;
+  } | {
     status: "error";
     data: null;
     error: string;
   };
+  searchParams?: URLSearchParams;
+  draftFilters?: {
+    query: string;
+    enrichmentStatus: string[];
+    advancedReportStatus: string[];
+  };
   reloadToken?: number;
 }) {
-  const setPage = vi.fn();
+  const setDraftFilters = vi.fn();
   const setRequestState = vi.fn();
   const setReloadToken = vi.fn();
   let cleanup: (() => void) | undefined;
 
   useStateMock.mockReset();
   useEffectMock.mockReset();
+  replaceMock.mockReset();
+  usePathnameMock.mockReturnValue("/catalog");
+  useRouterMock.mockReturnValue({
+    replace: replaceMock,
+  });
+  useSearchParamsMock.mockReturnValue(
+    options?.searchParams ?? createSearchParams({ page: "2", query: "space", enrichmentStatus: ["failed"] }),
+  );
 
   useStateMock
-    .mockReturnValueOnce([options?.page ?? 1, setPage])
     .mockReturnValueOnce([
-      options?.requestState ?? {
-        status: "loading",
-        data: null,
-        error: null,
+      options?.draftFilters ?? {
+        query: "space",
+        enrichmentStatus: ["failed"],
+        advancedReportStatus: [],
       },
+      setDraftFilters,
+    ])
+    .mockReturnValueOnce([
+      options?.requestState ??
+        createReadyState({
+          total: 21,
+          page: 2,
+          pageSize: 20,
+        }),
       setRequestState,
     ])
     .mockReturnValueOnce([options?.reloadToken ?? 0, setReloadToken]);
@@ -96,14 +159,12 @@ function renderShell(options?: {
     cleanup = typeof maybeCleanup === "function" ? maybeCleanup : undefined;
   });
 
-  const element = CatalogTableShell(
-    options?.pageSize === undefined ? {} : { pageSize: options.pageSize },
-  ) as CatalogShellElement;
+  const element = CatalogTableShell({}) as CatalogShellElement;
 
   return {
     cleanup,
     element,
-    setPage,
+    setDraftFilters,
     setRequestState,
     setReloadToken,
   };
@@ -120,22 +181,29 @@ describe("catalog table shell behavior", () => {
     } satisfies ListChannelsResponse);
   });
 
-  it("loads the first page on mount and updates ready state from the channels API", async () => {
+  it("loads the current URL-backed page and filters from the channels API", async () => {
     const response: ListChannelsResponse = {
       items: [],
-      total: 0,
-      page: 1,
+      total: 1,
+      page: 2,
       pageSize: 20,
     };
 
     fetchChannelsMock.mockResolvedValueOnce(response);
 
-    const { cleanup, setRequestState } = renderShell();
+    const { cleanup, setDraftFilters, setRequestState } = renderShell();
 
+    expect(setDraftFilters).toHaveBeenCalledWith({
+      query: "space",
+      enrichmentStatus: ["failed"],
+      advancedReportStatus: [],
+    });
     expect(fetchChannelsMock).toHaveBeenCalledWith(
       {
-        page: 1,
+        page: 2,
         pageSize: 20,
+        query: "space",
+        enrichmentStatus: ["failed"],
       },
       expect.any(AbortSignal),
     );
@@ -161,63 +229,61 @@ describe("catalog table shell behavior", () => {
     expect(signal?.aborted).toBe(true);
   });
 
-  it("moves to the next and previous pages using the response paging metadata", () => {
-    const firstPage = renderShell({
+  it("applies draft filters by replacing the URL and resetting to page 1", () => {
+    const { element } = renderShell({
+      draftFilters: {
+        query: "mars",
+        enrichmentStatus: ["completed"],
+        advancedReportStatus: ["pending_approval"],
+      },
+    });
+
+    element.props.onApplyFilters();
+
+    expect(replaceMock).toHaveBeenCalledWith(
+      "/catalog?page=1&query=mars&enrichmentStatus=completed&advancedReportStatus=pending_approval",
+    );
+  });
+
+  it("resets filters by clearing draft state and replacing the URL", () => {
+    const { element, setDraftFilters } = renderShell();
+
+    element.props.onResetFilters();
+
+    expect(setDraftFilters).toHaveBeenCalledWith({
+      query: "",
+      enrichmentStatus: [],
+      advancedReportStatus: [],
+    });
+    expect(replaceMock).toHaveBeenCalledWith("/catalog?page=1");
+  });
+
+  it("preserves active filters while paging forward and backward", () => {
+    const first = renderShell({
+      searchParams: createSearchParams({ page: "1", query: "space", enrichmentStatus: ["failed"] }),
       requestState: createReadyState({
         total: 21,
         page: 1,
         pageSize: 20,
-        items: [
-          {
-            id: "60d6b6ca-a76b-4821-8d3b-c8d9f59f31ec",
-            youtubeChannelId: "UC_PAGE_1",
-            title: "Page One",
-            handle: "@pageone",
-            thumbnailUrl: null,
-            enrichment: {
-              status: "missing",
-              updatedAt: null,
-              completedAt: null,
-              lastError: null,
-            },
-            advancedReport: createAdvancedReportSummary(),
-          },
-        ],
       }),
     });
+    first.element.props.onNextPage();
 
-    firstPage.element.props.onNextPage();
+    expect(replaceMock).toHaveBeenCalledWith("/catalog?page=2&query=space&enrichmentStatus=failed");
 
-    expect(firstPage.setPage).toHaveBeenCalledWith(2);
+    replaceMock.mockReset();
 
-    const secondPage = renderShell({
-      page: 2,
+    const second = renderShell({
+      searchParams: createSearchParams({ page: "2", query: "space", enrichmentStatus: ["failed"] }),
       requestState: createReadyState({
         total: 21,
         page: 2,
         pageSize: 20,
-        items: [
-          {
-            id: "b5b2d6cd-0d0d-42db-a2f1-bd12a7ec5c15",
-            youtubeChannelId: "UC_PAGE_2",
-            title: "Page Two",
-            handle: "@pagetwo",
-            thumbnailUrl: null,
-            enrichment: {
-              status: "completed",
-              updatedAt: "2026-03-08T10:00:00.000Z",
-              completedAt: "2026-03-08T10:00:00.000Z",
-              lastError: null,
-            },
-            advancedReport: createAdvancedReportSummary(),
-          },
-        ],
       }),
     });
+    second.element.props.onPreviousPage();
 
-    secondPage.element.props.onPreviousPage();
-
-    expect(secondPage.setPage).toHaveBeenCalledWith(1);
+    expect(replaceMock).toHaveBeenCalledWith("/catalog?page=1&query=space&enrichmentStatus=failed");
   });
 
   it("retries the current page by bumping the reload token", () => {

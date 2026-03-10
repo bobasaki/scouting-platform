@@ -1,4 +1,9 @@
-import { PrismaClient, Role } from "@prisma/client";
+import {
+  AdvancedReportRequestStatus,
+  ChannelEnrichmentStatus,
+  PrismaClient,
+  Role,
+} from "@prisma/client";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 const databaseUrl = process.env.DATABASE_URL_TEST?.trim() ?? "";
@@ -268,5 +273,251 @@ integration("week 2 core integration", () => {
       code: "CHANNEL_NOT_FOUND",
       status: 404,
     });
+  });
+
+  it("supports free-text search across title, handle, and youtube channel id", async () => {
+    await core.upsertChannelSkeleton({
+      youtubeChannelId: "UC_SPACE_ALPHA",
+      title: "Orbital Mechanics",
+      handle: "@orbitlab",
+    });
+    await core.upsertChannelSkeleton({
+      youtubeChannelId: "UC_SPACE_BETA",
+      title: "Launch Weekly",
+      handle: "@launchpad",
+    });
+
+    const byTitle = await core.listChannels({
+      page: 1,
+      pageSize: 20,
+      query: "orbital",
+    });
+    expect(byTitle.items.map((item) => item.youtubeChannelId)).toEqual(["UC_SPACE_ALPHA"]);
+
+    const byHandle = await core.listChannels({
+      page: 1,
+      pageSize: 20,
+      query: "launchpad",
+    });
+    expect(byHandle.items.map((item) => item.youtubeChannelId)).toEqual(["UC_SPACE_BETA"]);
+
+    const byYoutubeId = await core.listChannels({
+      page: 1,
+      pageSize: 20,
+      query: "space_alpha",
+    });
+    expect(byYoutubeId.items.map((item) => item.youtubeChannelId)).toEqual(["UC_SPACE_ALPHA"]);
+  });
+
+  it("filters channel list by resolved enrichment status including stale", async () => {
+    const requester = await prisma.user.create({
+      data: {
+        email: "requester@example.com",
+        name: "Requester",
+        role: Role.USER,
+        passwordHash: "bootstrap-hash",
+        isActive: true,
+      },
+    });
+
+    const staleChannel = await prisma.channel.create({
+      data: {
+        youtubeChannelId: "UC_STALE",
+        title: "Stale enrichment",
+      },
+      select: {
+        id: true,
+      },
+    });
+    const readyChannel = await prisma.channel.create({
+      data: {
+        youtubeChannelId: "UC_READY",
+        title: "Ready enrichment",
+      },
+      select: {
+        id: true,
+      },
+    });
+    const failedChannel = await prisma.channel.create({
+      data: {
+        youtubeChannelId: "UC_FAILED",
+        title: "Failed enrichment",
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    await prisma.channelEnrichment.create({
+      data: {
+        channelId: staleChannel.id,
+        status: ChannelEnrichmentStatus.COMPLETED,
+        requestedByUserId: requester.id,
+        requestedAt: new Date("2026-02-01T10:00:00.000Z"),
+        completedAt: new Date("2026-02-01T10:00:00.000Z"),
+      },
+    });
+    await prisma.channelEnrichment.create({
+      data: {
+        channelId: readyChannel.id,
+        status: ChannelEnrichmentStatus.COMPLETED,
+        requestedByUserId: requester.id,
+        requestedAt: new Date("2026-03-09T10:00:00.000Z"),
+        completedAt: new Date("2026-03-09T10:00:00.000Z"),
+      },
+    });
+    await prisma.$executeRaw`
+      UPDATE channels
+      SET updated_at = ${new Date("2026-03-08T10:00:00.000Z")}
+      WHERE id = ${readyChannel.id}::uuid
+    `;
+    await prisma.channelEnrichment.create({
+      data: {
+        channelId: failedChannel.id,
+        status: ChannelEnrichmentStatus.FAILED,
+        requestedByUserId: requester.id,
+        requestedAt: new Date("2026-03-09T10:00:00.000Z"),
+        lastError: "quota",
+      },
+    });
+
+    const staleOnly = await core.listChannels({
+      page: 1,
+      pageSize: 20,
+      enrichmentStatus: ["stale"],
+    });
+    expect(staleOnly.items.map((item) => item.youtubeChannelId)).toEqual(["UC_STALE"]);
+
+    const staleOrFailed = await core.listChannels({
+      page: 1,
+      pageSize: 20,
+      enrichmentStatus: ["stale", "failed"],
+    });
+    expect(staleOrFailed.items.map((item) => item.youtubeChannelId)).toEqual([
+      "UC_FAILED",
+      "UC_STALE",
+    ]);
+  });
+
+  it("filters channel list by latest advanced report status and supports combined filters", async () => {
+    const requester = await prisma.user.create({
+      data: {
+        email: "approvals@example.com",
+        name: "Approvals",
+        role: Role.USER,
+        passwordHash: "bootstrap-hash",
+        isActive: true,
+      },
+    });
+
+    const pendingChannel = await prisma.channel.create({
+      data: {
+        youtubeChannelId: "UC_PENDING",
+        title: "Pending report",
+      },
+      select: {
+        id: true,
+      },
+    });
+    const staleReportChannel = await prisma.channel.create({
+      data: {
+        youtubeChannelId: "UC_REPORT_STALE",
+        title: "Stale report",
+      },
+      select: {
+        id: true,
+      },
+    });
+    const combinedChannel = await prisma.channel.create({
+      data: {
+        youtubeChannelId: "UC_COMBINED",
+        title: "Combined filter channel",
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    await prisma.advancedReportRequest.create({
+      data: {
+        channelId: pendingChannel.id,
+        requestedByUserId: requester.id,
+        status: AdvancedReportRequestStatus.PENDING_APPROVAL,
+      },
+    });
+    await prisma.advancedReportRequest.create({
+      data: {
+        channelId: staleReportChannel.id,
+        requestedByUserId: requester.id,
+        status: AdvancedReportRequestStatus.COMPLETED,
+        completedAt: new Date("2025-09-01T12:00:00.000Z"),
+      },
+    });
+    const combinedCompletedRequest = await prisma.advancedReportRequest.create({
+      data: {
+        channelId: combinedChannel.id,
+        requestedByUserId: requester.id,
+        status: AdvancedReportRequestStatus.COMPLETED,
+        completedAt: new Date("2026-03-08T12:00:00.000Z"),
+      },
+      select: {
+        id: true,
+      },
+    });
+    const combinedFailedRequest = await prisma.advancedReportRequest.create({
+      data: {
+        channelId: combinedChannel.id,
+        requestedByUserId: requester.id,
+        status: AdvancedReportRequestStatus.FAILED,
+        lastError: "provider timeout",
+      },
+      select: {
+        id: true,
+      },
+    });
+    await prisma.$executeRaw`
+      UPDATE advanced_report_requests
+      SET created_at = ${new Date("2026-03-08T12:00:00.000Z")},
+          updated_at = ${new Date("2026-03-08T12:00:00.000Z")}
+      WHERE id = ${combinedCompletedRequest.id}::uuid
+    `;
+    await prisma.$executeRaw`
+      UPDATE advanced_report_requests
+      SET created_at = ${new Date("2026-03-09T12:00:00.000Z")},
+          updated_at = ${new Date("2026-03-09T12:00:00.000Z")}
+      WHERE id = ${combinedFailedRequest.id}::uuid
+    `;
+    await prisma.channelEnrichment.create({
+      data: {
+        channelId: combinedChannel.id,
+        status: ChannelEnrichmentStatus.FAILED,
+        requestedByUserId: requester.id,
+        requestedAt: new Date("2026-03-09T10:00:00.000Z"),
+        lastError: "quota",
+      },
+    });
+
+    const pendingOnly = await core.listChannels({
+      page: 1,
+      pageSize: 20,
+      advancedReportStatus: ["pending_approval"],
+    });
+    expect(pendingOnly.items.map((item) => item.youtubeChannelId)).toEqual(["UC_PENDING"]);
+
+    const staleOnly = await core.listChannels({
+      page: 1,
+      pageSize: 20,
+      advancedReportStatus: ["stale"],
+    });
+    expect(staleOnly.items.map((item) => item.youtubeChannelId)).toEqual(["UC_REPORT_STALE"]);
+
+    const combined = await core.listChannels({
+      page: 1,
+      pageSize: 20,
+      query: "combined",
+      enrichmentStatus: ["failed"],
+      advancedReportStatus: ["failed"],
+    });
+    expect(combined.items.map((item) => item.youtubeChannelId)).toEqual(["UC_COMBINED"]);
   });
 });

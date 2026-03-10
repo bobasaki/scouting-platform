@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  channelAdvancedReportStatusSchema,
   channelAdvancedReportDetailSchema,
   channelAdvancedReportSummarySchema,
   channelInsightsSchema,
@@ -24,6 +25,12 @@ export const channelEnrichmentSummarySchema = z.object({
   lastError: z.string().nullable(),
 });
 
+export const catalogChannelFiltersSchema = z.object({
+  query: z.string().trim().max(200).optional(),
+  enrichmentStatus: z.array(channelEnrichmentStatusSchema).min(1).optional(),
+  advancedReportStatus: z.array(channelAdvancedReportStatusSchema).min(1).optional(),
+});
+
 export const channelEnrichmentDetailSchema = channelEnrichmentSummarySchema.extend({
   summary: z.string().nullable(),
   topics: z.array(z.string()).nullable(),
@@ -31,10 +38,9 @@ export const channelEnrichmentDetailSchema = channelEnrichmentSummarySchema.exte
   confidence: z.number().min(0).max(1).nullable(),
 });
 
-export const listChannelsQuerySchema = z.object({
+export const listChannelsQuerySchema = catalogChannelFiltersSchema.extend({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  query: z.string().trim().max(200).optional(),
 });
 
 export const channelSummarySchema = z.object({
@@ -124,6 +130,7 @@ export const requestChannelEnrichmentResponseSchema = z.object({
 });
 
 export type ListChannelsQuery = z.infer<typeof listChannelsQuerySchema>;
+export type CatalogChannelFilters = z.infer<typeof catalogChannelFiltersSchema>;
 export type ChannelSummary = z.infer<typeof channelSummarySchema>;
 export type ChannelDetail = z.infer<typeof channelDetailSchema>;
 export type ListChannelsResponse = z.infer<typeof listChannelsResponseSchema>;

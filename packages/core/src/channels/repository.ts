@@ -10,6 +10,7 @@ import {
   channelAudienceInterestSchema,
   channelBrandMentionSchema,
   type ChannelAdvancedReportDetail as ContractChannelAdvancedReportDetail,
+  type ChannelAdvancedReportStatus,
   type ChannelAdvancedReportSummary as ContractChannelAdvancedReportSummary,
   type ChannelEnrichmentStatus as ContractChannelEnrichmentStatus,
   type ChannelInsights as ContractChannelInsights,
@@ -31,6 +32,8 @@ export type ListChannelsInput = {
   page: number;
   pageSize: number;
   query?: string;
+  enrichmentStatus?: ContractChannelEnrichmentStatus[];
+  advancedReportStatus?: ChannelAdvancedReportStatus[];
 };
 
 export type ChannelEnrichmentSummary = {
@@ -539,8 +542,9 @@ export async function listChannels(input: ListChannelsInput): Promise<{
   page: number;
   pageSize: number;
 }> {
-  const skip = (input.page - 1) * input.pageSize;
   const query = input.query?.trim();
+  const hasResolvedStatusFilters =
+    (input.enrichmentStatus?.length ?? 0) > 0 || (input.advancedReportStatus?.length ?? 0) > 0;
   const where: Prisma.ChannelWhereInput | undefined = query
     ? {
         OR: [
@@ -566,6 +570,30 @@ export async function listChannels(input: ListChannelsInput): Promise<{
       }
     : undefined;
 
+  if (hasResolvedStatusFilters) {
+    const channels = await prisma.channel.findMany({
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: channelListSelect,
+      ...(where ? { where } : {}),
+    });
+
+    const filtered = channels
+      .map((channel) => toChannelSummary(channel))
+      .filter((channel) => matchesChannelFilters(channel, input));
+    const start = (input.page - 1) * input.pageSize;
+    const end = start + input.pageSize;
+
+    return {
+      items: filtered.slice(start, end),
+      total: filtered.length,
+      page: input.page,
+      pageSize: input.pageSize,
+    };
+  }
+
+  const skip = (input.page - 1) * input.pageSize;
   const findManyArgs = {
     skip,
     take: input.pageSize,
@@ -587,6 +615,24 @@ export async function listChannels(input: ListChannelsInput): Promise<{
     page: input.page,
     pageSize: input.pageSize,
   };
+}
+
+function matchesChannelFilters(channel: ChannelSummary, input: ListChannelsInput): boolean {
+  if (
+    input.enrichmentStatus?.length &&
+    !input.enrichmentStatus.includes(channel.enrichment.status)
+  ) {
+    return false;
+  }
+
+  if (
+    input.advancedReportStatus?.length &&
+    !input.advancedReportStatus.includes(channel.advancedReport.status)
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 export async function getChannelById(id: string): Promise<ChannelDetail | null> {

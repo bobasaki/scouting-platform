@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 
-import { CredentialProvider, PrismaClient, Role } from "@prisma/client";
+import {
+  AdvancedReportRequestStatus,
+  ChannelEnrichmentStatus,
+  CredentialProvider,
+  PrismaClient,
+  Role,
+} from "@prisma/client";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const databaseUrl = process.env.DATABASE_URL_TEST?.trim() ?? "";
@@ -47,6 +53,8 @@ integration("week 1 API integration", () => {
     currentSessionUser = null;
     await prisma.$executeRawUnsafe(`
       TRUNCATE TABLE
+        advanced_report_requests,
+        channel_enrichments,
         run_results,
         run_requests,
         audit_events,
@@ -298,5 +306,90 @@ integration("week 1 API integration", () => {
       { params: Promise.resolve({ id: randomUUID() }) },
     );
     expect(detailResponse.status).toBe(404);
+  });
+
+  it("filters GET /api/channels by search and repeated status params", async () => {
+    const user = await prisma.user.create({
+      data: {
+        email: "user@example.com",
+        name: "Campaign User",
+        role: Role.USER,
+        passwordHash: "user-hash",
+        isActive: true,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    const filteredChannel = await prisma.channel.create({
+      data: {
+        youtubeChannelId: "UC_FILTER_MATCH",
+        title: "Space Match",
+      },
+      select: {
+        id: true,
+      },
+    });
+    await prisma.channel.create({
+      data: {
+        youtubeChannelId: "UC_FILTER_SKIP",
+        title: "Skip me",
+      },
+    });
+
+    await prisma.channelEnrichment.create({
+      data: {
+        channelId: filteredChannel.id,
+        status: ChannelEnrichmentStatus.FAILED,
+        requestedByUserId: user.id,
+        requestedAt: new Date("2026-03-09T10:00:00.000Z"),
+        lastError: "quota",
+      },
+    });
+    await prisma.advancedReportRequest.create({
+      data: {
+        channelId: filteredChannel.id,
+        requestedByUserId: user.id,
+        status: AdvancedReportRequestStatus.PENDING_APPROVAL,
+      },
+    });
+
+    currentSessionUser = { id: user.id, role: "user" };
+
+    const response = await channelsRoute.GET(
+      new Request(
+        "http://localhost/api/channels?page=1&pageSize=20&query=space&enrichmentStatus=failed&advancedReportStatus=pending_approval",
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.items).toHaveLength(1);
+    expect(payload.items[0]?.youtubeChannelId).toBe("UC_FILTER_MATCH");
+  });
+
+  it("returns 400 for invalid channel filter params", async () => {
+    const user = await prisma.user.create({
+      data: {
+        email: "user@example.com",
+        name: "Campaign User",
+        role: Role.USER,
+        passwordHash: "user-hash",
+        isActive: true,
+      },
+      select: {
+        id: true,
+      },
+    });
+    currentSessionUser = { id: user.id, role: "user" };
+
+    const response = await channelsRoute.GET(
+      new Request(
+        "http://localhost/api/channels?page=1&pageSize=20&enrichmentStatus=not-a-status",
+      ),
+    );
+
+    expect(response.status).toBe(400);
   });
 });
