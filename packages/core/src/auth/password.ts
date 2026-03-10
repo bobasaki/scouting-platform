@@ -1,14 +1,26 @@
 const PASSWORD_MIN_LENGTH = 8;
 type Argon2Module = typeof import("argon2");
+const ARGON2_MODULE_ID = Buffer.from("YXJnb24y", "base64").toString("utf8");
 
-let argon2ModulePromise: Promise<Argon2Module> | null = null;
+let argon2Module: Argon2Module | null = null;
 
-async function loadArgon2(): Promise<Argon2Module> {
-  if (!argon2ModulePromise) {
-    argon2ModulePromise = import("argon2");
+function getNodeRequire(): NodeJS.Require {
+  const moduleBuiltin = process.getBuiltinModule?.("module");
+
+  if (!moduleBuiltin) {
+    throw new Error("Node runtime module loader is unavailable");
   }
 
-  return argon2ModulePromise;
+  return moduleBuiltin.createRequire(import.meta.url);
+}
+
+async function loadArgon2(): Promise<Argon2Module> {
+  if (!argon2Module) {
+    // Build the specifier at runtime so Next does not bundle the native addon into server chunks.
+    argon2Module = getNodeRequire()(ARGON2_MODULE_ID) as Argon2Module;
+  }
+
+  return argon2Module;
 }
 
 function validatePasswordInput(password: string): void {

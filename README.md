@@ -117,12 +117,17 @@ nvm use
 corepack enable
 corepack prepare pnpm@10.6.1 --activate
 
-pnpm install
-
 cp .env.example .env
 
 pnpm infra:up
-pnpm db:wait
+```
+
+The Compose stack now boots local Postgres, runs bootstrap setup, then starts both the web app and
+worker. Sign in with the seeded initial admin from `.env` or `.env.example`:
+
+```text
+email: admin@example.com
+password: StrongAdminPassword123
 ```
 
 Weekly Postgres image maintenance (advisory):
