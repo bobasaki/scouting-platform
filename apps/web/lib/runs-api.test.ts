@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ApiRequestError, createRun, fetchRunStatus } from "./runs-api";
+import { ApiRequestError, createRun, fetchRecentRuns, fetchRunStatus } from "./runs-api";
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
@@ -37,6 +37,25 @@ function buildRunStatusPayload() {
           handle: "@runresult",
           thumbnailUrl: "https://example.com/thumb.jpg",
         },
+      },
+    ],
+  };
+}
+
+function buildRecentRunsPayload() {
+  return {
+    items: [
+      {
+        id: "53adac17-f39d-4731-a61f-194150fbc431",
+        name: "Gaming Run",
+        query: "gaming creators",
+        status: "running",
+        lastError: null,
+        createdAt: "2026-03-10T10:00:00.000Z",
+        updatedAt: "2026-03-10T10:02:00.000Z",
+        startedAt: "2026-03-10T10:01:00.000Z",
+        completedAt: null,
+        resultCount: 2,
       },
     ],
   };
@@ -131,12 +150,40 @@ describe("runs api helpers", () => {
     expect(response.results[0]?.channel.title).toBe("Run Result Channel");
   });
 
+  it("loads recent runs data from GET /api/runs", async () => {
+    const abortController = new AbortController();
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      jsonResponse(buildRecentRunsPayload()),
+    );
+
+    const response = await fetchRecentRuns(abortController.signal);
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "/api/runs",
+      expect.objectContaining({
+        method: "GET",
+        cache: "no-store",
+        signal: abortController.signal,
+      }),
+    );
+    expect(response.items[0]?.resultCount).toBe(2);
+  });
+
   it("maps missing run responses to a friendly not-found error", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(jsonResponse({}, 404));
 
     await expect(fetchRunStatus("53adac17-f39d-4731-a61f-194150fbc431")).rejects.toMatchObject({
       message: "Run not found.",
       status: 404,
+    } satisfies Partial<ApiRequestError>);
+  });
+
+  it("maps recent runs authorization failures to a friendly error", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(jsonResponse({}, 403));
+
+    await expect(fetchRecentRuns()).rejects.toMatchObject({
+      message: "You are not authorized to view recent runs.",
+      status: 403,
     } satisfies Partial<ApiRequestError>);
   });
 });

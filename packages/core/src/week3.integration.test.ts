@@ -129,6 +129,123 @@ integration("week 3 core integration", () => {
     expect(runRequestsCount).toBe(0);
   });
 
+  it("lists the latest 10 runs for the current user with lifecycle fields and result counts", async () => {
+    const owner = await prisma.user.create({
+      data: {
+        email: "owner@example.com",
+        name: "Owner",
+        role: Role.USER,
+        passwordHash: "hash",
+        isActive: true,
+      },
+    });
+    const otherUser = await prisma.user.create({
+      data: {
+        email: "other@example.com",
+        name: "Other",
+        role: Role.USER,
+        passwordHash: "hash",
+        isActive: true,
+      },
+    });
+    const channels = await prisma.$transaction([
+      prisma.channel.create({
+        data: {
+          youtubeChannelId: "UC-RUN-LIST-1",
+          title: "Run List Channel 1",
+        },
+      }),
+      prisma.channel.create({
+        data: {
+          youtubeChannelId: "UC-RUN-LIST-2",
+          title: "Run List Channel 2",
+        },
+      }),
+      prisma.channel.create({
+        data: {
+          youtubeChannelId: "UC-RUN-LIST-3",
+          title: "Run List Channel 3",
+        },
+      }),
+    ]);
+
+    for (let index = 1; index <= 12; index += 1) {
+      const createdAt = new Date(Date.UTC(2026, 2, index, 9, index, 0));
+      const status =
+        index === 12
+          ? RunRequestStatus.RUNNING
+          : index === 11
+            ? RunRequestStatus.FAILED
+            : RunRequestStatus.COMPLETED;
+      const run = await prisma.runRequest.create({
+        data: {
+          requestedByUserId: owner.id,
+          name: `Owner Run ${index}`,
+          query: `query ${index}`,
+          status,
+          lastError: index === 11 ? "YouTube API quota exceeded" : null,
+          createdAt,
+          updatedAt: createdAt,
+          startedAt: createdAt,
+          completedAt: status === RunRequestStatus.COMPLETED || status === RunRequestStatus.FAILED ? createdAt : null,
+        },
+      });
+
+      if (index === 12) {
+        await prisma.runResult.createMany({
+          data: [
+            {
+              runRequestId: run.id,
+              channelId: channels[0].id,
+              rank: 1,
+              source: RunResultSource.CATALOG,
+            },
+            {
+              runRequestId: run.id,
+              channelId: channels[1].id,
+              rank: 2,
+              source: RunResultSource.DISCOVERY,
+            },
+          ],
+        });
+      }
+
+      if (index === 10) {
+        await prisma.runResult.create({
+          data: {
+            runRequestId: run.id,
+            channelId: channels[2].id,
+            rank: 1,
+            source: RunResultSource.CATALOG,
+          },
+        });
+      }
+    }
+
+    await prisma.runRequest.create({
+      data: {
+        requestedByUserId: otherUser.id,
+        name: "Other User Run",
+        query: "other query",
+        status: RunRequestStatus.COMPLETED,
+      },
+    });
+
+    const recentRuns = await core.listRecentRuns({
+      userId: owner.id,
+    });
+
+    expect(recentRuns.items).toHaveLength(10);
+    expect(recentRuns.items[0]?.name).toBe("Owner Run 12");
+    expect(recentRuns.items[0]?.status).toBe("running");
+    expect(recentRuns.items[0]?.resultCount).toBe(2);
+    expect(recentRuns.items[1]?.name).toBe("Owner Run 11");
+    expect(recentRuns.items[1]?.lastError).toBe("YouTube API quota exceeded");
+    expect(recentRuns.items[9]?.name).toBe("Owner Run 3");
+    expect(recentRuns.items.some((run) => run.name === "Owner Run 2")).toBe(false);
+    expect(recentRuns.items.some((run) => run.name === "Other User Run")).toBe(false);
+  });
+
   it("executes discovery and writes minimal run results", async () => {
     const user = await prisma.user.create({
       data: {
