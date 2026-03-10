@@ -1,6 +1,6 @@
 "use client";
 
-import type { RunRequestStatus, RunResultItem, RunStatusResponse } from "@scouting-platform/contracts";
+import type { RunResultItem, RunStatusResponse } from "@scouting-platform/contracts";
 import Image from "next/image";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";

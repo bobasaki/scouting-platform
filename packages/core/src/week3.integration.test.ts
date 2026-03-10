@@ -186,7 +186,7 @@ integration("week 3 core integration", () => {
           lastError: index === 11 ? "YouTube API quota exceeded" : null,
           createdAt,
           updatedAt: createdAt,
-          startedAt: status === RunRequestStatus.QUEUED ? null : createdAt,
+          startedAt: createdAt,
           completedAt: status === RunRequestStatus.COMPLETED || status === RunRequestStatus.FAILED ? createdAt : null,
         },
       });
