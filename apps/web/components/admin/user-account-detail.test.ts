@@ -325,4 +325,30 @@ describe("user account detail", () => {
     expect(setters.setYoutubeKeyAssigned).not.toHaveBeenCalled();
     expect(setters.setIsUpdatingKey).toHaveBeenLastCalledWith(false);
   });
+
+  it("suppresses hydration warnings on the YouTube key form, input, and submit button", () => {
+    mockComponentState({
+      youtubeKeyAssigned: false,
+    });
+
+    const tree = UserAccountDetail({
+      user: {
+        ...user,
+        youtubeKeyAssigned: false,
+      },
+    });
+    const form = findElementByType(tree, "form") as ReactElement<{
+      suppressHydrationWarning?: boolean;
+    }> | null;
+    const input = findElementByType(tree, "input") as ReactElement<{
+      suppressHydrationWarning?: boolean;
+    }> | null;
+    const button = findElementByType(tree, "button") as ReactElement<{
+      suppressHydrationWarning?: boolean;
+    }> | null;
+
+    expect(form?.props.suppressHydrationWarning).toBe(true);
+    expect(input?.props.suppressHydrationWarning).toBe(true);
+    expect(button?.props.suppressHydrationWarning).toBe(true);
+  });
 });

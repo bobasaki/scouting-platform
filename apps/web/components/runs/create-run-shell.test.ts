@@ -1,4 +1,4 @@
-import { createElement, type ReactNode } from "react";
+import { createElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -24,6 +24,31 @@ import {
   getCreateRunErrorMessage,
   normalizeRunDraft,
 } from "./create-run-shell";
+
+function findElementByType(node: ReactNode, type: string): ReactElement | null {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const match = findElementByType(child, type);
+      if (match) {
+        return match;
+      }
+    }
+
+    return null;
+  }
+
+  if (!isValidElement(node)) {
+    return null;
+  }
+
+  const element = node as ReactElement<{ children?: ReactNode }>;
+
+  if (element.type === type) {
+    return element;
+  }
+
+  return findElementByType(element.props.children, type);
+}
 
 function renderView(requestState: Parameters<typeof CreateRunShellView>[0]["requestState"]) {
   return renderToStaticMarkup(
@@ -86,5 +111,41 @@ describe("create run shell", () => {
 
     expect(html).toContain("Your account does not have an assigned YouTube API key yet.");
     expect(html).toContain('role="alert"');
+  });
+
+  it("suppresses hydration warnings on the run-create form controls targeted by extensions", () => {
+    const tree = createElement(CreateRunShellView, {
+      draft: {
+        name: "Gaming Run",
+        query: "gaming creators",
+      },
+      onNameChange: () => undefined,
+      onQueryChange: () => undefined,
+      onSubmit: () => undefined,
+      requestState: {
+        status: "idle",
+        message:
+          "Runs blend matching catalog channels with new YouTube discovery using the API key assigned to your account.",
+      },
+      showRunsIndexLink: true,
+    });
+    const rendered = (tree.type as typeof CreateRunShellView)(tree.props);
+    const form = findElementByType(rendered, "form") as ReactElement<{
+      suppressHydrationWarning?: boolean;
+    }> | null;
+    const input = findElementByType(rendered, "input") as ReactElement<{
+      suppressHydrationWarning?: boolean;
+    }> | null;
+    const textarea = findElementByType(rendered, "textarea") as ReactElement<{
+      suppressHydrationWarning?: boolean;
+    }> | null;
+    const button = findElementByType(rendered, "button") as ReactElement<{
+      suppressHydrationWarning?: boolean;
+    }> | null;
+
+    expect(form?.props.suppressHydrationWarning).toBe(true);
+    expect(input?.props.suppressHydrationWarning).toBe(true);
+    expect(textarea?.props.suppressHydrationWarning).toBe(true);
+    expect(button?.props.suppressHydrationWarning).toBe(true);
   });
 });

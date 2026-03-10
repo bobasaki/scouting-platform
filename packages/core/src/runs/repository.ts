@@ -383,13 +383,43 @@ export async function executeRunDiscover(input: {
       }
     })();
 
+    const existingDiscoveredChannels = await prisma.channel.findMany({
+      where: {
+        youtubeChannelId: {
+          in: discovered.map((channel) => channel.youtubeChannelId),
+        },
+      },
+      select: {
+        id: true,
+        youtubeChannelId: true,
+      },
+    });
+    const existingDiscoveredChannelIds = new Set(
+      existingDiscoveredChannels.map((channel) => channel.id),
+    );
+    const additionalCatalogChannelIds: string[] = [];
+    const addedAdditionalCatalog = new Set<string>();
     const discoveryOnlyChannelIds: string[] = [];
     const addedDiscoveryOnly = new Set<string>();
 
     for (const channel of discovered) {
       const upserted = await upsertChannelSkeleton(channel);
 
-      if (catalogCandidateIds.has(upserted.id) || addedDiscoveryOnly.has(upserted.id)) {
+      if (catalogCandidateIds.has(upserted.id)) {
+        continue;
+      }
+
+      if (existingDiscoveredChannelIds.has(upserted.id)) {
+        if (addedAdditionalCatalog.has(upserted.id)) {
+          continue;
+        }
+
+        addedAdditionalCatalog.add(upserted.id);
+        additionalCatalogChannelIds.push(upserted.id);
+        continue;
+      }
+
+      if (addedDiscoveryOnly.has(upserted.id)) {
         continue;
       }
 
@@ -400,6 +430,10 @@ export async function executeRunDiscover(input: {
     const rankedResults = [
       ...catalogCandidates.map((channelId) => ({
         channelId: channelId.id,
+        source: PrismaRunResultSource.CATALOG,
+      })),
+      ...additionalCatalogChannelIds.map((channelId) => ({
+        channelId,
         source: PrismaRunResultSource.CATALOG,
       })),
       ...discoveryOnlyChannelIds.map((channelId) => ({

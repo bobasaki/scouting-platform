@@ -395,6 +395,110 @@ integration("week 3 core integration", () => {
     expect(discoveredChannels).toHaveLength(2);
   });
 
+  it("marks previously cataloged discovered channels as catalog even when query presearch misses them", async () => {
+    const user = await prisma.user.create({
+      data: {
+        email: "manager@example.com",
+        name: "Manager",
+        role: Role.USER,
+        passwordHash: "hash",
+        isActive: true,
+      },
+    });
+
+    await core.setUserYoutubeApiKey({
+      userId: user.id,
+      rawKey: "yt-key-1",
+      actorUserId: user.id,
+    });
+
+    const existingChannel = await prisma.channel.create({
+      data: {
+        youtubeChannelId: "UC-KNOWN-1",
+        title: "Already Known Creator",
+      },
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(
+          jsonResponse({
+            items: [
+              { id: { channelId: "UC-KNOWN-1" } },
+              { id: { channelId: "UC-NEW-1" } },
+            ],
+          }),
+        )
+        .mockResolvedValueOnce(
+          jsonResponse({
+            items: [
+              {
+                id: "UC-KNOWN-1",
+                snippet: {
+                  title: "Already Known Creator",
+                  description: "Previously cataloged via an earlier run",
+                  customUrl: "already-known",
+                  thumbnails: {
+                    default: { url: "https://img.example.com/known.jpg" },
+                  },
+                },
+              },
+              {
+                id: "UC-NEW-1",
+                snippet: {
+                  title: "Fresh Discovery Creator",
+                  description: "Brand new result",
+                  customUrl: "fresh-discovery",
+                  thumbnails: {
+                    default: { url: "https://img.example.com/new.jpg" },
+                  },
+                },
+              },
+            ],
+          }),
+        ),
+    );
+
+    const created = await core.createRunRequest({
+      userId: user.id,
+      name: "Second Run",
+      query: "gaming",
+    });
+
+    await core.executeRunDiscover({
+      runRequestId: created.runId,
+      requestedByUserId: user.id,
+    });
+
+    const results = await prisma.runResult.findMany({
+      where: {
+        runRequestId: created.runId,
+      },
+      orderBy: {
+        rank: "asc",
+      },
+    });
+
+    expect(results).toHaveLength(2);
+    expect(results[0]).toMatchObject({
+      channelId: existingChannel.id,
+      source: RunResultSource.CATALOG,
+    });
+    expect(results[1]?.source).toBe(RunResultSource.DISCOVERY);
+
+    const knownChannelRows = await prisma.channel.findMany({
+      where: {
+        youtubeChannelId: "UC-KNOWN-1",
+      },
+      select: {
+        id: true,
+      },
+    });
+    expect(knownChannelRows).toEqual([{ id: existingChannel.id }]);
+  });
+
   it("persists failed status and last error when discovery validation fails", async () => {
     const user = await prisma.user.create({
       data: {

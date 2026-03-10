@@ -241,6 +241,7 @@ export function AdminUsersManager() {
                 onSubmit={(event) => {
                   void handleUpdatePasswordSubmit(event, user.id);
                 }}
+                suppressHydrationWarning
               >
                 <label className="admin-users__field">
                   <span>New password</span>
@@ -252,6 +253,7 @@ export function AdminUsersManager() {
                       handlePasswordInputChange(user.id, event.currentTarget.value);
                     }}
                     required
+                    suppressHydrationWarning
                     type="password"
                     value={passwordDraftByUserId[user.id] ?? ""}
                   />
@@ -259,6 +261,7 @@ export function AdminUsersManager() {
                 <button
                   className="admin-users__button"
                   disabled={isPasswordPending}
+                  suppressHydrationWarning
                   type="submit"
                 >
                   {isPasswordPending ? "Updating..." : "Update password"}
@@ -283,7 +286,11 @@ export function AdminUsersManager() {
         <header>
           <h2 id="admin-users-create-heading">Create user</h2>
         </header>
-        <form className="admin-users__create-form" onSubmit={(event) => void handleCreateUserSubmit(event)}>
+        <form
+          className="admin-users__create-form"
+          onSubmit={(event) => void handleCreateUserSubmit(event)}
+          suppressHydrationWarning
+        >
           <label className="admin-users__field">
             <span>Email</span>
             <input
@@ -293,6 +300,7 @@ export function AdminUsersManager() {
                 updateCreateUserFormState("email", event.currentTarget.value);
               }}
               required
+              suppressHydrationWarning
               type="email"
               value={createUserForm.email}
             />
@@ -335,6 +343,7 @@ export function AdminUsersManager() {
                 updateCreateUserFormState("password", event.currentTarget.value);
               }}
               required
+              suppressHydrationWarning
               type="password"
               value={createUserForm.password}
             />
@@ -342,6 +351,7 @@ export function AdminUsersManager() {
           <button
             className="admin-users__button"
             disabled={isCreatingUser}
+            suppressHydrationWarning
             type="submit"
           >
             {isCreatingUser ? "Creating..." : "Create user"}

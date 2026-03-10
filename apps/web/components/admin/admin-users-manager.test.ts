@@ -130,8 +130,12 @@ function mockComponentState(overrides: Partial<ComponentState>) {
 }
 
 function findForms(node: ReactNode): ReactElement[] {
+  return findElementsByType(node, "form");
+}
+
+function findElementsByType(node: ReactNode, type: string): ReactElement[] {
   if (Array.isArray(node)) {
-    return node.flatMap((child) => findForms(child));
+    return node.flatMap((child) => findElementsByType(child, type));
   }
 
   if (!isValidElement(node)) {
@@ -139,9 +143,9 @@ function findForms(node: ReactNode): ReactElement[] {
   }
 
   const element = node as ReactElement<{ children?: ReactNode }>;
-  const children = findForms(element.props.children);
+  const children = findElementsByType(element.props.children, type);
 
-  return element.type === "form" ? [element, ...children] : children;
+  return element.type === type ? [element, ...children] : children;
 }
 
 describe("admin users manager", () => {
@@ -320,5 +324,45 @@ describe("admin users manager", () => {
     expect(updateAdminUserPasswordMock).toHaveBeenCalledWith(assignedUser.id, {
       password: "ResetPassword123",
     });
+  });
+
+  it("suppresses hydration warnings on credential forms targeted by password managers", () => {
+    mockComponentState({
+      isLoadingUsers: false,
+      users: [assignedUser],
+    });
+
+    const tree = AdminUsersManager();
+    const forms = findElementsByType(tree, "form") as Array<
+      ReactElement<{ suppressHydrationWarning?: boolean }>
+    >;
+    const buttons = findElementsByType(tree, "button") as Array<
+      ReactElement<{ suppressHydrationWarning?: boolean; type?: string }>
+    >;
+    const inputs = findElementsByType(tree, "input") as Array<
+      ReactElement<{ suppressHydrationWarning?: boolean; type?: string; name?: string }>
+    >;
+
+    expect(forms[0]?.props.suppressHydrationWarning).toBe(true);
+    expect(forms[1]?.props.suppressHydrationWarning).toBe(true);
+    expect(
+      buttons.find((button) => button.props.type === "submit" && button.props.children === "Create user")
+        ?.props.suppressHydrationWarning,
+    ).toBe(true);
+    expect(
+      buttons.find(
+        (button) => button.props.type === "submit" && button.props.children === "Update password",
+      )?.props.suppressHydrationWarning,
+    ).toBe(true);
+    expect(
+      inputs.find((input) => input.props.name === "email")?.props.suppressHydrationWarning,
+    ).toBe(true);
+    expect(
+      inputs.find((input) => input.props.name === "password")?.props.suppressHydrationWarning,
+    ).toBe(true);
+    expect(
+      inputs.find((input) => input.props.name === `password-${assignedUser.id}`)?.props
+        .suppressHydrationWarning,
+    ).toBe(true);
   });
 });
