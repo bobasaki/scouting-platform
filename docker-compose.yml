@@ -19,6 +19,69 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+  bootstrap:
+    build:
+      context: .
+      dockerfile: docker/dev/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://scouting:scouting@postgres:5432/scouting_platform?schema=public
+      DATABASE_URL_TEST: postgresql://scouting:scouting@postgres:5432/scouting_platform_test?schema=public
+    volumes:
+      - .:/workspace
+      - node_modules:/workspace/node_modules
+      - pnpm_store:/pnpm/store
+    command: ["sh", "scripts/dev-bootstrap.sh"]
+  web:
+    build:
+      context: .
+      dockerfile: docker/dev/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://scouting:scouting@postgres:5432/scouting_platform?schema=public
+      DATABASE_URL_TEST: postgresql://scouting:scouting@postgres:5432/scouting_platform_test?schema=public
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/workspace
+      - node_modules:/workspace/node_modules
+      - pnpm_store:/pnpm/store
+    working_dir: /workspace
+    command: ["sh", "-lc", "node scripts/validate-local-env.mjs && pnpm --filter @scouting-platform/web dev --hostname 0.0.0.0"]
+  worker:
+    build:
+      context: .
+      dockerfile: docker/dev/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://scouting:scouting@postgres:5432/scouting_platform?schema=public
+      DATABASE_URL_TEST: postgresql://scouting:scouting@postgres:5432/scouting_platform_test?schema=public
+    volumes:
+      - .:/workspace
+      - node_modules:/workspace/node_modules
+      - pnpm_store:/pnpm/store
+    working_dir: /workspace
+    command: ["sh", "-lc", "node scripts/validate-local-env.mjs && pnpm --filter @scouting-platform/worker dev"]
 
 volumes:
   postgres_data:
+  node_modules:
+  pnpm_store:

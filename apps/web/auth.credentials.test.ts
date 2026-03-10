@@ -10,6 +10,7 @@ const integration = databaseUrl ? describe.sequential : describe.skip;
 integration("credentials auth flow", () => {
   let prisma: PrismaClient;
   let authConfig: typeof import("./auth").authConfig;
+  let seedInitialAdmin: typeof import("@scouting-platform/core").seedInitialAdmin;
 
   type AuthAdapter = {
     createSession?: (session: {
@@ -36,6 +37,7 @@ integration("credentials auth flow", () => {
 
     await prisma.$connect();
     ({ authConfig } = await import("./auth"));
+    ({ seedInitialAdmin } = await import("@scouting-platform/core"));
   });
 
   beforeEach(async () => {
@@ -143,6 +145,30 @@ integration("credentials auth flow", () => {
       new Request("http://localhost/api/auth/callback/credentials"),
     );
     expect(inactiveResult).toBeNull();
+  });
+
+  it("authorizes the seeded initial admin credentials", async () => {
+    const authorize = getCredentialsAuthorize();
+    const password = "StrongAdminPassword123";
+    const admin = await seedInitialAdmin({
+      email: "admin@example.com",
+      password,
+      name: "Initial Admin",
+    });
+
+    const result = await authorize(
+      {
+        email: "ADMIN@example.com",
+        password,
+      },
+      new Request("http://localhost/api/auth/callback/credentials"),
+    );
+
+    expect(result).toMatchObject({
+      id: admin.id,
+      email: "admin@example.com",
+      role: "admin",
+    });
   });
 
   it("creates database session via configured Auth.js adapter", async () => {
