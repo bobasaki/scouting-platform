@@ -115,13 +115,13 @@ Done when:
 
 Done when:
 
-- catalog list/detail works
-- segments save/load
-- admin manual edits persist and override automated values
-- evidence note: backend catalog queries are live via `GET /api/channels` and `GET /api/channels/:id` with integration coverage in `apps/web/app/api/week1.integration.test.ts`
-- evidence note: saved segments now work end-to-end in the catalog via `/api/segments` save/load/delete UX with coverage in `apps/web/lib/segments-api.test.ts`, `apps/web/components/catalog/catalog-table-shell.test.ts`, and `apps/web/components/catalog/catalog-table-shell.behavior.test.ts`
-- evidence note: admin manual edit UI now ships on `/catalog/[channelId]` for admins via `/api/admin/channels/:id/manual-overrides`, with coverage in `apps/web/lib/admin-channels-api.test.ts`, `apps/web/components/catalog/admin-channel-manual-edit-panel.test.ts`, `apps/web/components/catalog/admin-channel-manual-edit-panel.behavior.test.ts`, `apps/web/components/catalog/channel-detail-shell.test.ts`, and `apps/web/app/(authenticated)/catalog/[channelId]/page.test.ts`
-- evidence note: row selection now works in the catalog table via per-row and per-page checkboxes, persistent selection state across paging/filter refreshes, and a clear-selection summary with coverage in `apps/web/components/catalog/catalog-table-shell.test.ts` and `apps/web/components/catalog/catalog-table-shell.behavior.test.ts`
+- [done] catalog list/detail works
+- [done] segments save/load
+- [done] admin manual edits persist and override automated values
+- [done] evidence note: backend catalog queries are live via `GET /api/channels` and `GET /api/channels/:id` with integration coverage in `apps/web/app/api/week1.integration.test.ts`
+- [done] evidence note: saved segments now work end-to-end in the catalog via `/api/segments` save/load/delete UX with coverage in `apps/web/lib/segments-api.test.ts`, `apps/web/components/catalog/catalog-table-shell.test.ts`, and `apps/web/components/catalog/catalog-table-shell.behavior.test.ts`
+- [done] evidence note: admin manual edit UI now ships on `/catalog/[channelId]` for admins via `/api/admin/channels/:id/manual-overrides`, with coverage in `apps/web/lib/admin-channels-api.test.ts`, `apps/web/components/catalog/admin-channel-manual-edit-panel.test.ts`, `apps/web/components/catalog/admin-channel-manual-edit-panel.behavior.test.ts`, `apps/web/components/catalog/channel-detail-shell.test.ts`, and `apps/web/app/(authenticated)/catalog/[channelId]/page.test.ts`
+- [done] evidence note: row selection now works in the catalog table via per-row and per-page checkboxes, persistent selection state across paging/filter refreshes, and a clear-selection summary with coverage in `apps/web/components/catalog/catalog-table-shell.test.ts` and `apps/web/components/catalog/catalog-table-shell.behavior.test.ts`
 
 ### Week 3: Runs and discovery
 
