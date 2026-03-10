@@ -30,6 +30,10 @@ const week4LlmEnrichmentFoundationMigrationPath = path.resolve(
   currentDir,
   "../prisma/migrations/20260307100000_week4_llm_enrichment_foundation/migration.sql",
 );
+const week5CsvImportBackendMigrationPath = path.resolve(
+  currentDir,
+  "../prisma/migrations/20260310103000_week5_csv_import_backend/migration.sql",
+);
 
 describe("pg-boss migration", () => {
   it("installs the pgboss schema and version table", () => {
@@ -106,5 +110,22 @@ describe("week 4 llm enrichment foundation migration", () => {
     expect(migrationSql).toContain("CREATE TABLE IF NOT EXISTS channel_enrichments");
     expect(migrationSql).toContain("CREATE INDEX IF NOT EXISTS channel_enrichments_status_idx");
     expect(migrationSql).toContain("CREATE INDEX IF NOT EXISTS channel_youtube_contexts_fetched_at_idx");
+  });
+});
+
+describe("week 5 csv import backend migration", () => {
+  it("creates csv import enums, batches, rows, contacts, and metrics", () => {
+    const migrationSql = readFileSync(week5CsvImportBackendMigrationPath, "utf-8");
+
+    expect(migrationSql).toContain('CREATE TYPE "csv_import_batch_status" AS ENUM');
+    expect(migrationSql).toContain('CREATE TYPE "csv_import_row_status" AS ENUM');
+    expect(migrationSql).toContain('CREATE TABLE "csv_import_batches"');
+    expect(migrationSql).toContain('CREATE TABLE "csv_import_rows"');
+    expect(migrationSql).toContain('CREATE TABLE "channel_contacts"');
+    expect(migrationSql).toContain('CREATE TABLE "channel_metrics"');
+    expect(migrationSql).toContain('CREATE UNIQUE INDEX "csv_import_rows_batch_id_row_number_key"');
+    expect(migrationSql).toContain(
+      'ALTER TABLE "csv_import_batches" ADD CONSTRAINT "csv_import_batches_requested_by_user_id_fkey"',
+    );
   });
 });

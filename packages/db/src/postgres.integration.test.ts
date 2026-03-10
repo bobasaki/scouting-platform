@@ -87,5 +87,25 @@ if (!databaseUrl) {
       expect(insightRows[0]?.relation_name).toBe("channel_insights");
       expect(payloadRows[0]?.relation_name).toBe("channel_provider_payloads");
     });
+
+    it("sees week 5 csv import tables after migrations are applied", async () => {
+      const batchRows = await prisma.$queryRaw<Array<{ relation_name: string | null }>>`
+        SELECT to_regclass('csv_import_batches')::text AS relation_name
+      `;
+      const rowRows = await prisma.$queryRaw<Array<{ relation_name: string | null }>>`
+        SELECT to_regclass('csv_import_rows')::text AS relation_name
+      `;
+      const contactRows = await prisma.$queryRaw<Array<{ relation_name: string | null }>>`
+        SELECT to_regclass('channel_contacts')::text AS relation_name
+      `;
+      const metricRows = await prisma.$queryRaw<Array<{ relation_name: string | null }>>`
+        SELECT to_regclass('channel_metrics')::text AS relation_name
+      `;
+
+      expect(batchRows[0]?.relation_name).toBe("csv_import_batches");
+      expect(rowRows[0]?.relation_name).toBe("csv_import_rows");
+      expect(contactRows[0]?.relation_name).toBe("channel_contacts");
+      expect(metricRows[0]?.relation_name).toBe("channel_metrics");
+    });
   });
 }
