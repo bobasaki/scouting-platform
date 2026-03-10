@@ -9,6 +9,7 @@
     "@scouting-platform/db": "workspace:*",
     "@scouting-platform/integrations": "workspace:*",
     "argon2": "^0.43.0",
+    "csv-parse": "^6.1.0",
     "pg-boss": "^12.14.0"
   },
   "scripts": {

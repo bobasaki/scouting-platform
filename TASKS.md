@@ -182,8 +182,8 @@ Done when:
 - [done] advanced report request model
 - [done] approval workflow backend
 - [done] worker execution for approved requests
-- admin CSV import backend
-- import validation and row error reporting
+- [done] admin CSV import backend
+- [done] import validation and row error reporting
 
 #### Marin:
 
@@ -198,8 +198,8 @@ Done when:
 - managers can request advanced reports
 - admins can approve/reject
 - admins can import CSV and see row-level failures
-- phased delivery note: Week 5 HypeAuditor backend slice is delivered end-to-end via `POST /api/channels/:id/advanced-report-requests`, `GET /api/admin/advanced-report-requests`, `GET /api/admin/advanced-report-requests/:id`, `POST /api/admin/advanced-report-requests/:id/approve`, `POST /api/admin/advanced-report-requests/:id/reject`, queue/worker execution for approved requests, persisted `pending_approval/approved/rejected/queued/running/completed/failed` lifecycle with visible `last_error`, normalized audience/commercial insights on `GET /api/channels/:id`, and admin-only raw payload inspection; CSV import backend items remain open.
-- evidence note: backend coverage lives in `packages/core/src/week5.integration.test.ts`, `apps/web/app/api/week5.integration.test.ts`, `apps/worker/src/channels-enrich-hypeauditor-worker.test.ts`, `packages/integrations/src/hypeauditor/report.test.ts`, and `packages/core/src/approvals/status.test.ts`.
+- phased delivery note: Week 5 backend is delivered end-to-end via `POST /api/channels/:id/advanced-report-requests`, `GET /api/admin/advanced-report-requests`, `GET /api/admin/advanced-report-requests/:id`, `POST /api/admin/advanced-report-requests/:id/approve`, `POST /api/admin/advanced-report-requests/:id/reject`, `POST /api/admin/csv-import-batches`, `GET /api/admin/csv-import-batches`, `GET /api/admin/csv-import-batches/:id`, queue/worker execution for approved HypeAuditor requests and CSV imports, persisted `pending_approval/approved/rejected/queued/running/completed/failed` and `queued/running/completed/failed` lifecycles with visible `last_error`, normalized audience/commercial insights on `GET /api/channels/:id`, admin-only raw payload inspection, strict-template CSV validation, and row-level CSV import result persistence.
+- evidence note: backend coverage lives in `packages/core/src/week5.integration.test.ts`, `packages/core/src/week5-csv-import.integration.test.ts`, `apps/web/app/api/week5.integration.test.ts`, `apps/web/app/api/week5-csv-import.integration.test.ts`, `apps/worker/src/channels-enrich-hypeauditor-worker.test.ts`, `apps/worker/src/imports-csv-process-worker.test.ts`, `packages/integrations/src/hypeauditor/report.test.ts`, `packages/core/src/approvals/status.test.ts`, and `packages/contracts/src/csv-imports.test.ts`.
 
 ### Week 6: Export and HubSpot
 
