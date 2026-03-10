@@ -137,7 +137,7 @@ Done when:
 #### Marin:
 
 - [done] create run UI
-- recent runs UI
+- [done] recent runs UI
 - [done] run detail UI
 - [done] progress/status polling
 - [done] clear error states for missing YouTube key or quota failure
@@ -147,8 +147,8 @@ Done when:
 - [done] manager can create a run
 - [done] run uses both catalog and new discovery
 - [done] results are saved and viewable
-- phased delivery note: Week 3 backend is delivered end-to-end (`POST /api/runs`, `GET /api/runs/:id`, queue/worker lifecycle, per-user-key YouTube discovery, deduped catalog+discovery union ranking, and snapshot persistence); Marin still has `recent runs UI` open, while create/detail/status/error Week 3 UI is now shipped.
-- [done] evidence note: run creation and detail UI now ship on `/runs`, `/runs/new`, and `/runs/[runId]`, including create submission, automatic status polling for `queued/running` runs, visible failure copy for missing YouTube key and quota exhaustion, and focused coverage in `apps/web/lib/runs-api.test.ts`, `apps/web/components/runs/create-run-shell.test.ts`, `apps/web/components/runs/create-run-shell.behavior.test.ts`, `apps/web/components/runs/run-detail-shell.test.ts`, `apps/web/components/runs/run-detail-shell.behavior.test.ts`, `apps/web/app/(authenticated)/runs/page.test.ts`, `apps/web/app/(authenticated)/runs/new/page.test.ts`, and `apps/web/app/(authenticated)/runs/[runId]/page.test.ts`.
+- phased delivery note: Week 3 backend is delivered end-to-end (`GET /api/runs`, `POST /api/runs`, `GET /api/runs/:id`, queue/worker lifecycle, per-user-key YouTube discovery, deduped catalog+discovery union ranking, and snapshot persistence); create/detail/status/error/recent-history Week 3 UI is now shipped.
+- [done] evidence note: runs UI now ships on `/runs`, `/runs/new`, and `/runs/[runId]`, including create submission, a recent-runs history panel backed by `GET /api/runs`, automatic status polling for `queued/running` runs, visible failure copy for missing YouTube key and quota exhaustion, and focused coverage in `apps/web/lib/runs-api.test.ts`, `apps/web/components/runs/create-run-shell.test.ts`, `apps/web/components/runs/create-run-shell.behavior.test.ts`, `apps/web/components/runs/recent-runs-shell.test.ts`, `apps/web/components/runs/recent-runs-shell.behavior.test.ts`, `apps/web/components/runs/run-detail-shell.test.ts`, `apps/web/components/runs/run-detail-shell.behavior.test.ts`, `apps/web/app/(authenticated)/runs/page.test.ts`, `apps/web/app/(authenticated)/runs/new/page.test.ts`, `apps/web/app/(authenticated)/runs/[runId]/page.test.ts`, `packages/core/src/week3.integration.test.ts`, and `apps/web/app/api/week3.integration.test.ts`.
 - hardening note: Week 3 backend reliability hardening delivered (deterministic test DB migration/verification scripts, serialized CI test orchestration with DB-heavy Vitest file parallelism disabled, local troubleshooting runbook updates, and CI exclusion of `apps/web/auth.credentials.test.ts` due known NextAuth `next/server` resolver mismatch in Vitest).
 
 ### Week 4: LLM enrichment

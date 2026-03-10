@@ -81,6 +81,9 @@ integration("week 3 API integration", () => {
   }
 
   it("returns 401 for unauthenticated run routes", async () => {
+    const listResponse = await runsRoute.GET();
+    expect(listResponse.status).toBe(401);
+
     const createResponse = await runsRoute.POST(
       new Request("http://localhost/api/runs", {
         method: "POST",
@@ -144,6 +147,68 @@ integration("week 3 API integration", () => {
       },
     });
     expect(run).not.toBeNull();
+  });
+
+  it("returns the signed-in user's latest recent runs", async () => {
+    const owner = await createUser("owner@example.com");
+    const otherUser = await createUser("other@example.com");
+    const channel = await prisma.channel.create({
+      data: {
+        youtubeChannelId: "UC-RUN-LIST-1",
+        title: "Run List Channel 1",
+      },
+    });
+    const completedAt = new Date("2026-03-10T10:05:00.000Z");
+    const ownerRun = await prisma.runRequest.create({
+      data: {
+        requestedByUserId: owner.id,
+        name: "Owner Run",
+        query: "owner query",
+        status: RunRequestStatus.COMPLETED,
+        createdAt: new Date("2026-03-10T10:00:00.000Z"),
+        updatedAt: completedAt,
+        startedAt: new Date("2026-03-10T10:01:00.000Z"),
+        completedAt,
+      },
+    });
+    await prisma.runResult.create({
+      data: {
+        runRequestId: ownerRun.id,
+        channelId: channel.id,
+        rank: 1,
+        source: RunResultSource.CATALOG,
+      },
+    });
+    await prisma.runRequest.create({
+      data: {
+        requestedByUserId: otherUser.id,
+        name: "Other Run",
+        query: "other query",
+        status: RunRequestStatus.FAILED,
+        lastError: "YouTube API quota exceeded",
+      },
+    });
+
+    currentSessionUser = { id: owner.id, role: "user" };
+
+    const response = await runsRoute.GET();
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.items).toEqual([
+      {
+        id: ownerRun.id,
+        name: "Owner Run",
+        query: "owner query",
+        status: "completed",
+        lastError: null,
+        createdAt: "2026-03-10T10:00:00.000Z",
+        updatedAt: "2026-03-10T10:05:00.000Z",
+        startedAt: "2026-03-10T10:01:00.000Z",
+        completedAt: "2026-03-10T10:05:00.000Z",
+        resultCount: 1,
+      },
+    ]);
   });
 
   it("returns 404 for missing run and 403 for non-owner access", async () => {

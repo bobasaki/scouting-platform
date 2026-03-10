@@ -1,17 +1,23 @@
 import {
   createRunRequestSchema,
   createRunResponseSchema,
+  listRecentRunsResponseSchema,
   runStatusResponseSchema,
   type CreateRunRequest,
   type CreateRunResponse,
+  type ListRecentRunsResponse,
   type RunStatusResponse,
 } from "@scouting-platform/contracts";
 
 const GENERIC_CREATE_RUN_REQUEST_ERROR_MESSAGE = "Unable to create run. Please try again.";
+const GENERIC_RECENT_RUNS_REQUEST_ERROR_MESSAGE =
+  "Unable to load recent runs. Please try again.";
 const GENERIC_RUN_STATUS_REQUEST_ERROR_MESSAGE =
   "Unable to load run details. Please try again.";
 const INVALID_CREATE_RUN_RESPONSE_ERROR_MESSAGE =
   "Received an invalid run creation response from the server.";
+const INVALID_RECENT_RUNS_RESPONSE_ERROR_MESSAGE =
+  "Received an invalid recent runs response from the server.";
 const INVALID_RUN_STATUS_RESPONSE_ERROR_MESSAGE =
   "Received an invalid run status response from the server.";
 
@@ -117,6 +123,37 @@ export async function createRun(input: CreateRunRequest): Promise<CreateRunRespo
     return parsed.data;
   } catch (error) {
     throw normalizeRequestError(error, GENERIC_CREATE_RUN_REQUEST_ERROR_MESSAGE);
+  }
+}
+
+export async function fetchRecentRuns(signal?: AbortSignal): Promise<ListRecentRunsResponse> {
+  try {
+    const response = await fetch("/api/runs", {
+      method: "GET",
+      cache: "no-store",
+      signal: signal ?? null,
+    });
+    const payload = await readJsonPayload(response);
+
+    if (!response.ok) {
+      throw new ApiRequestError(
+        getApiErrorMessage(response, payload, {
+          authorizationErrorMessage: "You are not authorized to view recent runs.",
+          fallbackMessage: GENERIC_RECENT_RUNS_REQUEST_ERROR_MESSAGE,
+        }),
+        response.status,
+      );
+    }
+
+    const parsed = listRecentRunsResponseSchema.safeParse(payload);
+
+    if (!parsed.success) {
+      throw new Error(INVALID_RECENT_RUNS_RESPONSE_ERROR_MESSAGE);
+    }
+
+    return parsed.data;
+  } catch (error) {
+    throw normalizeRequestError(error, GENERIC_RECENT_RUNS_REQUEST_ERROR_MESSAGE);
   }
 }
 

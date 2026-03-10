@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createRunRequestSchema,
   createAdminUserRequestSchema,
+  listRecentRunsResponseSchema,
   listChannelsQuerySchema,
   runStatusResponseSchema,
   segmentFiltersSchema,
@@ -102,5 +103,26 @@ describe("week 1 and week 2 contracts", () => {
     });
 
     expect(payload.status).toBe("queued");
+  });
+
+  it("parses recent runs response shape", () => {
+    const payload = listRecentRunsResponseSchema.parse({
+      items: [
+        {
+          id: "6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b",
+          name: "Campaign run",
+          query: "gaming creators",
+          status: "completed",
+          lastError: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          startedAt: new Date().toISOString(),
+          completedAt: new Date().toISOString(),
+          resultCount: 3,
+        },
+      ],
+    });
+
+    expect(payload.items[0]?.resultCount).toBe(3);
   });
 });

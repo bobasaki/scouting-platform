@@ -4,7 +4,12 @@ import {
   RunRequestStatus as PrismaRunRequestStatus,
   RunResultSource as PrismaRunResultSource,
 } from "@prisma/client";
-import type { CreateRunResponse, RunRequestStatus, RunStatusResponse } from "@scouting-platform/contracts";
+import type {
+  CreateRunResponse,
+  ListRecentRunsResponse,
+  RunRequestStatus,
+  RunStatusResponse,
+} from "@scouting-platform/contracts";
 import { prisma } from "@scouting-platform/db";
 import {
   discoverYoutubeChannels,
@@ -153,6 +158,58 @@ export async function createRunRequest(input: {
   return {
     runId: runRequest.id,
     status: toRunRequestStatus(runRequest.status),
+  };
+}
+
+export async function listRecentRuns(input: {
+  userId: string;
+  limit?: number;
+}): Promise<ListRecentRunsResponse> {
+  const limit = Math.max(1, Math.floor(input.limit ?? 10));
+  const runRequests = await prisma.runRequest.findMany({
+    where: {
+      requestedByUserId: input.userId,
+    },
+    orderBy: [
+      {
+        createdAt: "desc",
+      },
+      {
+        id: "desc",
+      },
+    ],
+    take: limit,
+    select: {
+      id: true,
+      name: true,
+      query: true,
+      status: true,
+      lastError: true,
+      createdAt: true,
+      updatedAt: true,
+      startedAt: true,
+      completedAt: true,
+      _count: {
+        select: {
+          results: true,
+        },
+      },
+    },
+  });
+
+  return {
+    items: runRequests.map((runRequest) => ({
+      id: runRequest.id,
+      name: runRequest.name,
+      query: runRequest.query,
+      status: toRunRequestStatus(runRequest.status),
+      lastError: runRequest.lastError,
+      createdAt: runRequest.createdAt.toISOString(),
+      updatedAt: runRequest.updatedAt.toISOString(),
+      startedAt: runRequest.startedAt?.toISOString() ?? null,
+      completedAt: runRequest.completedAt?.toISOString() ?? null,
+      resultCount: runRequest._count.results,
+    })),
   };
 }
 

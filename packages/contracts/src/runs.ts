@@ -21,6 +21,23 @@ export const createRunResponseSchema = z.object({
   status: runRequestStatusSchema,
 });
 
+export const recentRunItemSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  query: z.string(),
+  status: runRequestStatusSchema,
+  lastError: z.string().nullable(),
+  createdAt: isoDatetimeSchema,
+  updatedAt: isoDatetimeSchema,
+  startedAt: isoDatetimeSchema.nullable(),
+  completedAt: isoDatetimeSchema.nullable(),
+  resultCount: z.number().int().nonnegative(),
+});
+
+export const listRecentRunsResponseSchema = z.object({
+  items: z.array(recentRunItemSchema),
+});
+
 export const runResultChannelSchema = z.object({
   id: z.uuid(),
   youtubeChannelId: z.string(),
@@ -56,6 +73,8 @@ export type RunRequestStatus = z.infer<typeof runRequestStatusSchema>;
 export type RunResultSource = z.infer<typeof runResultSourceSchema>;
 export type CreateRunRequest = z.infer<typeof createRunRequestSchema>;
 export type CreateRunResponse = z.infer<typeof createRunResponseSchema>;
+export type RecentRunItem = z.infer<typeof recentRunItemSchema>;
+export type ListRecentRunsResponse = z.infer<typeof listRecentRunsResponseSchema>;
 export type RunResultChannel = z.infer<typeof runResultChannelSchema>;
 export type RunResultItem = z.infer<typeof runResultItemSchema>;
 export type RunStatusResponse = z.infer<typeof runStatusResponseSchema>;
