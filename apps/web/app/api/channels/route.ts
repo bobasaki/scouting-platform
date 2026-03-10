@@ -23,6 +23,8 @@ export async function GET(request: Request): Promise<NextResponse> {
       page: url.searchParams.get("page") ?? undefined,
       pageSize: url.searchParams.get("pageSize") ?? undefined,
       query: url.searchParams.get("query") ?? undefined,
+      enrichmentStatus: url.searchParams.getAll("enrichmentStatus"),
+      advancedReportStatus: url.searchParams.getAll("advancedReportStatus"),
     });
 
     if (!parsedQuery.success) {
@@ -39,6 +41,12 @@ export async function GET(request: Request): Promise<NextResponse> {
       page: parsedQuery.data.page,
       pageSize: parsedQuery.data.pageSize,
       ...(parsedQuery.data.query ? { query: parsedQuery.data.query } : {}),
+      ...(parsedQuery.data.enrichmentStatus
+        ? { enrichmentStatus: parsedQuery.data.enrichmentStatus }
+        : {}),
+      ...(parsedQuery.data.advancedReportStatus
+        ? { advancedReportStatus: parsedQuery.data.advancedReportStatus }
+        : {}),
     };
     const result = await listChannels(listInput);
     const payload = listChannelsResponseSchema.parse(result);

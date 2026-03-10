@@ -107,7 +107,7 @@ Done when:
 
 #### Marin:
 
-- catalog filters
+- [done] catalog filters
 - channel detail page
 - saved segments UX
 - admin manual edit UI

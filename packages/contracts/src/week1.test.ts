@@ -26,6 +26,26 @@ describe("week 1 and week 2 contracts", () => {
     expect(payload.pageSize).toBe(20);
   });
 
+  it("accepts channel filters with repeated status arrays", () => {
+    const payload = listChannelsQuerySchema.parse({
+      query: "space",
+      enrichmentStatus: ["completed", "failed"],
+      advancedReportStatus: ["pending_approval", "stale"],
+    });
+
+    expect(payload.query).toBe("space");
+    expect(payload.enrichmentStatus).toEqual(["completed", "failed"]);
+    expect(payload.advancedReportStatus).toEqual(["pending_approval", "stale"]);
+  });
+
+  it("rejects invalid channel filter statuses", () => {
+    const parsed = listChannelsQuerySchema.safeParse({
+      enrichmentStatus: ["not-a-status"],
+    });
+
+    expect(parsed.success).toBe(false);
+  });
+
   it("accepts object-based segment filters", () => {
     const payload = segmentFiltersSchema.parse({
       minSubscribers: 10000,

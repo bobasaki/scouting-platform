@@ -68,6 +68,32 @@ describe("channels api helpers", () => {
     );
   });
 
+  it("serializes repeated status filter params", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      jsonResponse({
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 20,
+      }),
+    );
+
+    await fetchChannels({
+      page: 1,
+      pageSize: 20,
+      query: "space",
+      enrichmentStatus: ["completed", "failed"],
+      advancedReportStatus: ["pending_approval", "stale"],
+    });
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "/api/channels?page=1&pageSize=20&query=space&enrichmentStatus=completed&enrichmentStatus=failed&advancedReportStatus=pending_approval&advancedReportStatus=stale",
+      expect.objectContaining({
+        method: "GET",
+      }),
+    );
+  });
+
   it("passes an abort signal through to fetch", async () => {
     const abortController = new AbortController();
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
