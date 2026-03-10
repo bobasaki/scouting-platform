@@ -19,7 +19,7 @@ describe("password hashing", () => {
   });
 
   it("resolves argon2 independently of the current working directory", async () => {
-    process.chdir(path.resolve(originalCwd, "..", "..", "apps", "web"));
+    process.chdir(path.resolve(originalCwd, "apps", "web"));
 
     const hash = await hashPassword("DirectoryIndependentPass123");
 
