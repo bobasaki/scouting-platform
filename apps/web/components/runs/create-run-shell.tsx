@@ -113,7 +113,11 @@ export function CreateRunShellView({
         </dl>
       </section>
 
-      <form className="run-create__panel run-create__form" onSubmit={onSubmit}>
+      <form
+        className="run-create__panel run-create__form"
+        onSubmit={onSubmit}
+        suppressHydrationWarning
+      >
         <label className="run-create__field">
           <span>Run name</span>
           <input
@@ -124,6 +128,7 @@ export function CreateRunShellView({
             onChange={(event) => onNameChange(event.currentTarget.value)}
             placeholder="Spring gaming outreach"
             required
+            suppressHydrationWarning
             value={draft.name}
           />
         </label>
@@ -138,6 +143,7 @@ export function CreateRunShellView({
             placeholder="gaming creators with strategy and RPG coverage"
             required
             rows={5}
+            suppressHydrationWarning
             value={draft.query}
           />
         </label>
@@ -150,7 +156,12 @@ export function CreateRunShellView({
         </p>
 
         <div className="run-create__actions">
-          <button className="run-create__submit" disabled={isBusy} type="submit">
+          <button
+            className="run-create__submit"
+            disabled={isBusy}
+            suppressHydrationWarning
+            type="submit"
+          >
             {isBusy ? "Creating run..." : "Create run"}
           </button>
 

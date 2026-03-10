@@ -130,7 +130,11 @@ export function UserAccountDetail({ user }: UserAccountDetailProps) {
             </p>
           </div>
 
-          <form className="user-account-detail__form" onSubmit={handleYoutubeKeySubmit}>
+          <form
+            className="user-account-detail__form"
+            onSubmit={handleYoutubeKeySubmit}
+            suppressHydrationWarning
+          >
             <label className="admin-users__field">
               <span>{youtubeKeyAssigned ? "Replace YouTube Data API key" : "YouTube Data API key"}</span>
               <input
@@ -140,6 +144,7 @@ export function UserAccountDetail({ user }: UserAccountDetailProps) {
                   setYoutubeApiKey(event.currentTarget.value);
                 }}
                 required
+                suppressHydrationWarning
                 type="password"
                 value={youtubeApiKey}
               />
@@ -149,7 +154,12 @@ export function UserAccountDetail({ user }: UserAccountDetailProps) {
               The stored key is never shown here. Saving a new value replaces the existing credential.
             </p>
 
-            <button className="admin-users__button" disabled={isUpdatingKey} type="submit">
+            <button
+              className="admin-users__button"
+              disabled={isUpdatingKey}
+              suppressHydrationWarning
+              type="submit"
+            >
               {isUpdatingKey
                 ? youtubeKeyAssigned
                   ? "Updating..."
