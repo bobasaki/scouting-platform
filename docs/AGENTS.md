@@ -157,6 +157,12 @@ Allowed:
 - Adding a background job without persisted status + last error.
 - Adding privileged mutation routes without audit logging + server-side auth.  [oai_citation:24‡ADR-002-data-ownership-and-precedence.md](sediment://file_0000000015cc71fd86c57d2baf4ba6e9)  [oai_citation:25‡ARCHITECTURE.md](sediment://file_00000000c9d071fd875320dd2e50d45a)
 
+## 6.1 Migration Style Policy
+
+- Prefer deterministic Prisma-generated migration DDL.
+- Avoid `IF NOT EXISTS`, conditional enum creation, and other defensive SQL guards in committed migrations unless there is a documented environment/bootstrap reason.
+- If a migration intentionally uses non-deterministic or defensive DDL, explain why in the PR description and add a short comment at the top of the migration file.
+
 ---
 
 ## 7) Validation & Contracts
