@@ -166,7 +166,7 @@ Done when:
 
 - [done] enrichment status UI
 - [done] row-level enrichment visibility
-- batch enrich actions
+- [done] batch enrich actions
 - better job feedback in runs and channel detail
 
 Done when:
@@ -178,6 +178,7 @@ Done when:
 - evidence note: backend coverage lives in `packages/core/src/week4.integration.test.ts`, `apps/web/app/api/week4.integration.test.ts`, and `apps/worker/src/channels-enrich-llm-worker.test.ts`.
 - [done] evidence note: channel detail enrichment UI now ships on `/catalog/[channelId]` with request/retry/refresh actions backed by `POST /api/channels/:id/enrich`, automatic polling for `queued/running` states, preserved last successful enrichment content during refresh, and focused coverage in `apps/web/lib/channels-api.test.ts`, `apps/web/components/catalog/channel-detail-shell.test.ts`, and `apps/web/components/catalog/channel-detail-shell.behavior.test.ts`.
 - [done] evidence note: catalog row-level enrichment visibility now ships on `/catalog` with stacked per-row status context, timestamp/failure copy for completed/stale/failed rows, automatic polling while visible rows remain `queued` or `running`, and focused coverage in `apps/web/components/catalog/catalog-table-shell.test.ts` and `apps/web/components/catalog/catalog-table-shell.behavior.test.ts`.
+- [done] evidence note: catalog batch enrichment now ships on `/catalog` with selection-aware `Enrich selected` actions, aggregated queued/running/error feedback for the current bulk request, immediate visible-row status updates before the next poll, and focused coverage in `apps/web/lib/channels-api.test.ts`, `apps/web/components/catalog/catalog-table-shell.test.ts`, and `apps/web/components/catalog/catalog-table-shell.behavior.test.ts`.
 
 ### Week 5: HypeAuditor and admin workflows
 

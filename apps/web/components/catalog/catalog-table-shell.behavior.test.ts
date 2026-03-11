@@ -7,6 +7,7 @@ const {
   deleteSavedSegmentMock,
   fetchChannelsMock,
   fetchSavedSegmentsMock,
+  requestChannelEnrichmentBatchMock,
   replaceMock,
   useEffectMock,
   usePathnameMock,
@@ -18,6 +19,7 @@ const {
   deleteSavedSegmentMock: vi.fn(),
   fetchChannelsMock: vi.fn(),
   fetchSavedSegmentsMock: vi.fn(),
+  requestChannelEnrichmentBatchMock: vi.fn(),
   replaceMock: vi.fn(),
   useEffectMock: vi.fn(),
   usePathnameMock: vi.fn(),
@@ -44,6 +46,7 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("../../lib/channels-api", () => ({
   fetchChannels: fetchChannelsMock,
+  requestChannelEnrichmentBatch: requestChannelEnrichmentBatchMock,
 }));
 
 vi.mock("../../lib/segments-api", () => ({
@@ -65,6 +68,7 @@ type CatalogShellElement = ReactElement<{
   onLoadSegment: (segment: SegmentResponse) => void;
   onNextPage: () => void;
   onPreviousPage: () => void;
+  onRequestSelectedEnrichment: () => Promise<void> | void;
   onResetFilters: () => void;
   onRetry: () => void;
   onRetrySavedSegments: () => void;
@@ -101,6 +105,11 @@ type SavedSegmentsRequestState =
 
 type SavedSegmentOperationStatus = {
   type: "idle" | "success" | "error";
+  message: string;
+};
+
+type BatchEnrichmentActionState = {
+  type: "idle" | "submitting" | "success" | "error";
   message: string;
 };
 
@@ -215,6 +224,7 @@ function renderShell(options?: {
   savedSegmentOperationStatus?: SavedSegmentOperationStatus;
   pendingSegmentAction?: string | null;
   selectedChannelIds?: string[];
+  batchEnrichmentActionState?: BatchEnrichmentActionState;
 }) {
   const setDraftFilters = vi.fn();
   const setRequestState = vi.fn();
@@ -226,6 +236,7 @@ function renderShell(options?: {
   const setSavedSegmentOperationStatus = vi.fn();
   const setPendingSegmentAction = vi.fn();
   const setSelectedChannelIds = vi.fn();
+  const setBatchEnrichmentActionState = vi.fn();
   const cleanups: Array<() => void> = [];
 
   useStateMock.mockReset();
@@ -277,7 +288,14 @@ function renderShell(options?: {
       setSavedSegmentOperationStatus,
     ])
     .mockReturnValueOnce([options?.pendingSegmentAction ?? null, setPendingSegmentAction])
-    .mockReturnValueOnce([options?.selectedChannelIds ?? [], setSelectedChannelIds]);
+    .mockReturnValueOnce([options?.selectedChannelIds ?? [], setSelectedChannelIds])
+    .mockReturnValueOnce([
+      options?.batchEnrichmentActionState ?? {
+        type: "idle",
+        message: "",
+      },
+      setBatchEnrichmentActionState,
+    ]);
 
   useEffectMock.mockImplementation((effect: () => void | (() => void)) => {
     const maybeCleanup = effect();
@@ -296,6 +314,7 @@ function renderShell(options?: {
     setPendingSegmentAction,
     setReloadToken,
     setRequestState,
+    setBatchEnrichmentActionState,
     setSavedSegmentName,
     setSavedSegmentOperationStatus,
     setSelectedChannelIds,
@@ -315,6 +334,7 @@ describe("catalog table shell behavior", () => {
       pageSize: 20,
     } satisfies ListChannelsResponse);
     fetchSavedSegmentsMock.mockResolvedValue([createSavedSegment()]);
+    requestChannelEnrichmentBatchMock.mockResolvedValue([]);
   });
 
   it("loads the current URL-backed page and saved segments on mount", async () => {
@@ -811,5 +831,169 @@ describe("catalog table shell behavior", () => {
     element.props.onClearSelection();
 
     expect(setSelectedChannelIds).toHaveBeenCalledWith([]);
+  });
+
+  it("requests enrichment for all selected channels and refreshes visible rows", async () => {
+    const selectedVisibleChannel = createChannel(
+      "00000000-0000-0000-0000-000000000401",
+      "Orbit Lab",
+    );
+    const selectedHiddenChannelId = "00000000-0000-0000-0000-000000000402";
+    requestChannelEnrichmentBatchMock.mockResolvedValueOnce([
+      {
+        channelId: selectedVisibleChannel.id,
+        ok: true,
+        enrichment: {
+          status: "queued",
+          updatedAt: "2026-03-11T09:00:00.000Z",
+          completedAt: null,
+          lastError: null,
+          summary: null,
+          topics: null,
+          brandFitNotes: null,
+          confidence: null,
+        },
+      },
+      {
+        channelId: selectedHiddenChannelId,
+        ok: true,
+        enrichment: {
+          status: "running",
+          updatedAt: "2026-03-11T09:01:00.000Z",
+          completedAt: null,
+          lastError: null,
+          summary: null,
+          topics: null,
+          brandFitNotes: null,
+          confidence: null,
+        },
+      },
+    ]);
+
+    const { element, setBatchEnrichmentActionState, setReloadToken, setRequestState } = renderShell({
+      requestState: createReadyState({
+        items: [selectedVisibleChannel],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+      }),
+      selectedChannelIds: [selectedVisibleChannel.id, selectedHiddenChannelId],
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    setBatchEnrichmentActionState.mockClear();
+    setReloadToken.mockClear();
+    setRequestState.mockClear();
+
+    await element.props.onRequestSelectedEnrichment();
+
+    expect(requestChannelEnrichmentBatchMock).toHaveBeenCalledWith([
+      selectedVisibleChannel.id,
+      selectedHiddenChannelId,
+    ]);
+    expect(setBatchEnrichmentActionState).toHaveBeenNthCalledWith(1, {
+      type: "submitting",
+      message: "Requesting enrichment for 2 channels.",
+    });
+    expect(setBatchEnrichmentActionState).toHaveBeenNthCalledWith(2, {
+      type: "success",
+      message:
+        "Queued 1 channel for enrichment. 1 channel already running. The table refreshes automatically while jobs run.",
+    });
+
+    const updateRequestState = setRequestState.mock.calls[0]?.[0] as
+      | ((current: ReturnType<typeof createReadyState>) => ReturnType<typeof createReadyState>)
+      | undefined;
+    const updatedRequestState = updateRequestState?.(
+      createReadyState({
+        items: [selectedVisibleChannel],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+      }),
+    );
+    const updateReloadToken = setReloadToken.mock.calls[0]?.[0] as
+      | ((current: number) => number)
+      | undefined;
+
+    expect(updatedRequestState).toEqual(
+      createReadyState({
+        items: [
+          {
+            ...selectedVisibleChannel,
+            enrichment: {
+              status: "queued",
+              updatedAt: "2026-03-11T09:00:00.000Z",
+              completedAt: null,
+              lastError: null,
+            },
+          },
+        ],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+      }),
+    );
+    expect(updateReloadToken?.(0)).toBe(1);
+  });
+
+  it("surfaces partial batch enrichment failures without losing successful requests", async () => {
+    const selectedChannel = createChannel(
+      "00000000-0000-0000-0000-000000000501",
+      "Launch Pad",
+    );
+    requestChannelEnrichmentBatchMock.mockResolvedValueOnce([
+      {
+        channelId: selectedChannel.id,
+        ok: true,
+        enrichment: {
+          status: "queued",
+          updatedAt: null,
+          completedAt: null,
+          lastError: null,
+          summary: null,
+          topics: null,
+          brandFitNotes: null,
+          confidence: null,
+        },
+      },
+      {
+        channelId: "00000000-0000-0000-0000-000000000502",
+        ok: false,
+        error: new Error("Assigned YouTube API key is required before requesting enrichment"),
+      },
+    ]);
+
+    const { element, setBatchEnrichmentActionState, setReloadToken } = renderShell({
+      requestState: createReadyState({
+        items: [selectedChannel],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+      }),
+      selectedChannelIds: [selectedChannel.id, "00000000-0000-0000-0000-000000000502"],
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    setBatchEnrichmentActionState.mockClear();
+    setReloadToken.mockClear();
+
+    await element.props.onRequestSelectedEnrichment();
+
+    expect(setBatchEnrichmentActionState).toHaveBeenNthCalledWith(2, {
+      type: "error",
+      message:
+        "Queued 1 channel for enrichment. 1 request failed: Assigned YouTube API key is required before requesting enrichment. The table refreshes automatically while jobs run.",
+    });
+
+    const updateReloadToken = setReloadToken.mock.calls[0]?.[0] as
+      | ((current: number) => number)
+      | undefined;
+
+    expect(updateReloadToken?.(3)).toBe(4);
   });
 });

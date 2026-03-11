@@ -4,6 +4,7 @@ import {
   listChannelsResponseSchema,
   requestChannelEnrichmentResponseSchema,
   type CatalogChannelFilters,
+  type ChannelEnrichmentDetail,
   type ChannelDetail,
   type ListChannelsQuery,
   type ListChannelsResponse,
@@ -34,6 +35,22 @@ export class ApiRequestError extends Error {
     this.status = status;
   }
 }
+
+export type BatchChannelEnrichmentRequestSuccess = {
+  channelId: string;
+  ok: true;
+  enrichment: ChannelEnrichmentDetail;
+};
+
+export type BatchChannelEnrichmentRequestFailure = {
+  channelId: string;
+  ok: false;
+  error: Error;
+};
+
+export type BatchChannelEnrichmentRequestResult =
+  | BatchChannelEnrichmentRequestSuccess
+  | BatchChannelEnrichmentRequestFailure;
 
 function normalizeErrorMessage(error: unknown, fallbackMessage: string): string {
   if (error instanceof Error && error.message) {
@@ -202,6 +219,32 @@ export async function requestChannelEnrichment(
   } catch (error) {
     throw normalizeRequestError(error, GENERIC_CHANNEL_ENRICHMENT_REQUEST_ERROR_MESSAGE);
   }
+}
+
+export async function requestChannelEnrichmentBatch(
+  channelIds: readonly string[],
+): Promise<BatchChannelEnrichmentRequestResult[]> {
+  const uniqueChannelIds = [...new Set(channelIds)];
+
+  return Promise.all(
+    uniqueChannelIds.map(async (channelId) => {
+      try {
+        const response = await requestChannelEnrichment(channelId);
+
+        return {
+          channelId: response.channelId,
+          ok: true,
+          enrichment: response.enrichment,
+        } satisfies BatchChannelEnrichmentRequestSuccess;
+      } catch (error) {
+        return {
+          channelId,
+          ok: false,
+          error: normalizeRequestError(error, GENERIC_CHANNEL_ENRICHMENT_REQUEST_ERROR_MESSAGE),
+        } satisfies BatchChannelEnrichmentRequestFailure;
+      }
+    }),
+  );
 }
 
 function appendStatusFilters(

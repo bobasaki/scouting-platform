@@ -61,8 +61,10 @@ import {
   getPreviousCatalogPage,
   hasNextCatalogPage,
   hasPreviousCatalogPage,
+  mergeCatalogBatchEnrichmentResults,
   parseCatalogUrlState,
   shouldPollCatalogEnrichmentRows,
+  summarizeCatalogBatchEnrichmentResults,
   toggleCatalogChannelSelection,
   toggleCatalogPageSelection,
   toggleCatalogStatusFilter,
@@ -167,6 +169,9 @@ function renderView(
     savedSegmentOperationStatus?: Parameters<
       typeof CatalogTableShellView
     >[0]["savedSegmentOperationStatus"];
+    batchEnrichmentActionState?: Parameters<
+      typeof CatalogTableShellView
+    >[0]["batchEnrichmentActionState"];
     pendingSegmentAction?: string | null;
   },
 ): string {
@@ -188,6 +193,10 @@ function renderView(
         type: "idle",
         message: "",
       },
+      batchEnrichmentActionState: options?.batchEnrichmentActionState ?? {
+        type: "idle",
+        message: "",
+      },
       pendingSegmentAction: options?.pendingSegmentAction ?? null,
       requestState,
       hasPendingFilterChanges: true,
@@ -199,6 +208,7 @@ function renderView(
       onLoadSegment: vi.fn(),
       onNextPage: vi.fn(),
       onPreviousPage: vi.fn(),
+      onRequestSelectedEnrichment: vi.fn(),
       onResetFilters: vi.fn(),
       onRetrySavedSegments: vi.fn(),
       onRetry: vi.fn(),
@@ -311,6 +321,91 @@ describe("catalog table shell view", () => {
     expect(formatCatalogSelectionSummary(2, 2)).toBe("2 channels selected");
     expect(formatCatalogSelectionSummary(3, 1)).toBe("3 channels selected · 1 on this page");
     expect(formatCatalogSelectionSummary(1, 0)).toBe("1 channel selected · none on this page");
+  });
+
+  it("summarizes batch enrich outcomes for mixed queue, running, and failure states", () => {
+    expect(
+      summarizeCatalogBatchEnrichmentResults([
+        {
+          channelId: "00000000-0000-0000-0000-000000000001",
+          ok: true,
+          enrichment: {
+            status: "queued",
+            updatedAt: null,
+            completedAt: null,
+            lastError: null,
+            summary: null,
+            topics: null,
+            brandFitNotes: null,
+            confidence: null,
+          },
+        },
+        {
+          channelId: "00000000-0000-0000-0000-000000000002",
+          ok: true,
+          enrichment: {
+            status: "running",
+            updatedAt: "2026-03-08T10:00:00.000Z",
+            completedAt: null,
+            lastError: null,
+            summary: null,
+            topics: null,
+            brandFitNotes: null,
+            confidence: null,
+          },
+        },
+        {
+          channelId: "00000000-0000-0000-0000-000000000003",
+          ok: false,
+          error: new Error("Assigned YouTube API key is required before requesting enrichment"),
+        },
+      ]),
+    ).toEqual({
+      type: "error",
+      message:
+        "Queued 1 channel for enrichment. 1 channel already running. 1 request failed: Assigned YouTube API key is required before requesting enrichment. The table refreshes automatically while jobs run.",
+    });
+  });
+
+  it("merges successful batch enrich results into visible catalog rows only", () => {
+    const merged = mergeCatalogBatchEnrichmentResults(pagedChannels, [
+      {
+        channelId: pagedChannels.items[0]!.id,
+        ok: true,
+        enrichment: {
+          status: "queued",
+          updatedAt: "2026-03-11T09:00:00.000Z",
+          completedAt: null,
+          lastError: null,
+          summary: null,
+          topics: null,
+          brandFitNotes: null,
+          confidence: null,
+        },
+      },
+      {
+        channelId: "00000000-0000-0000-0000-000000009999",
+        ok: true,
+        enrichment: {
+          status: "running",
+          updatedAt: "2026-03-11T09:05:00.000Z",
+          completedAt: null,
+          lastError: null,
+          summary: null,
+          topics: null,
+          brandFitNotes: null,
+          confidence: null,
+        },
+      },
+    ]);
+
+    expect(merged.items[0]?.enrichment).toEqual({
+      status: "queued",
+      updatedAt: "2026-03-11T09:00:00.000Z",
+      completedAt: null,
+      lastError: null,
+    });
+    expect(merged.items[1]?.enrichment).toEqual(pagedChannels.items[1]?.enrichment);
   });
 
   it("formats per-row enrichment copy and polling eligibility", () => {
@@ -617,5 +712,28 @@ describe("catalog table shell view", () => {
     expect(html).toContain("1 channel selected");
     expect(html).toContain("Clear selection");
     expect(html).toContain("catalog-table__row catalog-table__row--selected");
+  });
+
+  it("renders batch enrich actions and feedback for selected channels", () => {
+    const html = renderView(
+      {
+        status: "ready",
+        data: pagedChannels,
+        error: null,
+      },
+      {
+        selectedChannelIds: [pagedChannels.items[0]!.id, "sticky-selection"],
+        batchEnrichmentActionState: {
+          type: "success",
+          message: "Queued 2 channels for enrichment. The table refreshes automatically while jobs run.",
+        },
+      },
+    );
+
+    expect(html).toContain("Enrich selected (2)");
+    expect(html).toContain(
+      "Queued 2 channels for enrichment. The table refreshes automatically while jobs run.",
+    );
+    expect(html).toContain("catalog-table__selection-status--success");
   });
 });
