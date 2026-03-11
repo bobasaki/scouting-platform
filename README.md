@@ -177,6 +177,10 @@ Backend endpoints available for Marin UI integration:
 - `POST /api/admin/csv-import-batches`
 - `GET /api/admin/csv-import-batches`
 - `GET /api/admin/csv-import-batches/:id`
+- `POST /api/csv-export-batches`
+- `GET /api/csv-export-batches`
+- `GET /api/csv-export-batches/:id`
+- `GET /api/csv-export-batches/:id/download`
 - `GET /api/runs`
 - `POST /api/runs`
 - `GET /api/runs/:id`

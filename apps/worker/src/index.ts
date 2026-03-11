@@ -3,6 +3,7 @@ import { PgBoss } from "pg-boss";
 
 import { registerChannelsEnrichHypeAuditorWorker } from "./channels-enrich-hypeauditor-worker";
 import { registerChannelsEnrichLlmWorker } from "./channels-enrich-llm-worker";
+import { registerExportsCsvGenerateWorker } from "./exports-csv-generate-worker";
 import { registerImportsCsvProcessWorker } from "./imports-csv-process-worker";
 import { JOB_NAMES } from "./jobs";
 import { registerRunsDiscoverWorker } from "./runs-discover-worker";
@@ -48,6 +49,7 @@ async function registerWorkers(boss: PgBoss): Promise<void> {
   await registerChannelsEnrichLlmWorker(boss);
   await registerChannelsEnrichHypeAuditorWorker(boss);
   await registerImportsCsvProcessWorker(boss);
+  await registerExportsCsvGenerateWorker(boss);
 }
 
 async function startWorker(): Promise<void> {

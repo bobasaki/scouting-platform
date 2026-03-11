@@ -99,6 +99,22 @@ enum CsvImportRowStatus {
   @@map("csv_import_row_status")
 }
 
+enum CsvExportBatchStatus {
+  QUEUED    @map("queued")
+  RUNNING   @map("running")
+  COMPLETED @map("completed")
+  FAILED    @map("failed")
+
+  @@map("csv_export_batch_status")
+}
+
+enum CsvExportScopeType {
+  SELECTED @map("selected")
+  FILTERED @map("filtered")
+
+  @@map("csv_export_scope_type")
+}
+
 model User {
   id                            String                  @id @default(uuid()) @db.Uuid
   name                          String?
@@ -122,6 +138,7 @@ model User {
   requestedAdvancedReports      AdvancedReportRequest[] @relation("AdvancedReportRequestedBy")
   reviewedAdvancedReports       AdvancedReportRequest[] @relation("AdvancedReportReviewedBy")
   requestedCsvImportBatches     CsvImportBatch[]        @relation("CsvImportRequestedBy")
+  requestedCsvExportBatches     CsvExportBatch[]        @relation("CsvExportRequestedBy")
 
   @@map("users")
 }
@@ -451,6 +468,29 @@ model CsvImportRow {
   @@index([channelId], map: "csv_import_rows_channel_id_idx")
   @@index([youtubeChannelId], map: "csv_import_rows_youtube_channel_id_idx")
   @@map("csv_import_rows")
+}
+
+model CsvExportBatch {
+  id                String               @id @default(uuid()) @db.Uuid
+  requestedByUserId String               @map("requested_by_user_id") @db.Uuid
+  scopeType         CsvExportScopeType   @map("scope_type")
+  scopePayload      Json                 @map("scope_payload")
+  schemaVersion     String               @map("schema_version")
+  fileName          String               @map("file_name")
+  status            CsvExportBatchStatus @default(QUEUED)
+  rowCount          Int                  @default(0) @map("row_count")
+  csvContent        String?              @map("csv_content") @db.Text
+  startedAt         DateTime?            @map("started_at")
+  completedAt       DateTime?            @map("completed_at")
+  lastError         String?              @map("last_error") @db.Text
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+  requestedByUser   User                 @relation("CsvExportRequestedBy", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([requestedByUserId], map: "csv_export_batches_requested_by_user_id_idx")
+  @@index([status], map: "csv_export_batches_status_idx")
+  @@index([createdAt], map: "csv_export_batches_created_at_idx")
+  @@map("csv_export_batches")
 }
 
 model RunRequest {
