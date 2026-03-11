@@ -5,6 +5,7 @@ import {
   fetchChannelDetail,
   fetchChannels,
   requestChannelEnrichment,
+  requestChannelEnrichmentBatch,
 } from "./channels-api";
 
 function jsonResponse(payload: unknown, status = 200): Response {
@@ -302,6 +303,48 @@ describe("channels api helpers", () => {
     });
     expect(response.channelId).toBe(channelId);
     expect(response.enrichment.summary).toBe("Creator focused on launches and industry analysis.");
+  });
+
+  it("aggregates batch enrichment requests without aborting on individual failures", async () => {
+    const firstChannelId = "53adac17-f39d-4731-a61f-194150fbc431";
+    const secondChannelId = "c539c987-dc34-4ef7-9843-b5dba7320e19";
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        jsonResponse({
+          channelId: firstChannelId,
+          enrichment: buildChannelDetailPayload().enrichment,
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({}, 404));
+
+    const response = await requestChannelEnrichmentBatch([firstChannelId, secondChannelId]);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy).toHaveBeenNthCalledWith(1, `/api/channels/${firstChannelId}/enrich`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+    });
+    expect(fetchSpy).toHaveBeenNthCalledWith(2, `/api/channels/${secondChannelId}/enrich`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+    });
+    expect(response[0]).toEqual({
+      channelId: firstChannelId,
+      ok: true,
+      enrichment: buildChannelDetailPayload().enrichment,
+    });
+    expect(response[1]).toMatchObject({
+      channelId: secondChannelId,
+      ok: false,
+      error: {
+        message: "Channel not found.",
+      },
+    });
   });
 
   it("surfaces actionable enrichment request errors from the API", async () => {

@@ -962,11 +962,35 @@ a {
   gap: var(--space-3);
 }
 
+.catalog-table__selection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 .catalog-table__selection-summary {
   margin: 0;
   color: var(--color-text-muted);
   font-size: var(--font-size-200);
   font-weight: var(--font-weight-medium);
+}
+
+.catalog-table__selection-status {
+  margin: 0;
+  font-size: var(--font-size-200);
+  font-weight: var(--font-weight-medium);
+}
+
+.catalog-table__selection-status--submitting {
+  color: var(--color-text-muted);
+}
+
+.catalog-table__selection-status--success {
+  color: #145749;
+}
+
+.catalog-table__selection-status--error {
+  color: #8b2727;
 }
 
 .catalog-table__pagination {

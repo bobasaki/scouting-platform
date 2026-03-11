@@ -3,6 +3,7 @@
 import type {
   CatalogChannelFilters,
   ChannelAdvancedReportStatus,
+  ChannelEnrichmentDetail,
   ChannelEnrichmentStatus,
   ChannelSummary,
   ListChannelsResponse,
@@ -14,7 +15,11 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useState } from "react";
 
-import { fetchChannels } from "../../lib/channels-api";
+import {
+  requestChannelEnrichmentBatch,
+  type BatchChannelEnrichmentRequestResult,
+  fetchChannels,
+} from "../../lib/channels-api";
 import {
   createSavedSegment,
   deleteSavedSegment,
@@ -61,6 +66,11 @@ type SavedSegmentOperationStatus = {
   message: string;
 };
 
+type BatchEnrichmentActionState = {
+  type: "idle" | "submitting" | "success" | "error";
+  message: string;
+};
+
 type CatalogFiltersState = {
   query: string;
   enrichmentStatus: ChannelEnrichmentStatus[];
@@ -90,6 +100,7 @@ type CatalogTableShellViewProps = {
   savedSegmentsRequestState: SavedSegmentsRequestState;
   savedSegmentName: string;
   savedSegmentOperationStatus: SavedSegmentOperationStatus;
+  batchEnrichmentActionState: BatchEnrichmentActionState;
   pendingSegmentAction: string | null;
   hasPendingFilterChanges: boolean;
   onSavedSegmentNameChange: (value: string) => void;
@@ -102,6 +113,7 @@ type CatalogTableShellViewProps = {
   onToggleAdvancedReportStatus: (value: ChannelAdvancedReportStatus) => void;
   onToggleChannelSelection: (channelId: string) => void;
   onTogglePageSelection: () => void;
+  onRequestSelectedEnrichment: () => void | Promise<void>;
   onClearSelection: () => void;
   onApplyFilters: () => void;
   onResetFilters: () => void;
@@ -143,6 +155,11 @@ const DEFAULT_FILTERS: CatalogFiltersState = {
 };
 
 const IDLE_SAVED_SEGMENT_OPERATION_STATUS: SavedSegmentOperationStatus = {
+  type: "idle",
+  message: "",
+};
+
+const IDLE_BATCH_ENRICHMENT_ACTION_STATE: BatchEnrichmentActionState = {
   type: "idle",
   message: "",
 };
@@ -559,6 +576,136 @@ export function formatCatalogSelectionSummary(
   return `${summary} · ${selectedOnPageCount} on this page`;
 }
 
+function formatSelectedChannelCount(count: number): string {
+  return `${count} channel${count === 1 ? "" : "s"}`;
+}
+
+function getBatchEnrichmentSubmittingMessage(selectedCount: number): string {
+  return `Requesting enrichment for ${formatSelectedChannelCount(selectedCount)}.`;
+}
+
+function ensureTerminalPunctuation(message: string): string {
+  const trimmed = message.trim();
+
+  if (!trimmed) {
+    return trimmed;
+  }
+
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+}
+
+function getBatchEnrichmentFailureMessage(messages: readonly string[]): string {
+  const failureCount = messages.length;
+  const prefix = `${failureCount} request${failureCount === 1 ? "" : "s"} failed`;
+  const uniqueMessages = [...new Set(messages.map((message) => message.trim()).filter(Boolean))];
+  const firstMessage = uniqueMessages[0];
+
+  if (uniqueMessages.length === 0) {
+    return `${prefix}.`;
+  }
+
+  if (firstMessage && uniqueMessages.length === 1) {
+    return `${prefix}: ${ensureTerminalPunctuation(firstMessage)}`;
+  }
+
+  return `${prefix}. First error: ${ensureTerminalPunctuation(firstMessage ?? "")}`;
+}
+
+function isBatchEnrichmentSuccess(
+  result: BatchChannelEnrichmentRequestResult,
+): result is Extract<BatchChannelEnrichmentRequestResult, { ok: true }> {
+  return result.ok;
+}
+
+function toCatalogEnrichmentSummary(
+  enrichment: ChannelEnrichmentDetail,
+): ChannelSummary["enrichment"] {
+  return {
+    status: enrichment.status,
+    updatedAt: enrichment.updatedAt,
+    completedAt: enrichment.completedAt,
+    lastError: enrichment.lastError,
+  };
+}
+
+export function mergeCatalogBatchEnrichmentResults(
+  data: ListChannelsResponse,
+  results: readonly BatchChannelEnrichmentRequestResult[],
+): ListChannelsResponse {
+  const enrichmentByChannelId = new Map(
+    results
+      .filter(isBatchEnrichmentSuccess)
+      .map((result) => [result.channelId, toCatalogEnrichmentSummary(result.enrichment)]),
+  );
+
+  if (enrichmentByChannelId.size === 0) {
+    return data;
+  }
+
+  return {
+    ...data,
+    items: data.items.map((channel) => {
+      const enrichment = enrichmentByChannelId.get(channel.id);
+
+      if (!enrichment) {
+        return channel;
+      }
+
+      return {
+        ...channel,
+        enrichment,
+      };
+    }),
+  };
+}
+
+export function summarizeCatalogBatchEnrichmentResults(
+  results: readonly BatchChannelEnrichmentRequestResult[],
+): BatchEnrichmentActionState {
+  const queuedCount = results.filter(
+    (result) => isBatchEnrichmentSuccess(result) && result.enrichment.status === "queued",
+  ).length;
+  const runningCount = results.filter(
+    (result) => isBatchEnrichmentSuccess(result) && result.enrichment.status === "running",
+  ).length;
+  const completedCount = results.filter(
+    (result) => isBatchEnrichmentSuccess(result) && result.enrichment.status === "completed",
+  ).length;
+  const failureMessages = results
+    .filter((result): result is Extract<BatchChannelEnrichmentRequestResult, { ok: false }> => !result.ok)
+    .map((result) => result.error.message);
+  const parts: string[] = [];
+
+  if (queuedCount > 0) {
+    parts.push(`Queued ${formatSelectedChannelCount(queuedCount)} for enrichment.`);
+  }
+
+  if (runningCount > 0) {
+    parts.push(`${formatSelectedChannelCount(runningCount)} already running.`);
+  }
+
+  if (completedCount > 0) {
+    parts.push(`${formatSelectedChannelCount(completedCount)} already ready.`);
+  }
+
+  if (failureMessages.length > 0) {
+    parts.push(getBatchEnrichmentFailureMessage(failureMessages));
+  }
+
+  if (queuedCount > 0 || runningCount > 0) {
+    parts.push("The table refreshes automatically while jobs run.");
+  }
+
+  if (parts.length === 0) {
+    parts.push("No enrichment requests were recorded.");
+  }
+
+  return {
+    type: failureMessages.length > 0 ? "error" : "success",
+    message: parts.join(" "),
+  };
+}
+
 function hasActiveCatalogFilters(filters: CatalogFiltersState): boolean {
   return Boolean(
     filters.query || filters.enrichmentStatus.length > 0 || filters.advancedReportStatus.length > 0,
@@ -613,6 +760,7 @@ export function CatalogTableShellView({
   savedSegmentsRequestState,
   savedSegmentName,
   savedSegmentOperationStatus,
+  batchEnrichmentActionState,
   pendingSegmentAction,
   hasPendingFilterChanges,
   onSavedSegmentNameChange,
@@ -625,6 +773,7 @@ export function CatalogTableShellView({
   onToggleAdvancedReportStatus,
   onToggleChannelSelection,
   onTogglePageSelection,
+  onRequestSelectedEnrichment,
   onClearSelection,
   onApplyFilters,
   onResetFilters,
@@ -834,10 +983,12 @@ export function CatalogTableShellView({
 
       {requestState.status === "ready" ? (
         <CatalogTableResults
+          batchEnrichmentActionState={batchEnrichmentActionState}
           data={requestState.data}
           onClearSelection={onClearSelection}
           onNextPage={onNextPage}
           onPreviousPage={onPreviousPage}
+          onRequestSelectedEnrichment={onRequestSelectedEnrichment}
           onToggleChannelSelection={onToggleChannelSelection}
           onTogglePageSelection={onTogglePageSelection}
           selectedChannelIds={selectedChannelIds}
@@ -848,18 +999,22 @@ export function CatalogTableShellView({
 }
 
 function CatalogTableResults({
+  batchEnrichmentActionState,
   data,
   selectedChannelIds,
   onToggleChannelSelection,
   onTogglePageSelection,
+  onRequestSelectedEnrichment,
   onClearSelection,
   onPreviousPage,
   onNextPage,
 }: {
+  batchEnrichmentActionState: BatchEnrichmentActionState;
   data: ListChannelsResponse;
   selectedChannelIds: readonly string[];
   onToggleChannelSelection: (channelId: string) => void;
   onTogglePageSelection: () => void;
+  onRequestSelectedEnrichment: () => void | Promise<void>;
   onClearSelection: () => void;
   onPreviousPage: () => void;
   onNextPage: () => void;
@@ -870,6 +1025,7 @@ function CatalogTableResults({
   const selectedOnPageCount = countSelectedCatalogPageRows(selectedChannelIds, data.items);
   const allRowsSelected = areAllCatalogPageRowsSelected(selectedChannelIds, data.items);
   const hasSelection = selectedChannelIds.length > 0;
+  const isRequestingBatchEnrichment = batchEnrichmentActionState.type === "submitting";
 
   return (
     <>
@@ -881,16 +1037,40 @@ function CatalogTableResults({
               {formatCatalogSelectionSummary(selectedChannelIds.length, selectedOnPageCount)}
             </p>
             {hasSelection ? (
-              <button
-                className="catalog-table__button catalog-table__button--secondary"
-                onClick={onClearSelection}
-                suppressHydrationWarning
-                type="button"
-              >
-                Clear selection
-              </button>
+              <div className="catalog-table__selection-actions">
+                <button
+                  className="catalog-table__button"
+                  disabled={isRequestingBatchEnrichment}
+                  onClick={() => {
+                    void onRequestSelectedEnrichment();
+                  }}
+                  suppressHydrationWarning
+                  type="button"
+                >
+                  {isRequestingBatchEnrichment
+                    ? "Requesting..."
+                    : `Enrich selected (${selectedChannelIds.length})`}
+                </button>
+                <button
+                  className="catalog-table__button catalog-table__button--secondary"
+                  onClick={onClearSelection}
+                  suppressHydrationWarning
+                  type="button"
+                >
+                  Clear selection
+                </button>
+              </div>
             ) : null}
           </div>
+          {batchEnrichmentActionState.message ? (
+            <p
+              aria-live="polite"
+              className={`catalog-table__selection-status catalog-table__selection-status--${batchEnrichmentActionState.type}`}
+              role={batchEnrichmentActionState.type === "error" ? "alert" : undefined}
+            >
+              {batchEnrichmentActionState.message}
+            </p>
+          ) : null}
         </div>
         <div className="catalog-table__pagination">
           <button
@@ -1049,6 +1229,8 @@ export function CatalogTableShell({ pageSize = DEFAULT_PAGE_SIZE }: CatalogTable
     useState<SavedSegmentOperationStatus>(IDLE_SAVED_SEGMENT_OPERATION_STATUS);
   const [pendingSegmentAction, setPendingSegmentAction] = useState<string | null>(null);
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
+  const [batchEnrichmentActionState, setBatchEnrichmentActionState] =
+    useState<BatchEnrichmentActionState>(IDLE_BATCH_ENRICHMENT_ACTION_STATE);
 
   useEffect(() => {
     setDraftFilters(appliedState.filters);
@@ -1237,8 +1419,56 @@ export function CatalogTableShell({ pageSize = DEFAULT_PAGE_SIZE }: CatalogTable
     }
   }
 
+  async function handleRequestSelectedEnrichment(): Promise<void> {
+    if (requestState.status !== "ready") {
+      return;
+    }
+
+    const channelIds = [...new Set(selectedChannelIds)];
+
+    if (channelIds.length === 0) {
+      return;
+    }
+
+    setBatchEnrichmentActionState({
+      type: "submitting",
+      message: getBatchEnrichmentSubmittingMessage(channelIds.length),
+    });
+
+    try {
+      const results = await requestChannelEnrichmentBatch(channelIds);
+      const hasSuccessfulRequest = results.some(isBatchEnrichmentSuccess);
+
+      if (hasSuccessfulRequest) {
+        setRequestState((current) => {
+          if (current.status !== "ready") {
+            return current;
+          }
+
+          return {
+            status: "ready",
+            data: mergeCatalogBatchEnrichmentResults(current.data, results),
+            error: null,
+          };
+        });
+        setReloadToken((current) => current + 1);
+      }
+
+      setBatchEnrichmentActionState(summarizeCatalogBatchEnrichmentResults(results));
+    } catch (error) {
+      setBatchEnrichmentActionState({
+        type: "error",
+        message:
+          error instanceof Error && error.message
+            ? error.message
+            : "Unable to request channel enrichment. Please try again.",
+      });
+    }
+  }
+
   return (
     <CatalogTableShellView
+      batchEnrichmentActionState={batchEnrichmentActionState}
       draftFilters={draftFilters}
       hasPendingFilterChanges={!areCatalogFiltersEqual(draftFilters, appliedState.filters)}
       onClearSelection={() => {
@@ -1298,6 +1528,7 @@ export function CatalogTableShell({ pageSize = DEFAULT_PAGE_SIZE }: CatalogTable
           filters: DEFAULT_FILTERS,
         });
       }}
+      onRequestSelectedEnrichment={handleRequestSelectedEnrichment}
       onRetrySavedSegments={() => {
         setSavedSegmentsReloadToken((current) => current + 1);
       }}
