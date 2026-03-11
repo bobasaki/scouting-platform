@@ -211,10 +211,10 @@ Done when:
 
 #### You:
 
-- CSV export service
+- [done] CSV export service
 - HubSpot push service
 - push batch model
-- push retry/error handling
+- HubSpot push retry/error handling
 - audit events for exports/pushes
 
 #### Marin:
@@ -230,6 +230,8 @@ Done when:
 - managers can export selected creators
 - managers can push selected creators to HubSpot
 - failures are visible and auditable
+- phased delivery note: Week 6 CSV export backend foundation is delivered via `POST /api/csv-export-batches`, `GET /api/csv-export-batches`, `GET /api/csv-export-batches/:id`, and `GET /api/csv-export-batches/:id/download`, with user-owned export batches, selected-or-filtered scope snapshots, persisted `queued/running/completed/failed` lifecycle and `last_error`, DB-backed CSV artifact storage, audit events for request/completion/failure/download, and worker execution on `exports.csv.generate`; HubSpot backend and Week 6 UI remain open.
+- evidence note: Week 6 CSV export backend coverage lives in `packages/contracts/src/csv-exports.test.ts`, `packages/core/src/week6-csv-export.integration.test.ts`, `apps/worker/src/exports-csv-generate-worker.test.ts`, and `apps/web/app/api/week6-csv-export.integration.test.ts`.
 
 ### Week 7: Stabilization
 
