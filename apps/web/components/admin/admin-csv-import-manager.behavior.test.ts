@@ -103,7 +103,7 @@ function buildDetail(overrides?: Partial<CsvImportBatchDetail>): CsvImportBatchD
   };
 }
 
-function buildFile(name = "contacts.csv", size = 128): File {
+function buildFile(name = "contacts.csv"): File {
   return new File(["header\nvalue"], name, {
     type: "text/csv",
   });
