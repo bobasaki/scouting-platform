@@ -13,7 +13,7 @@ describe("catalog page", () => {
 
     expect(html).toContain("Catalog");
     expect(html).toContain(
-      "Browse the shared creator catalog, search across channel identity fields, and filter by enrichment or advanced report status.",
+      "Browse the shared creator catalog, search across channel identity fields, filter by enrichment or advanced report status, and select creators for export or HubSpot push.",
     );
     expect(html).toContain("catalog-table-shell");
     expect(html).not.toContain("Filters land in Week 2.");

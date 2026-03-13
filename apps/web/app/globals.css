@@ -1035,6 +1035,134 @@ a {
   color: #8b2727;
 }
 
+.catalog-table__batch-grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+}
+
+.catalog-table__batch-card {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 248, 250, 0.96));
+}
+
+.catalog-table__batch-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.catalog-table__batch-card-header h3 {
+  margin: 0;
+}
+
+.catalog-table__batch-eyebrow {
+  margin: 0 0 var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-100);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.catalog-table__batch-status {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font-size: var(--font-size-100);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.catalog-table__batch-status--loading,
+.catalog-table__batch-status--queued {
+  background: #eef4ff;
+  color: #244c99;
+}
+
+.catalog-table__batch-status--running {
+  background: #fff2db;
+  color: #8c5a13;
+}
+
+.catalog-table__batch-status--completed {
+  background: #e8f7f0;
+  color: #145749;
+}
+
+.catalog-table__batch-status--failed {
+  background: #fdeaea;
+  color: #8b2727;
+}
+
+.catalog-table__batch-copy,
+.catalog-table__batch-inline-note,
+.catalog-table__batch-error {
+  margin: 0;
+  font-size: var(--font-size-200);
+}
+
+.catalog-table__batch-inline-note {
+  color: var(--color-text-muted);
+}
+
+.catalog-table__batch-error {
+  color: #8b2727;
+}
+
+.catalog-table__batch-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.catalog-table__batch-meta div {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.catalog-table__batch-meta dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-100);
+  font-weight: var(--font-weight-semibold);
+}
+
+.catalog-table__batch-meta dd {
+  margin: 0;
+  font-size: var(--font-size-200);
+}
+
+.catalog-table__batch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.catalog-table__batch-failures {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.catalog-table__batch-failures h4 {
+  margin: 0;
+  font-size: var(--font-size-200);
+}
+
+.catalog-table__batch-failure-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--font-size-200);
+}
+
 .catalog-table__pagination {
   display: flex;
   flex-wrap: wrap;

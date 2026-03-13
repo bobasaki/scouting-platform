@@ -6,6 +6,13 @@ import type {
   ChannelEnrichmentDetail,
   ChannelEnrichmentStatus,
   ChannelSummary,
+  CsvExportBatchDetail,
+  CsvExportBatchSummary,
+  CsvExportBatchStatus,
+  HubspotPushBatchDetail,
+  HubspotPushBatchRow,
+  HubspotPushBatchSummary,
+  HubspotPushBatchStatus,
   ListChannelsResponse,
   SegmentFilters,
   SegmentResponse,
@@ -20,6 +27,15 @@ import {
   type BatchChannelEnrichmentRequestResult,
   fetchChannels,
 } from "../../lib/channels-api";
+import {
+  createCsvExportBatch,
+  fetchCsvExportBatchDetail,
+  getCsvExportBatchDownloadUrl,
+} from "../../lib/csv-export-batches-api";
+import {
+  createHubspotPushBatch,
+  fetchHubspotPushBatchDetail,
+} from "../../lib/hubspot-push-batches-api";
 import {
   createSavedSegment,
   deleteSavedSegment,
@@ -71,6 +87,22 @@ type BatchEnrichmentActionState = {
   message: string;
 };
 
+type CatalogCsvExportBatchState = {
+  requestState: "idle" | "loading" | "ready" | "error";
+  summary: CsvExportBatchSummary | null;
+  detail: CsvExportBatchDetail | null;
+  error: string | null;
+  isRefreshing: boolean;
+};
+
+type CatalogHubspotPushBatchState = {
+  requestState: "idle" | "loading" | "ready" | "error";
+  summary: HubspotPushBatchSummary | null;
+  detail: HubspotPushBatchDetail | null;
+  error: string | null;
+  isRefreshing: boolean;
+};
+
 type CatalogFiltersState = {
   query: string;
   enrichmentStatus: ChannelEnrichmentStatus[];
@@ -101,6 +133,8 @@ type CatalogTableShellViewProps = {
   savedSegmentName: string;
   savedSegmentOperationStatus: SavedSegmentOperationStatus;
   batchEnrichmentActionState: BatchEnrichmentActionState;
+  latestCsvExportBatch: CatalogCsvExportBatchState;
+  latestHubspotPushBatch: CatalogHubspotPushBatchState;
   pendingSegmentAction: string | null;
   hasPendingFilterChanges: boolean;
   onSavedSegmentNameChange: (value: string) => void;
@@ -113,6 +147,8 @@ type CatalogTableShellViewProps = {
   onToggleAdvancedReportStatus: (value: ChannelAdvancedReportStatus) => void;
   onToggleChannelSelection: (channelId: string) => void;
   onTogglePageSelection: () => void;
+  onExportSelectedChannels: () => void | Promise<void>;
+  onPushSelectedChannelsToHubspot: () => void | Promise<void>;
   onRequestSelectedEnrichment: () => void | Promise<void>;
   onClearSelection: () => void;
   onApplyFilters: () => void;
@@ -124,6 +160,7 @@ type CatalogTableShellViewProps = {
 
 const DEFAULT_PAGE_SIZE = 20;
 export const CATALOG_ENRICHMENT_POLL_INTERVAL_MS = 3000;
+export const CATALOG_BATCH_STATUS_POLL_INTERVAL_MS = 3000;
 
 const ENRICHMENT_FILTER_OPTIONS: ReadonlyArray<CatalogFilterOption<ChannelEnrichmentStatus>> = [
   { value: "missing", label: "Missing" },
@@ -162,6 +199,22 @@ const IDLE_SAVED_SEGMENT_OPERATION_STATUS: SavedSegmentOperationStatus = {
 const IDLE_BATCH_ENRICHMENT_ACTION_STATE: BatchEnrichmentActionState = {
   type: "idle",
   message: "",
+};
+
+const IDLE_CSV_EXPORT_BATCH_STATE: CatalogCsvExportBatchState = {
+  requestState: "idle",
+  summary: null,
+  detail: null,
+  error: null,
+  isRefreshing: false,
+};
+
+const IDLE_HUBSPOT_PUSH_BATCH_STATE: CatalogHubspotPushBatchState = {
+  requestState: "idle",
+  summary: null,
+  detail: null,
+  error: null,
+  isRefreshing: false,
 };
 
 const ENRICHMENT_FILTER_LABELS = new Map(
@@ -426,6 +479,38 @@ function getSavedSegmentErrorMessage(error: unknown): string {
   return "Unable to manage saved segments. Please try again.";
 }
 
+function getCatalogCsvExportBatchCreateErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return "Unable to create the CSV export batch. Please try again.";
+}
+
+function getCatalogCsvExportBatchDetailErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return "Unable to load CSV export batch status. Please try again.";
+}
+
+function getCatalogHubspotPushBatchCreateErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return "Unable to create the HubSpot push batch. Please try again.";
+}
+
+function getCatalogHubspotPushBatchDetailErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return "Unable to load HubSpot push batch status. Please try again.";
+}
+
 export function parseCatalogUrlState(
   searchParams: Pick<URLSearchParams, "get" | "getAll">,
 ): CatalogUrlState {
@@ -574,6 +659,147 @@ export function formatCatalogSelectionSummary(
   }
 
   return `${summary} · ${selectedOnPageCount} on this page`;
+}
+
+function toTitleCase(value: string): string {
+  return value
+    .split("_")
+    .map((segment) => {
+      if (!segment) {
+        return segment;
+      }
+
+      return `${segment.charAt(0).toUpperCase()}${segment.slice(1)}`;
+    })
+    .join(" ");
+}
+
+function getCsvExportBatchSnapshot(
+  state: CatalogCsvExportBatchState,
+): CsvExportBatchSummary | CsvExportBatchDetail | null {
+  return state.detail ?? state.summary;
+}
+
+function getHubspotPushBatchSnapshot(
+  state: CatalogHubspotPushBatchState,
+): HubspotPushBatchSummary | HubspotPushBatchDetail | null {
+  return state.detail ?? state.summary;
+}
+
+function getCsvExportBatchStatus(
+  state: CatalogCsvExportBatchState,
+): CsvExportBatchStatus | null {
+  return getCsvExportBatchSnapshot(state)?.status ?? null;
+}
+
+function getHubspotPushBatchStatus(
+  state: CatalogHubspotPushBatchState,
+): HubspotPushBatchStatus | null {
+  return getHubspotPushBatchSnapshot(state)?.status ?? null;
+}
+
+export function shouldPollCatalogCsvExportBatch(state: CatalogCsvExportBatchState): boolean {
+  const status = getCsvExportBatchStatus(state);
+
+  return status === "queued" || status === "running";
+}
+
+export function shouldPollCatalogHubspotPushBatch(
+  state: CatalogHubspotPushBatchState,
+): boolean {
+  const status = getHubspotPushBatchStatus(state);
+
+  return status === "queued" || status === "running";
+}
+
+function getCatalogBatchStatusLabel(status: string): string {
+  return toTitleCase(status);
+}
+
+function getCsvExportBatchTimestamp(state: CatalogCsvExportBatchState): string | null {
+  const batch = getCsvExportBatchSnapshot(state);
+
+  if (!batch) {
+    return null;
+  }
+
+  return formatCatalogTimestamp(batch.completedAt ?? batch.updatedAt);
+}
+
+function getHubspotPushBatchTimestamp(state: CatalogHubspotPushBatchState): string | null {
+  const batch = getHubspotPushBatchSnapshot(state);
+
+  if (!batch) {
+    return null;
+  }
+
+  return formatCatalogTimestamp(batch.completedAt ?? batch.updatedAt);
+}
+
+function getCsvExportBatchSummaryCopy(state: CatalogCsvExportBatchState): string {
+  const batch = getCsvExportBatchSnapshot(state);
+
+  if (!batch) {
+    if (state.requestState === "loading") {
+      return "Creating selected export batch...";
+    }
+
+    return state.error ?? "";
+  }
+
+  switch (batch.status) {
+    case "queued":
+      return "Export queued and refreshing automatically.";
+    case "running":
+      return "Export is running in the background and refreshing automatically.";
+    case "completed":
+      return `Completed with ${formatSelectedChannelCount(batch.rowCount)} in the CSV. Download is ready.`;
+    case "failed":
+      return batch.lastError
+        ? `Export failed: ${ensureTerminalPunctuation(batch.lastError)}`
+        : "Export failed before the worker finished.";
+    default:
+      return batch.status;
+  }
+}
+
+function getHubspotPushBatchSummaryCopy(state: CatalogHubspotPushBatchState): string {
+  const batch = getHubspotPushBatchSnapshot(state);
+
+  if (!batch) {
+    if (state.requestState === "loading") {
+      return "Creating HubSpot push batch...";
+    }
+
+    return state.error ?? "";
+  }
+
+  switch (batch.status) {
+    case "queued":
+      return "HubSpot push queued and refreshing automatically.";
+    case "running":
+      return "HubSpot push is running in the background and refreshing automatically.";
+    case "completed":
+      return `${batch.pushedRowCount} pushed · ${batch.failedRowCount} failed.`;
+    case "failed":
+      return batch.lastError
+        ? `HubSpot push failed: ${ensureTerminalPunctuation(batch.lastError)}`
+        : "HubSpot push failed before the worker finished.";
+    default:
+      return batch.status;
+  }
+}
+
+function getFailedHubspotPushRows(state: CatalogHubspotPushBatchState): HubspotPushBatchRow[] {
+  return state.detail?.rows.filter((row) => row.status === "failed") ?? [];
+}
+
+function getHubspotPushFailedRowLabel(row: HubspotPushBatchRow): string {
+  const identity = row.contactEmail?.trim() ? row.contactEmail : row.channelId;
+
+  return `${identity}: ${ensureTerminalPunctuation(
+    row.errorMessage ?? "Unknown HubSpot row failure",
+  )}`;
 }
 
 function formatSelectedChannelCount(count: number): string {
@@ -752,6 +978,167 @@ function FilterCheckboxGroup<T extends string>({
   );
 }
 
+function CatalogSelectionBatchCards({
+  latestCsvExportBatch,
+  latestHubspotPushBatch,
+}: {
+  latestCsvExportBatch: CatalogCsvExportBatchState;
+  latestHubspotPushBatch: CatalogHubspotPushBatchState;
+}) {
+  const csvExportBatch = getCsvExportBatchSnapshot(latestCsvExportBatch);
+  const hubspotPushBatch = getHubspotPushBatchSnapshot(latestHubspotPushBatch);
+  const failedHubspotRows = getFailedHubspotPushRows(latestHubspotPushBatch).slice(0, 3);
+  const shouldShowCsvExportCard = latestCsvExportBatch.requestState !== "idle";
+  const shouldShowHubspotPushCard = latestHubspotPushBatch.requestState !== "idle";
+
+  if (!shouldShowCsvExportCard && !shouldShowHubspotPushCard) {
+    return null;
+  }
+
+  return (
+    <div className="catalog-table__batch-grid">
+      {shouldShowCsvExportCard ? (
+        <article className="catalog-table__batch-card" aria-labelledby="catalog-latest-export-heading">
+          <header className="catalog-table__batch-card-header">
+            <div>
+              <p className="catalog-table__batch-eyebrow">Latest batch</p>
+              <h3 id="catalog-latest-export-heading">CSV export</h3>
+            </div>
+            <span
+              className={`catalog-table__batch-status catalog-table__batch-status--${
+                csvExportBatch?.status ??
+                (latestCsvExportBatch.requestState === "error" ? "failed" : "loading")
+              }`}
+            >
+              {csvExportBatch
+                ? getCatalogBatchStatusLabel(csvExportBatch.status)
+                : latestCsvExportBatch.requestState === "error"
+                  ? "Error"
+                  : "Starting"}
+            </span>
+          </header>
+
+          <p className="catalog-table__batch-copy">{getCsvExportBatchSummaryCopy(latestCsvExportBatch)}</p>
+
+          {latestCsvExportBatch.isRefreshing ? (
+            <p className="catalog-table__batch-inline-note" role="status">
+              Refreshing export status...
+            </p>
+          ) : null}
+
+          {latestCsvExportBatch.error && csvExportBatch ? (
+            <p className="catalog-table__batch-error" role="alert">
+              Last refresh failed: {latestCsvExportBatch.error}
+            </p>
+          ) : null}
+
+          {csvExportBatch ? (
+            <>
+              <dl className="catalog-table__batch-meta">
+                <div>
+                  <dt>File</dt>
+                  <dd>{csvExportBatch.fileName}</dd>
+                </div>
+                <div>
+                  <dt>Rows</dt>
+                  <dd>{csvExportBatch.rowCount}</dd>
+                </div>
+                <div>
+                  <dt>Updated</dt>
+                  <dd>{getCsvExportBatchTimestamp(latestCsvExportBatch) ?? "Not available"}</dd>
+                </div>
+              </dl>
+
+              {csvExportBatch.status === "completed" ? (
+                <div className="catalog-table__batch-actions">
+                  <a
+                    className="catalog-table__button catalog-table__button--secondary"
+                    download
+                    href={getCsvExportBatchDownloadUrl(csvExportBatch.id)}
+                  >
+                    Download CSV
+                  </a>
+                </div>
+              ) : null}
+            </>
+          ) : null}
+        </article>
+      ) : null}
+
+      {shouldShowHubspotPushCard ? (
+        <article className="catalog-table__batch-card" aria-labelledby="catalog-latest-hubspot-heading">
+          <header className="catalog-table__batch-card-header">
+            <div>
+              <p className="catalog-table__batch-eyebrow">Latest batch</p>
+              <h3 id="catalog-latest-hubspot-heading">HubSpot push</h3>
+            </div>
+            <span
+              className={`catalog-table__batch-status catalog-table__batch-status--${
+                hubspotPushBatch?.status ??
+                (latestHubspotPushBatch.requestState === "error" ? "failed" : "loading")
+              }`}
+            >
+              {hubspotPushBatch
+                ? getCatalogBatchStatusLabel(hubspotPushBatch.status)
+                : latestHubspotPushBatch.requestState === "error"
+                  ? "Error"
+                  : "Starting"}
+            </span>
+          </header>
+
+          <p className="catalog-table__batch-copy">{getHubspotPushBatchSummaryCopy(latestHubspotPushBatch)}</p>
+
+          {latestHubspotPushBatch.isRefreshing ? (
+            <p className="catalog-table__batch-inline-note" role="status">
+              Refreshing HubSpot status...
+            </p>
+          ) : null}
+
+          {latestHubspotPushBatch.error && hubspotPushBatch ? (
+            <p className="catalog-table__batch-error" role="alert">
+              Last refresh failed: {latestHubspotPushBatch.error}
+            </p>
+          ) : null}
+
+          {hubspotPushBatch ? (
+            <>
+              <dl className="catalog-table__batch-meta">
+                <div>
+                  <dt>Total</dt>
+                  <dd>{hubspotPushBatch.totalRowCount}</dd>
+                </div>
+                <div>
+                  <dt>Pushed</dt>
+                  <dd>{hubspotPushBatch.pushedRowCount}</dd>
+                </div>
+                <div>
+                  <dt>Failed</dt>
+                  <dd>{hubspotPushBatch.failedRowCount}</dd>
+                </div>
+                <div>
+                  <dt>Updated</dt>
+                  <dd>{getHubspotPushBatchTimestamp(latestHubspotPushBatch) ?? "Not available"}</dd>
+                </div>
+              </dl>
+
+              {failedHubspotRows.length > 0 ? (
+                <div className="catalog-table__batch-failures">
+                  <h4>Failed rows</h4>
+                  <ul className="catalog-table__batch-failure-list">
+                    {failedHubspotRows.map((row) => (
+                      <li key={row.id}>{getHubspotPushFailedRowLabel(row)}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </>
+          ) : null}
+        </article>
+      ) : null}
+    </div>
+  );
+}
+
 export function CatalogTableShellView({
   draftFilters,
   requestState,
@@ -761,6 +1148,8 @@ export function CatalogTableShellView({
   savedSegmentName,
   savedSegmentOperationStatus,
   batchEnrichmentActionState,
+  latestCsvExportBatch,
+  latestHubspotPushBatch,
   pendingSegmentAction,
   hasPendingFilterChanges,
   onSavedSegmentNameChange,
@@ -773,6 +1162,8 @@ export function CatalogTableShellView({
   onToggleAdvancedReportStatus,
   onToggleChannelSelection,
   onTogglePageSelection,
+  onExportSelectedChannels,
+  onPushSelectedChannelsToHubspot,
   onRequestSelectedEnrichment,
   onClearSelection,
   onApplyFilters,
@@ -985,9 +1376,13 @@ export function CatalogTableShellView({
         <CatalogTableResults
           batchEnrichmentActionState={batchEnrichmentActionState}
           data={requestState.data}
+          latestCsvExportBatch={latestCsvExportBatch}
+          latestHubspotPushBatch={latestHubspotPushBatch}
           onClearSelection={onClearSelection}
+          onExportSelectedChannels={onExportSelectedChannels}
           onNextPage={onNextPage}
           onPreviousPage={onPreviousPage}
+          onPushSelectedChannelsToHubspot={onPushSelectedChannelsToHubspot}
           onRequestSelectedEnrichment={onRequestSelectedEnrichment}
           onToggleChannelSelection={onToggleChannelSelection}
           onTogglePageSelection={onTogglePageSelection}
@@ -1001,9 +1396,13 @@ export function CatalogTableShellView({
 function CatalogTableResults({
   batchEnrichmentActionState,
   data,
+  latestCsvExportBatch,
+  latestHubspotPushBatch,
   selectedChannelIds,
   onToggleChannelSelection,
   onTogglePageSelection,
+  onExportSelectedChannels,
+  onPushSelectedChannelsToHubspot,
   onRequestSelectedEnrichment,
   onClearSelection,
   onPreviousPage,
@@ -1011,9 +1410,13 @@ function CatalogTableResults({
 }: {
   batchEnrichmentActionState: BatchEnrichmentActionState;
   data: ListChannelsResponse;
+  latestCsvExportBatch: CatalogCsvExportBatchState;
+  latestHubspotPushBatch: CatalogHubspotPushBatchState;
   selectedChannelIds: readonly string[];
   onToggleChannelSelection: (channelId: string) => void;
   onTogglePageSelection: () => void;
+  onExportSelectedChannels: () => void | Promise<void>;
+  onPushSelectedChannelsToHubspot: () => void | Promise<void>;
   onRequestSelectedEnrichment: () => void | Promise<void>;
   onClearSelection: () => void;
   onPreviousPage: () => void;
@@ -1026,6 +1429,14 @@ function CatalogTableResults({
   const allRowsSelected = areAllCatalogPageRowsSelected(selectedChannelIds, data.items);
   const hasSelection = selectedChannelIds.length > 0;
   const isRequestingBatchEnrichment = batchEnrichmentActionState.type === "submitting";
+  const isCreatingCsvExportBatch =
+    latestCsvExportBatch.requestState === "loading" &&
+    latestCsvExportBatch.summary === null &&
+    latestCsvExportBatch.detail === null;
+  const isCreatingHubspotPushBatch =
+    latestHubspotPushBatch.requestState === "loading" &&
+    latestHubspotPushBatch.summary === null &&
+    latestHubspotPushBatch.detail === null;
 
   return (
     <>
@@ -1050,6 +1461,32 @@ function CatalogTableResults({
                   {isRequestingBatchEnrichment
                     ? "Requesting..."
                     : `Enrich selected (${selectedChannelIds.length})`}
+                </button>
+                <button
+                  className="catalog-table__button"
+                  disabled={isCreatingCsvExportBatch}
+                  onClick={() => {
+                    void onExportSelectedChannels();
+                  }}
+                  suppressHydrationWarning
+                  type="button"
+                >
+                  {isCreatingCsvExportBatch
+                    ? "Exporting..."
+                    : `Export selected (${selectedChannelIds.length})`}
+                </button>
+                <button
+                  className="catalog-table__button"
+                  disabled={isCreatingHubspotPushBatch}
+                  onClick={() => {
+                    void onPushSelectedChannelsToHubspot();
+                  }}
+                  suppressHydrationWarning
+                  type="button"
+                >
+                  {isCreatingHubspotPushBatch
+                    ? "Starting push..."
+                    : `Push selected to HubSpot (${selectedChannelIds.length})`}
                 </button>
                 <button
                   className="catalog-table__button catalog-table__button--secondary"
@@ -1094,6 +1531,11 @@ function CatalogTableResults({
           </button>
         </div>
       </div>
+
+      <CatalogSelectionBatchCards
+        latestCsvExportBatch={latestCsvExportBatch}
+        latestHubspotPushBatch={latestHubspotPushBatch}
+      />
 
       {!hasChannels ? (
         <p className="catalog-table__feedback catalog-table__feedback--empty">
@@ -1231,6 +1673,12 @@ export function CatalogTableShell({ pageSize = DEFAULT_PAGE_SIZE }: CatalogTable
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
   const [batchEnrichmentActionState, setBatchEnrichmentActionState] =
     useState<BatchEnrichmentActionState>(IDLE_BATCH_ENRICHMENT_ACTION_STATE);
+  const [latestCsvExportBatch, setLatestCsvExportBatch] =
+    useState<CatalogCsvExportBatchState>(IDLE_CSV_EXPORT_BATCH_STATE);
+  const [latestCsvExportBatchReloadToken, setLatestCsvExportBatchReloadToken] = useState(0);
+  const [latestHubspotPushBatch, setLatestHubspotPushBatch] =
+    useState<CatalogHubspotPushBatchState>(IDLE_HUBSPOT_PUSH_BATCH_STATE);
+  const [latestHubspotPushBatchReloadToken, setLatestHubspotPushBatchReloadToken] = useState(0);
 
   useEffect(() => {
     setDraftFilters(appliedState.filters);
@@ -1347,6 +1795,145 @@ export function CatalogTableShell({ pageSize = DEFAULT_PAGE_SIZE }: CatalogTable
     };
   }, [savedSegmentsReloadToken]);
 
+  useEffect(() => {
+    const batchId = latestCsvExportBatch.summary?.id ?? latestCsvExportBatch.detail?.id;
+
+    if (!batchId) {
+      return;
+    }
+
+    const abortController = new AbortController();
+    const keepCurrentDetailVisible =
+      latestCsvExportBatch.requestState === "ready" &&
+      latestCsvExportBatch.detail?.id === batchId;
+
+    if (!keepCurrentDetailVisible) {
+      setLatestCsvExportBatch((current) => ({
+        ...current,
+        requestState: "loading",
+        error: null,
+        isRefreshing: false,
+      }));
+    } else {
+      setLatestCsvExportBatch((current) => ({
+        ...current,
+        isRefreshing: true,
+      }));
+    }
+
+    void fetchCsvExportBatchDetail(batchId, abortController.signal)
+      .then((detail) => {
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        setLatestCsvExportBatch((current) => ({
+          requestState: "ready",
+          summary: current.summary && current.summary.id === detail.id ? current.summary : detail,
+          detail,
+          error: null,
+          isRefreshing: false,
+        }));
+      })
+      .catch((error: unknown) => {
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        setLatestCsvExportBatch((current) => ({
+          ...current,
+          requestState: "error",
+          error: getCatalogCsvExportBatchDetailErrorMessage(error),
+          isRefreshing: false,
+        }));
+      });
+
+    return () => {
+      abortController.abort();
+    };
+  }, [latestCsvExportBatch.summary?.id, latestCsvExportBatchReloadToken]);
+
+  useEffect(() => {
+    const batchId = latestHubspotPushBatch.summary?.id ?? latestHubspotPushBatch.detail?.id;
+
+    if (!batchId) {
+      return;
+    }
+
+    const abortController = new AbortController();
+    const keepCurrentDetailVisible =
+      latestHubspotPushBatch.requestState === "ready" &&
+      latestHubspotPushBatch.detail?.id === batchId;
+
+    if (!keepCurrentDetailVisible) {
+      setLatestHubspotPushBatch((current) => ({
+        ...current,
+        requestState: "loading",
+        error: null,
+        isRefreshing: false,
+      }));
+    } else {
+      setLatestHubspotPushBatch((current) => ({
+        ...current,
+        isRefreshing: true,
+      }));
+    }
+
+    void fetchHubspotPushBatchDetail(batchId, abortController.signal)
+      .then((detail) => {
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        setLatestHubspotPushBatch((current) => ({
+          requestState: "ready",
+          summary: current.summary && current.summary.id === detail.id ? current.summary : detail,
+          detail,
+          error: null,
+          isRefreshing: false,
+        }));
+      })
+      .catch((error: unknown) => {
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        setLatestHubspotPushBatch((current) => ({
+          ...current,
+          requestState: "error",
+          error: getCatalogHubspotPushBatchDetailErrorMessage(error),
+          isRefreshing: false,
+        }));
+      });
+
+    return () => {
+      abortController.abort();
+    };
+  }, [latestHubspotPushBatch.summary?.id, latestHubspotPushBatchReloadToken]);
+
+  useEffect(() => {
+    const shouldPollCsvExportBatch = shouldPollCatalogCsvExportBatch(latestCsvExportBatch);
+    const shouldPollHubspotBatch = shouldPollCatalogHubspotPushBatch(latestHubspotPushBatch);
+
+    if (!shouldPollCsvExportBatch && !shouldPollHubspotBatch) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      if (shouldPollCsvExportBatch) {
+        setLatestCsvExportBatchReloadToken((current) => current + 1);
+      }
+
+      if (shouldPollHubspotBatch) {
+        setLatestHubspotPushBatchReloadToken((current) => current + 1);
+      }
+    }, CATALOG_BATCH_STATUS_POLL_INTERVAL_MS);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [latestCsvExportBatch, latestHubspotPushBatch]);
+
   function replaceCatalogState(state: CatalogUrlState): void {
     router.replace(buildCatalogHref(pathname, state));
   }
@@ -1419,6 +2006,91 @@ export function CatalogTableShell({ pageSize = DEFAULT_PAGE_SIZE }: CatalogTable
     }
   }
 
+  async function handleExportSelectedChannels(): Promise<void> {
+    if (requestState.status !== "ready") {
+      return;
+    }
+
+    const channelIds = [...new Set(selectedChannelIds)];
+
+    if (channelIds.length === 0) {
+      return;
+    }
+
+    setLatestCsvExportBatch({
+      requestState: "loading",
+      summary: null,
+      detail: null,
+      error: null,
+      isRefreshing: false,
+    });
+
+    try {
+      const batch = await createCsvExportBatch({
+        type: "selected",
+        channelIds,
+      });
+
+      setLatestCsvExportBatch({
+        requestState: "loading",
+        summary: batch,
+        detail: null,
+        error: null,
+        isRefreshing: false,
+      });
+    } catch (error) {
+      setLatestCsvExportBatch({
+        requestState: "error",
+        summary: null,
+        detail: null,
+        error: getCatalogCsvExportBatchCreateErrorMessage(error),
+        isRefreshing: false,
+      });
+    }
+  }
+
+  async function handlePushSelectedChannelsToHubspot(): Promise<void> {
+    if (requestState.status !== "ready") {
+      return;
+    }
+
+    const channelIds = [...new Set(selectedChannelIds)];
+
+    if (channelIds.length === 0) {
+      return;
+    }
+
+    setLatestHubspotPushBatch({
+      requestState: "loading",
+      summary: null,
+      detail: null,
+      error: null,
+      isRefreshing: false,
+    });
+
+    try {
+      const batch = await createHubspotPushBatch({
+        channelIds,
+      });
+
+      setLatestHubspotPushBatch({
+        requestState: "loading",
+        summary: batch,
+        detail: null,
+        error: null,
+        isRefreshing: false,
+      });
+    } catch (error) {
+      setLatestHubspotPushBatch({
+        requestState: "error",
+        summary: null,
+        detail: null,
+        error: getCatalogHubspotPushBatchCreateErrorMessage(error),
+        isRefreshing: false,
+      });
+    }
+  }
+
   async function handleRequestSelectedEnrichment(): Promise<void> {
     if (requestState.status !== "ready") {
       return;
@@ -1488,6 +2160,7 @@ export function CatalogTableShell({ pageSize = DEFAULT_PAGE_SIZE }: CatalogTable
           query: value,
         }));
       }}
+      onExportSelectedChannels={handleExportSelectedChannels}
       onLoadSegment={handleLoadSegment}
       onNextPage={() => {
         if (requestState.status !== "ready") {
@@ -1528,6 +2201,7 @@ export function CatalogTableShell({ pageSize = DEFAULT_PAGE_SIZE }: CatalogTable
           filters: DEFAULT_FILTERS,
         });
       }}
+      onPushSelectedChannelsToHubspot={handlePushSelectedChannelsToHubspot}
       onRequestSelectedEnrichment={handleRequestSelectedEnrichment}
       onRetrySavedSegments={() => {
         setSavedSegmentsReloadToken((current) => current + 1);
@@ -1560,6 +2234,8 @@ export function CatalogTableShell({ pageSize = DEFAULT_PAGE_SIZE }: CatalogTable
           enrichmentStatus: toggleCatalogStatusFilter(current.enrichmentStatus, value),
         }));
       }}
+      latestCsvExportBatch={latestCsvExportBatch}
+      latestHubspotPushBatch={latestHubspotPushBatch}
       pendingSegmentAction={pendingSegmentAction}
       requestState={requestState}
       savedSegmentName={savedSegmentName}
