@@ -40,6 +40,10 @@ import {
   fetchSavedSegments,
 } from "../../lib/segments-api";
 import {
+  getCsvExportBatchResultHref,
+  getHubspotPushBatchResultHref,
+} from "../../lib/navigation";
+import {
   ADVANCED_REPORT_FILTER_OPTIONS,
   ENRICHMENT_FILTER_OPTIONS,
   DEFAULT_CATALOG_FILTERS,
@@ -595,14 +599,6 @@ function getFailedHubspotPushRows(state: CatalogHubspotPushBatchState): HubspotP
   return state.detail?.rows.filter((row) => row.status === "failed") ?? [];
 }
 
-function getHubspotWorkspaceHref(batch: Pick<HubspotPushBatchSummary, "id"> | null): string {
-  if (!batch) {
-    return "/hubspot";
-  }
-
-  return `/hubspot?batchId=${encodeURIComponent(batch.id)}`;
-}
-
 function getHubspotPushFailedRowLabel(row: HubspotPushBatchRow): string {
   const identity = row.contactEmail?.trim() ? row.contactEmail : row.channelId;
 
@@ -861,8 +857,23 @@ function CatalogSelectionBatchCards({
                   >
                     Download CSV
                   </a>
+                  <Link
+                    className="catalog-table__button catalog-table__button--secondary"
+                    href={getCsvExportBatchResultHref(csvExportBatch.id)}
+                  >
+                    Open batch result
+                  </Link>
                 </div>
-              ) : null}
+              ) : (
+                <div className="catalog-table__batch-actions">
+                  <Link
+                    className="catalog-table__button catalog-table__button--secondary"
+                    href={getCsvExportBatchResultHref(csvExportBatch.id)}
+                  >
+                    Open batch result
+                  </Link>
+                </div>
+              )}
             </>
           ) : null}
         </article>
@@ -940,9 +951,11 @@ function CatalogSelectionBatchCards({
           <div className="catalog-table__batch-actions">
             <Link
               className="catalog-table__button catalog-table__button--secondary"
-              href={getHubspotWorkspaceHref(hubspotPushBatch)}
+              href={
+                hubspotPushBatch ? getHubspotPushBatchResultHref(hubspotPushBatch.id) : "/hubspot"
+              }
             >
-              Open HubSpot workspace
+              Open batch result
             </Link>
           </div>
         </article>

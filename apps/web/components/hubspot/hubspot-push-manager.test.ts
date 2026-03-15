@@ -176,6 +176,8 @@ describe("hubspot push manager view", () => {
     expect(html).toContain("Refreshing selected batch...");
     expect(html).toContain("hubspot-push__list-item hubspot-push__list-item--selected");
     expect(html).toContain("Batch summary");
+    expect(html).toContain("Open batch result");
+    expect(html).toContain('href="/hubspot/fdd240f2-ef31-43fe-b1d2-a584951654a8"');
     expect(html).toContain("hubspot-contact-1");
     expect(html).toContain("Channel has no contact email");
     expect(html).toContain("Last refresh failed: History refresh failed");

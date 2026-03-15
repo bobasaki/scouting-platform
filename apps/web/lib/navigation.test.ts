@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   APP_ROLES,
   APP_NAVIGATION_ITEMS,
+  getCsvExportBatchResultHref,
+  getHubspotPushBatchResultHref,
   getNavigationForRole,
   isAppRole,
   isNavItemVisibleToRole,
@@ -76,5 +78,10 @@ describe("navigation config", () => {
     expect(isAppRole("owner")).toBe(false);
     expect(resolveAppRole("admin")).toBe("admin");
     expect(resolveAppRole("invalid")).toBe("user");
+  });
+
+  it("builds detail routes for export and HubSpot batches", () => {
+    expect(getCsvExportBatchResultHref("batch-1")).toBe("/exports/batch-1");
+    expect(getHubspotPushBatchResultHref("batch 2")).toBe("/hubspot/batch%202");
   });
 });
