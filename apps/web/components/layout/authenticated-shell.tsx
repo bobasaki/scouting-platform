@@ -1,6 +1,5 @@
 import React, { type ReactNode } from "react";
 import type { AppRole } from "../../lib/navigation";
-import { APP_TITLE } from "../../lib/shell";
 import { SignOutForm } from "../auth/sign-out-form";
 import { AppNavigation } from "./app-navigation";
 
@@ -12,12 +11,14 @@ type AuthenticatedShellProps = Readonly<{
 export function AuthenticatedShell({ children, role }: AuthenticatedShellProps) {
   return (
     <div className="auth-shell" suppressHydrationWarning>
-      <aside className="auth-shell__sidebar">
-        <p className="auth-shell__eyebrow">Internal Workspace</p>
-        <p className="auth-shell__brand">{APP_TITLE}</p>
+      <header className="auth-shell__header">
         <AppNavigation role={role} />
-        <SignOutForm />
-      </aside>
+
+        <div className="auth-shell__actions">
+          <span className="auth-shell__role-badge">{role === "admin" ? "Admin" : "User"}</span>
+          <SignOutForm />
+        </div>
+      </header>
       <main className="auth-shell__content">{children}</main>
     </div>
   );
