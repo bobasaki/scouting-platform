@@ -210,6 +210,7 @@ export function DatabaseRunsTab({
       return;
     }
 
+    const runId = selectedRunId;
     let didCancel = false;
     const abortController = new AbortController();
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -230,7 +231,7 @@ export function DatabaseRunsTab({
       }
 
       try {
-        const run = await fetchRunStatus(selectedRunId, abortController.signal);
+        const run = await fetchRunStatus(runId, abortController.signal);
 
         if (didCancel || abortController.signal.aborted) {
           return;
