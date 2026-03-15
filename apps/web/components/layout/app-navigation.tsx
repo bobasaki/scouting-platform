@@ -10,8 +10,8 @@ export function AppNavigation({ role }: AppNavigationProps) {
   const navigationItems = getNavigationForRole(role);
 
   return (
-    <nav aria-label="Primary navigation">
-      <ul className="app-nav">
+    <nav aria-label="Primary navigation" className="app-nav">
+      <ul className="app-nav__list">
         {navigationItems.map((item) => (
           <li key={item.key}>
             <Link className="app-nav__link" href={item.href}>
