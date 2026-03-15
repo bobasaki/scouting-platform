@@ -70,16 +70,17 @@ describe("dashboard workspace", () => {
   it("renders scaffolded planning controls and live run actions", () => {
     const html = renderToStaticMarkup(createElement(DashboardWorkspace));
 
-    expect(html).toContain("Dashboard");
-    expect(html).toContain("Requires campaign planning metadata backend");
+    expect(html).toContain("Runs");
     expect(html).toContain("Client and Market");
     expect(html).toContain("Campaign manager");
     expect(html).toContain("Target");
     expect(html).toContain("Coverage");
     expect(html).toContain("Actions");
     expect(html).toContain('href="/database?tab=runs&amp;runId=run-1"');
+    expect(html).not.toContain("Open Database");
+    expect(html).not.toContain("New scouting");
     expect(html).toContain("Export");
     expect(html).toContain("HubSpot");
-    expect((html.match(/<select disabled=""/g) ?? []).length).toBe(3);
+    expect((html.match(/Pending backend/g) ?? []).length).toBe(4);
   });
 });

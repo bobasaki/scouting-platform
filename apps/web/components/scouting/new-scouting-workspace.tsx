@@ -70,26 +70,6 @@ export function NewScoutingWorkspaceView({
 
   return (
     <div className="new-scouting">
-      <section className="new-scouting__hero">
-        <div>
-          <p className="workspace-eyebrow">Scouting</p>
-          <h2>New scouting</h2>
-          <p className="workspace-copy">
-            Start a new run from a single prompt, keep the future campaign controls visible, and
-            route the finished list into Database for review.
-          </p>
-        </div>
-
-        <div className="new-scouting__hero-card">
-          <p className="workspace-eyebrow">Current backend mode</p>
-          <h3>Scouting + database</h3>
-          <p>
-            Runs already blend catalog matches with fresh discovery. The visible source mode stays
-            locked to that existing server behavior.
-          </p>
-        </div>
-      </section>
-
       {showLegacyNotice ? (
         <section className="workspace-callout">
           <h3>Legacy route</h3>

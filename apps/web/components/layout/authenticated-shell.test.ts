@@ -11,7 +11,6 @@ describe("authenticated shell", () => {
       })
     );
 
-    expect(html).toContain("Internal Workspace");
     expect(html).toContain('href="/dashboard"');
     expect(html).toContain('href="/new-scouting"');
     expect(html).toContain('href="/database"');
@@ -31,6 +30,7 @@ describe("authenticated shell", () => {
     expect(html).toContain('href="/admin"');
     expect(html).toContain('href="/dashboard"');
     expect(html).toContain('href="/database"');
+    expect(html).not.toContain("Scouting Platform");
     expect(html).toContain("admin page");
   });
 

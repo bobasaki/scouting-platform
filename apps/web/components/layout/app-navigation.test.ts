@@ -8,12 +8,10 @@ describe("app navigation", () => {
     const linkCount = (html.match(/class="app-nav__link"/g) ?? []).length;
 
     expect(html).toContain('aria-label="Primary navigation"');
-    expect(html).toContain("Workspace");
     expect(html).toContain('href="/dashboard"');
     expect(html).toContain('href="/new-scouting"');
     expect(html).toContain('href="/database"');
     expect(html).not.toContain('href="/admin"');
-    expect(html).not.toContain('class="app-nav__group-label">Admin<');
     expect(linkCount).toBe(3);
   });
 
@@ -25,8 +23,6 @@ describe("app navigation", () => {
     expect(html).toContain('href="/new-scouting"');
     expect(html).toContain('href="/database"');
     expect(html).toContain('href="/admin"');
-    expect(html).toContain("Workspace");
-    expect(html).toContain(">Admin<");
     expect(linkCount).toBe(4);
   });
 });

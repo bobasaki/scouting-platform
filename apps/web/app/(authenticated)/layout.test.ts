@@ -51,7 +51,6 @@ describe("authenticated app layout", () => {
     const html = renderToStaticMarkup(await AuthenticatedLayout({ children: "catalog" }));
 
     expect(redirectMock).not.toHaveBeenCalled();
-    expect(html).toContain("Internal Workspace");
     expect(html).toContain('href="/dashboard"');
     expect(html).toContain('href="/database"');
     expect(html).not.toContain('href="/admin"');

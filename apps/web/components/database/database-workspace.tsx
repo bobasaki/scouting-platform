@@ -32,26 +32,6 @@ export function DatabaseWorkspace({
 
   return (
     <div className="database-workspace">
-      <section className="database-workspace__hero">
-        <div>
-          <p className="workspace-eyebrow">Database</p>
-          <h2>Creator database</h2>
-          <p className="workspace-copy">
-            Review run snapshots and the canonical creator catalog in one workspace, then export or
-            hand off the resulting shortlist to HubSpot from the same surface.
-          </p>
-        </div>
-
-        <div className="database-workspace__hero-card">
-          <p className="workspace-eyebrow">Available today</p>
-          <ul>
-            <li>Run-level CSV export and HubSpot push actions</li>
-            <li>Catalog filters, selection, export, and enrichment flows</li>
-            <li>Deep links to legacy creator and batch result pages</li>
-          </ul>
-        </div>
-      </section>
-
       {showLegacyNotice ? (
         <section className="workspace-callout">
           <h3>Legacy route</h3>

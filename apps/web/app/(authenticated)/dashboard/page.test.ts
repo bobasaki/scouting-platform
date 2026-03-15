@@ -21,7 +21,7 @@ describe("dashboard page", () => {
 
     expect(html).toContain("Dashboard");
     expect(html).toContain(
-      "Review recent scouting runs, keep weekly planning scaffolds visible, and hand each run off to Database, CSV export, or HubSpot from one board.",
+      "Review recent scouting runs and hand each run off to Database, CSV export, or HubSpot from one compact table.",
     );
     expect(dashboardWorkspaceMock).toHaveBeenCalledTimes(1);
     expect(html).toContain("dashboard-workspace");

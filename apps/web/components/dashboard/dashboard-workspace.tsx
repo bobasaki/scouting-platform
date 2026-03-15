@@ -3,7 +3,7 @@
 import type { ListRecentRunsResponse } from "@scouting-platform/contracts";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 
 import { getDatabaseRunHref } from "../../lib/database-workspace";
 import { getCsvExportBatchResultHref, getHubspotPushBatchResultHref } from "../../lib/navigation";
@@ -14,10 +14,6 @@ import {
 } from "../../lib/run-batch-actions";
 import { fetchRecentRuns } from "../../lib/runs-api";
 import {
-  formatRunResultCount,
-  formatRunStatusLabel,
-  formatRunTimestamp,
-  getRunStatusSummary,
   RUN_STATUS_POLL_INTERVAL_MS,
   shouldPollRunStatus,
 } from "../runs/run-presentation";
@@ -129,20 +125,6 @@ export function DashboardWorkspace() {
     };
   }, [reloadToken]);
 
-  const liveSummary = useMemo(() => {
-    if (requestState.status !== "ready") {
-      return {
-        totalResults: 0,
-        totalRuns: 0,
-      };
-    }
-
-    return {
-      totalRuns: requestState.data.items.length,
-      totalResults: requestState.data.items.reduce((sum, run) => sum + run.resultCount, 0),
-    };
-  }, [requestState]);
-
   async function handleBatchAction(runId: string, action: "csv" | "hubspot") {
     setActionState({
       action,
@@ -175,70 +157,6 @@ export function DashboardWorkspace() {
 
   return (
     <div className="dashboard-workspace">
-      <section className="dashboard-workspace__hero">
-        <div>
-          <p className="workspace-eyebrow">Scouting</p>
-          <h2>Dashboard</h2>
-          <p className="workspace-copy">
-            Weekly planning scaffolds stay visible here, while the live run table below uses the
-            current runs API and routes every shortlist back into Database.
-          </p>
-        </div>
-
-        <div className="dashboard-workspace__hero-actions">
-          <Link href="/new-scouting">New scouting</Link>
-          <Link className="dashboard-workspace__secondary-link" href="/database">
-            Open Database
-          </Link>
-        </div>
-      </section>
-
-      <section className="dashboard-workspace__filters">
-        <div className="dashboard-workspace__disabled-field">
-          <label>Week</label>
-          <select disabled value="planned">
-            <option value="planned">Requires campaign planning metadata backend</option>
-          </select>
-        </div>
-        <div className="dashboard-workspace__disabled-field">
-          <label>Client</label>
-          <select disabled value="planned">
-            <option value="planned">Requires client metadata backend</option>
-          </select>
-        </div>
-        <div className="dashboard-workspace__disabled-field">
-          <label>Campaign manager</label>
-          <select disabled value="planned">
-            <option value="planned">Requires campaign manager metadata backend</option>
-          </select>
-        </div>
-      </section>
-
-      <section className="dashboard-workspace__summary-grid">
-        <article className="dashboard-workspace__summary-card dashboard-workspace__summary-card--planned">
-          <p className="workspace-eyebrow">Selected week</p>
-          <h3>Planned</h3>
-          <p>Requires backend campaign planning records.</p>
-        </article>
-        <article className="dashboard-workspace__summary-card dashboard-workspace__summary-card--planned">
-          <p className="workspace-eyebrow">Total target</p>
-          <h3>Planned</h3>
-          <p>Target totals land when campaign targets are stored.</p>
-        </article>
-        <article className="dashboard-workspace__summary-card dashboard-workspace__summary-card--planned">
-          <p className="workspace-eyebrow">Coverage</p>
-          <h3>Planned</h3>
-          <p>Coverage depends on target metadata that does not exist yet.</p>
-        </article>
-        <article className="dashboard-workspace__summary-card">
-          <p className="workspace-eyebrow">Live today</p>
-          <h3>
-            {liveSummary.totalRuns} runs · {liveSummary.totalResults} creators
-          </h3>
-          <p>Recent runs and stored result counts are live from the current API.</p>
-        </article>
-      </section>
-
       {actionState.status === "error" ? (
         <section className="workspace-callout workspace-callout--error" role="alert">
           <h3>Run action failed</h3>
@@ -249,8 +167,7 @@ export function DashboardWorkspace() {
       <section className="dashboard-workspace__table-panel">
         <header className="dashboard-workspace__table-header">
           <div>
-            <p className="workspace-eyebrow">Run operations</p>
-            <h2>Scouting runs</h2>
+            <h2>Runs</h2>
           </div>
           <button
             className="dashboard-workspace__secondary-link"
@@ -296,51 +213,21 @@ export function DashboardWorkspace() {
                     return (
                       <tr key={run.id}>
                         <td>
-                          <div className="dashboard-workspace__planned-cell">
-                            <strong>Planned</strong>
-                            <span>Needs client and market campaign metadata.</span>
-                          </div>
+                          <span className="dashboard-workspace__planned-cell">Pending backend</span>
                         </td>
                         <td>
-                          <div className="dashboard-workspace__planned-cell">
-                            <strong>Planned</strong>
-                            <span>Needs campaign manager ownership data.</span>
-                          </div>
+                          <span className="dashboard-workspace__planned-cell">Pending backend</span>
                         </td>
                         <td>
-                          <div className="dashboard-workspace__planned-cell">
-                            <strong>Planned</strong>
-                            <span>Target creators are not stored by the backend yet.</span>
-                          </div>
+                          <span className="dashboard-workspace__planned-cell">Pending backend</span>
                         </td>
                         <td>
-                          <div className="dashboard-workspace__run-cell">
-                            <div>
-                              <Link className="dashboard-workspace__list-link" href={getDatabaseRunHref(run.id)}>
-                                {run.name}
-                              </Link>
-                              <small>{run.query}</small>
-                            </div>
-                            <span className={`dashboard-workspace__status dashboard-workspace__status--${run.status}`}>
-                              {formatRunStatusLabel(run.status)}
-                            </span>
-                            <p className="dashboard-workspace__run-meta">
-                              {formatRunResultCount(run.resultCount)} · Updated {formatRunTimestamp(run.updatedAt)}
-                            </p>
-                            <p className="dashboard-workspace__run-meta">
-                              {getRunStatusSummary({
-                                status: run.status,
-                                resultCount: run.resultCount,
-                                lastError: run.lastError,
-                              })}
-                            </p>
-                          </div>
+                          <Link className="dashboard-workspace__list-link" href={getDatabaseRunHref(run.id)}>
+                            {run.name}
+                          </Link>
                         </td>
                         <td>
-                          <div className="dashboard-workspace__planned-cell">
-                            <strong>Planned</strong>
-                            <span>Coverage needs stored target numbers to calculate.</span>
-                          </div>
+                          <span className="dashboard-workspace__planned-cell">Pending backend</span>
                         </td>
                         <td>
                           <div className="dashboard-workspace__row-actions">

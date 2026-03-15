@@ -64,13 +64,13 @@ describe("new scouting workspace", () => {
       }),
     );
 
-    expect(html).toContain("New scouting");
     expect(html).toContain("Prompt");
     expect(html).toContain("Campaign");
     expect(html).toContain("Source mode");
     expect(html).toContain("Legacy route");
     expect(html).toContain('href="/database?tab=runs"');
     expect(html).toContain("Start scouting");
+    expect(html).not.toContain("Current backend mode");
   });
 
   it("marks scaffolded fields as disabled while leaving the prompt live", () => {
