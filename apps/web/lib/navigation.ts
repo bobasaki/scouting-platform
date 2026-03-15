@@ -62,3 +62,11 @@ export function isNavItemVisibleToRole(item: AppNavigationItem, role: AppRole): 
 export function getNavigationForRole(role: AppRole): AppNavigationItem[] {
   return APP_NAVIGATION_ITEMS.filter((item) => isNavItemVisibleToRole(item, role));
 }
+
+export function getCsvExportBatchResultHref(batchId: string): string {
+  return `/exports/${encodeURIComponent(batchId)}`;
+}
+
+export function getHubspotPushBatchResultHref(batchId: string): string {
+  return `/hubspot/${encodeURIComponent(batchId)}`;
+}

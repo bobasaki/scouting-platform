@@ -29,6 +29,7 @@ import {
   fetchCsvExportBatches,
   getCsvExportBatchDownloadUrl,
 } from "../../lib/csv-export-batches-api";
+import { getCsvExportBatchResultHref } from "../../lib/navigation";
 
 type CsvExportHistoryState = {
   status: "loading" | "error" | "ready";
@@ -300,8 +301,15 @@ function renderHistoryState(props: CsvExportManagerViewProps): ReactElement {
               <p className="csv-export__history-error">{batch.lastError}</p>
             ) : null}
 
-            {batch.status === "completed" ? (
-              <div className="csv-export__actions">
+            <div className="csv-export__actions">
+              <Link
+                className="csv-export__button csv-export__button--secondary"
+                href={getCsvExportBatchResultHref(batch.id)}
+              >
+                Open batch result
+              </Link>
+
+              {batch.status === "completed" ? (
                 <a
                   className="csv-export__button csv-export__button--secondary"
                   download
@@ -309,8 +317,8 @@ function renderHistoryState(props: CsvExportManagerViewProps): ReactElement {
                 >
                   Download CSV
                 </a>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
           </li>
         ))}
       </ul>

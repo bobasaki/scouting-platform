@@ -16,6 +16,7 @@ import {
   fetchHubspotPushBatches,
   fetchHubspotPushBatchDetail,
 } from "../../lib/hubspot-push-batches-api";
+import { getHubspotPushBatchResultHref } from "../../lib/navigation";
 
 type HubspotPushHistoryState = {
   status: "loading" | "error" | "ready";
@@ -409,6 +410,15 @@ function renderDetailState(props: HubspotPushManagerViewProps): ReactElement {
           <dd>{batch.lastError ?? "No batch-level worker error recorded."}</dd>
         </div>
       </dl>
+
+      <div className="hubspot-push__detail-actions">
+        <Link
+          className="hubspot-push__button hubspot-push__button--secondary"
+          href={getHubspotPushBatchResultHref(batch.id)}
+        >
+          Open batch result
+        </Link>
+      </div>
 
       {batch.rows.length === 0 ? (
         <div className="hubspot-push__empty-state">

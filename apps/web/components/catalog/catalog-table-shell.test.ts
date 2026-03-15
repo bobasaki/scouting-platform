@@ -879,16 +879,17 @@ describe("catalog table shell view", () => {
     expect(html).toContain("selected-creators.csv");
     expect(html).toContain("Completed with 2 channels in the CSV. Download is ready.");
     expect(html).toContain("Download CSV");
+    expect(html).toContain("Open batch result");
+    expect(html).toContain('href="/exports/0612f7d5-70b2-402b-9151-a98ec850c8cb"');
     expect(html).toContain(
       "href=\"/api/csv-export-batches/0612f7d5-70b2-402b-9151-a98ec850c8cb/download\"",
     );
     expect(html).toContain("HubSpot push");
     expect(html).toContain("1 pushed · 1 failed.");
     expect(html).toContain("Failed rows");
-    expect(html).toContain("Open HubSpot workspace");
     expect(
       html,
-    ).toContain('href="/hubspot?batchId=dc605f9b-0cd3-41f5-ad85-969255759293"');
+    ).toContain('href="/hubspot/dc605f9b-0cd3-41f5-ad85-969255759293"');
     expect(html).toContain(
       "e11e5184-79a2-42bf-bceb-345f30611c39: Channel has no contact email.",
     );

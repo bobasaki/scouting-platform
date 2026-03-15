@@ -3179,15 +3179,22 @@ a {
   gap: var(--space-5);
 }
 
+.hubspot-push {
+  display: grid;
+  gap: var(--space-5);
+}
+
 .csv-export__toolbar,
 .csv-export__toolbar-actions,
 .csv-export__actions,
+.csv-export__detail-header,
 .csv-export__list-item-header {
   display: flex;
   gap: var(--space-3);
 }
 
 .csv-export__toolbar,
+.csv-export__detail-header,
 .csv-export__list-item-header {
   align-items: flex-start;
   justify-content: space-between;
@@ -3202,7 +3209,9 @@ a {
 .csv-export__history-stack,
 .csv-export__panel,
 .csv-export__feedback,
-.csv-export__empty-state {
+.csv-export__empty-state,
+.csv-export__callout,
+.csv-export__scope-disclosure {
   display: grid;
   gap: var(--space-3);
 }
@@ -3215,7 +3224,9 @@ a {
 
 .csv-export__panel,
 .csv-export__feedback,
-.csv-export__empty-state {
+.csv-export__empty-state,
+.csv-export__callout,
+.csv-export__scope-disclosure {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
@@ -3450,6 +3461,31 @@ a {
 
 .csv-export__details dd {
   margin: 0;
+}
+
+.csv-export__callout h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: var(--line-height-tight);
+}
+
+.csv-export__callout p,
+.csv-export__scope-disclosure summary {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.csv-export__scope-disclosure summary {
+  cursor: pointer;
+  font-weight: var(--font-weight-semibold);
+}
+
+.csv-export__scope-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--font-size-200);
 }
 
 .hubspot-push__toolbar,
@@ -3716,6 +3752,32 @@ a {
   margin-top: var(--space-1);
 }
 
+.hubspot-push__detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.hubspot-push__scope-disclosure {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: var(--space-5);
+}
+
+.hubspot-push__scope-disclosure summary {
+  cursor: pointer;
+  font-weight: var(--font-weight-semibold);
+}
+
+.hubspot-push__scope-list {
+  margin: var(--space-3) 0 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--font-size-200);
+}
+
 @media (max-width: 900px) {
   .auth-shell {
     grid-template-columns: 1fr;
@@ -3827,9 +3889,11 @@ a {
   .csv-export__toolbar,
   .csv-export__toolbar-actions,
   .csv-export__actions,
+  .csv-export__detail-header,
   .csv-export__list-item-header,
   .hubspot-push__toolbar,
   .hubspot-push__toolbar-actions,
+  .hubspot-push__detail-actions,
   .hubspot-push__list-item-header,
   .hubspot-push__detail-header,
   .admin-advanced-report-queue__toolbar,

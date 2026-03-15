@@ -119,6 +119,8 @@ describe("csv export manager view", () => {
     expect(html).toContain("Refreshing export history...");
     expect(html).toContain("Filtered export");
     expect(html).toContain("Selected export");
+    expect(html).toContain("Open batch result");
+    expect(html).toContain('href="/exports/99d39ccb-3cf5-4f09-a647-a0e1387d31cb"');
     expect(html).toContain("Download CSV");
     expect(html).toContain("Export queue unavailable");
     expect(html).toContain(
