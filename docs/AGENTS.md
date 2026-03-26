@@ -23,7 +23,7 @@ Before changing code beyond trivial UI copy:
 2. `/PROJECTS_SPECS.md`
 3. `/ARCHITECTURE.md`
 4. `/TASKS.md`
-5. `/docs/adr/*` (especially ADR-001, ADR-002)
+5. `/docs/ADR-*.md` (especially ADR-001, ADR-002, ADR-003)
 
 Do not implement from memory if docs disagree.  [oai_citation:6‡ARCHITECTURE.md](sediment://file_00000000c9d071fd875320dd2e50d45a)  [oai_citation:7‡TASKS.md](sediment://file_000000006fd471f8869cbb09a1484915)  [oai_citation:8‡ADR-001-architecture.md](sediment://file_00000000442071fd951b6d06481efd17)  [oai_citation:9‡ADR-002-data-ownership-and-precedence.md](sediment://file_0000000015cc71fd86c57d2baf4ba6e9)
 
@@ -32,12 +32,12 @@ Do not implement from memory if docs disagree.  [oai_citation:6‡ARCHITECTURE.m
 ## 2) Hard Rules (MUST / FAIL if violated)
 
 ### 2.1 Architecture & boundaries (ADR-001)
-- Monorepo is authoritative: `apps/web`, `apps/worker`, `packages/*`.
+- Monorepo is authoritative: `frontend/web`, `backend/worker`, `backend/packages/*`, `shared/packages/*`.
 - Worker is a **separate process** from web.
-- Provider calls live only in `packages/integrations`.
-- Domain/business logic lives in `packages/core`.
-- Shared zod schemas/types live in `packages/contracts`.
-- Env/config validation lives in `packages/config`.  [oai_citation:10‡ADR-001-architecture.md](sediment://file_00000000442071fd951b6d06481efd17)  [oai_citation:11‡ARCHITECTURE.md](sediment://file_00000000c9d071fd875320dd2e50d45a)
+- Provider calls live only in `backend/packages/integrations`.
+- Domain/business logic lives in `backend/packages/core`.
+- Shared zod schemas/types live in `shared/packages/contracts`.
+- Env/config validation lives in `shared/packages/config`.  [oai_citation:10‡ADR-001-architecture.md](sediment://file_00000000442071fd951b6d06481efd17)  [oai_citation:11‡ARCHITECTURE.md](sediment://file_00000000c9d071fd875320dd2e50d45a)
 
 ### 2.2 Database
 - Postgres only.
@@ -96,7 +96,7 @@ Everything in commit review PLUS:
 
 ## 4) ADR Requirement (merge-blocking)
 
-If a change affects any of the following, you MUST add/update an ADR in `/docs/adr`:
+If a change affects any of the following, you MUST add/update an ADR in `/docs`:
 - system boundaries / repo shape
 - auth model
 - queue approach
@@ -110,7 +110,7 @@ No ADR = FAIL for merge review.  [oai_citation:21‡README.md](sediment://file_0
 
 ## 5) File Placement Rules (enforced)
 
-### apps/web
+### frontend/web
 Allowed:
 - UI, pages, server route handlers (“BFF”)
 - session validation & permission checks at boundary
@@ -119,29 +119,29 @@ Not allowed:
 - long-running workflows
 - heavy domain logic
 
-### apps/worker
+### backend/worker
 Allowed:
 - job registration + execution
 - orchestration of imports/exports/enrichment
 - provider retry logic and concurrency caps
 
-### packages/core
+### backend/packages/core
 - domain services, business rules
 - merge/resolution logic (precedence)
 - approval rules
 - orchestration functions used by both web & worker
 
-### packages/integrations
+### backend/packages/integrations
 - YouTube/OpenAI/HypeAuditor/HubSpot adapters
 - request signing, quotas, retries (but do not store domain rules here)
 
-### packages/contracts
+### shared/packages/contracts
 - zod schemas, DTOs, route contracts, queue payload contracts
 
-### packages/db
+### backend/packages/db
 - prisma schema + migrations + client + transaction helpers
 
-### packages/config
+### shared/packages/config
 - env parsing, validation, feature flags, constants  [oai_citation:23‡ARCHITECTURE.md](sediment://file_00000000c9d071fd875320dd2e50d45a)
 
 ---
@@ -181,7 +181,7 @@ Allowed:
 
 Every job must define:
 - name: `domain.action` (e.g., `runs.discover`)
-- payload: zod schema in `packages/contracts`
+- payload: zod schema in `shared/packages/contracts`
 - idempotency: natural key or dedupe strategy documented in code
 - retries: bounded backoff
 - concurrency: explicit cap per provider

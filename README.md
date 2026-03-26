@@ -41,7 +41,7 @@ Admins can additionally:
 
 - Monorepo: `pnpm` workspaces + `turbo`
 - Web: `Next.js` App Router
-- Worker: Node.js process in `apps/worker`
+- Worker: Node.js process in `backend/worker`
 - DB: Postgres
 - ORM: Prisma
 - Queue: pg-boss
@@ -54,15 +54,18 @@ Admins can additionally:
 ## Repo Layout
 
 ```text
-apps/
+frontend/
   web/
+backend/
   worker/
-packages/
-  db/
-  core/
-  integrations/
-  contracts/
-  config/
+  packages/
+    core/
+    db/
+    integrations/
+shared/
+  packages/
+    contracts/
+    config/
 docs/
   ADR-001-architecture.md
   ADR-002-data-ownership-and-precedence.md

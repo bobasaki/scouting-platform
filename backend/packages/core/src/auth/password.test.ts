@@ -9,14 +9,18 @@ const originalCwd = process.cwd();
 
 function resolveAppsWebDirectory(): string {
   const candidates = [
+    path.resolve(originalCwd, "frontend", "web"),
+    path.resolve(originalCwd, "..", "..", "..", "frontend", "web"),
+    path.resolve(originalCwd, "..", "..", "frontend", "web"),
     path.resolve(originalCwd, "apps", "web"),
+    path.resolve(originalCwd, "..", "..", "..", "apps", "web"),
     path.resolve(originalCwd, "..", "..", "apps", "web"),
   ];
 
   const match = candidates.find((candidate) => fs.existsSync(candidate));
 
   if (!match) {
-    throw new Error("Unable to locate apps/web for cwd-independence test");
+    throw new Error("Unable to locate frontend/web for cwd-independence test");
   }
 
   return match;

@@ -13,7 +13,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
-    "db:seed:admin": "tsx ../../scripts/seed-admin.ts",
+    "db:seed:admin": "tsx ../../../scripts/seed-admin.ts",
     "db:studio": "prisma studio",
     "test": "vitest run --passWithNoTests --fileParallelism=false",
     "typecheck": "tsc --noEmit"

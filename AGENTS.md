@@ -40,9 +40,9 @@ ADR approval requires both Ivan and Marin.
 ## 4. Coding Rules
 
 - Prefer TypeScript everywhere.
-- Prefer small, typed domain functions in `packages/core`.
+- Prefer small, typed domain functions in `backend/packages/core`.
 - Keep route handlers thin.
-- Keep provider logic inside `packages/integrations`.
+- Keep provider logic inside `backend/packages/integrations`.
 - Validate inputs with zod at every external boundary.
 - Use transactions for critical write paths.
 - Keep comments rare and specific.

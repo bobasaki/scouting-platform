@@ -24,10 +24,10 @@ This plan is backend-only.
 
 It is limited to Ivan-owned backend work in:
 
-- `packages/core`
-- `packages/integrations`
-- `packages/db`
-- `packages/contracts`
+- `backend/packages/core`
+- `backend/packages/integrations`
+- `backend/packages/db`
+- `shared/packages/contracts`
 - worker execution
 - additive server/API response changes where required for backend delivery
 
@@ -224,7 +224,7 @@ This avoids the current mismatch where a 12-video long-form metric is impossible
 
 ### Provider Calls
 
-- keep YouTube provider parsing in `packages/integrations`
+- keep YouTube provider parsing in `backend/packages/integrations`
 - use `playlistItems.list` to gather upload video IDs
 - use `videos.list` for those IDs to fetch normalized metadata
 - batch IDs efficiently and remain quota-conscious
@@ -252,7 +252,7 @@ For this slice:
 - `isShort = durationSeconds <= 180`
 - `isLongForm = durationSeconds > 180`
 
-Use one shared helper in `packages/core` so enrichment and metric derivation use the same rule.
+Use one shared helper in `backend/packages/core` so enrichment and metric derivation use the same rule.
 
 ### Done When
 

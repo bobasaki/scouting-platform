@@ -7,8 +7,8 @@ still a manual operator step.
 
 Create one Railway project with these services:
 - `postgres` (Railway Postgres)
-- `web` (Next.js app from `apps/web`)
-- `worker` (background worker from `apps/worker`)
+- `web` (Next.js app from `frontend/web`)
+- `worker` (background worker from `backend/worker`)
 
 ## Service commands
 

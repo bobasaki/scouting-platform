@@ -25,11 +25,11 @@ behavior, freshness windows, approval rules, queue family names, or worker/web b
 
 This plan is limited to Ivan-owned backend work in:
 
-- `packages/core`
-- `packages/integrations`
-- `packages/db`
-- `packages/contracts`
-- `apps/worker`
+- `backend/packages/core`
+- `backend/packages/integrations`
+- `backend/packages/db`
+- `shared/packages/contracts`
+- `backend/worker`
 
 It does not include:
 
@@ -48,18 +48,18 @@ It does not include:
 
 The current backend already provides part of the required foundation:
 
-- `packages/core/src/enrichment/index.ts`
+- `backend/packages/core/src/enrichment/index.ts`
   - claims `channel_enrichments` rows and persists `rawOpenaiPayload`
   - reuses fresh cached YouTube context
   - does not separate provider-response persistence from normalized enrichment writes
-- `packages/core/src/approvals/index.ts`
+- `backend/packages/core/src/approvals/index.ts`
   - claims `advanced_report_requests`
   - persists a `channel_provider_payloads` row and links it through `providerPayloadId`
   - does not reuse an existing payload on retry before re-calling HypeAuditor
-- `packages/core/src/runs/repository.ts`
+- `backend/packages/core/src/runs/repository.ts`
   - discovery execution is idempotent at the run level
   - no discovery reuse/cache exists across repeated similar runs
-- `packages/db/prisma/schema.prisma`
+- `backend/packages/db/prisma/schema.prisma`
   - already has `channel_enrichments.rawOpenaiPayload`
   - already has `advanced_report_requests.providerPayloadId`
   - does not currently track provider-attempt timestamps, cooldowns, execution phases, or discovery cache state
@@ -241,7 +241,7 @@ Lower token spend per successful OpenAI call without changing the enrichment con
 
 ### Current Gap
 
-`packages/integrations/src/openai/channel-enrichment.ts` currently pretty-prints the full payload
+`backend/packages/integrations/src/openai/channel-enrichment.ts` currently pretty-prints the full payload
 and sends more context than is necessary for the current output shape.
 
 ### Planned Changes

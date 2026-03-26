@@ -236,7 +236,7 @@ Symptoms:
 - or `docker compose logs web` shows `CallbackRouteError` with `RUNTIME_REQUIRE is not a function`
 
 Fix:
-- keep native password hashing externalized in `apps/web/next.config.ts` and runtime-resolved in `packages/core/src/auth/password.ts`
+- keep native password hashing externalized in `frontend/web/next.config.ts` and runtime-resolved in `backend/packages/core/src/auth/password.ts`
 - restart the web service so Next picks up the config change:
 
 ```bash

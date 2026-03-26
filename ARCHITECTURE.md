@@ -26,123 +26,137 @@ Any change to these requires:
 - a short ADR in `/docs`
 - approval from both Ivan and Marin
 
-## 3. Monorepo Layout
+## 3. Repository Layout
+
+The repository is organized by responsibility first, then by package:
 
 ```text
-apps/
+frontend/
   web/
     app/
     components/
     lib/
+    e2e/
+backend/
   worker/
     src/
-packages/
-  db/
-    prisma/
-    src/
-  core/
-    src/
-      auth/
-      channels/
-      runs/
-      enrichment/
-      imports/
-      hubspot/
-      approvals/
-  integrations/
-    src/
-      youtube/
-      openai/
-      hypeauditor/
-      hubspot/
-  contracts/
-    src/
-  config/
-    src/
+  packages/
+    core/
+      src/
+    db/
+      prisma/
+      src/
+    integrations/
+      src/
+shared/
+  packages/
+    contracts/
+      src/
+    config/
+      src/
 docs/
   ADR-001-architecture.md
   ADR-002-data-ownership-and-precedence.md
+  ADR-003-repository-layout-simplification.md
   README.md
   setup/
+scripts/
+docker/
 ```
 
-## 4. Responsibility Split by Package
+## 4. Directory Responsibilities
 
-### apps/web
-- auth screens
-- app shell
+### `frontend/web`
+- authenticated UI
+- app shell and navigation
 - server-rendered pages
 - route handlers / BFF layer
-- permission-aware UI
-- polling and mutation UX
+- auth/session boundary checks
+- Playwright coverage and UI-focused tests
 
-### apps/worker
-- job registration
-- job execution
+### `backend/worker`
+- pg-boss worker bootstrapping
+- job registration and execution
 - scheduled maintenance tasks
 - provider retry logic
-- long-running imports/exports/enrichment
+- long-running imports, exports, and enrichment work
 
-### packages/db
-- Prisma schema
-- migrations
-- Prisma client setup
-- transaction helpers
-- DB-owned query abstractions where useful
-
-### packages/core
+### `backend/packages/core`
 - domain services
 - business rules
-- merge/preference logic
+- merge and precedence logic
 - run orchestration
 - approval rules
 - import/export orchestration
 
-### packages/integrations
+### `backend/packages/db`
+- Prisma schema
+- migrations
+- Prisma client setup
+- transaction helpers
+- DB-owned access helpers where useful
+
+### `backend/packages/integrations`
 - YouTube API adapter
 - OpenAI adapter
 - HypeAuditor adapter
 - HubSpot adapter
 
-### packages/contracts
+### `shared/packages/contracts`
 - zod schemas
 - DTOs
 - route contracts
 - queue payload contracts
 
-### packages/config
+### `shared/packages/config`
 - env validation
 - runtime configuration
 - feature flags
 - shared constants
 
-## 5. Core Flows
+### Root-level support directories
+- `docs/`: ADRs, setup guides, plans, contributor guidance
+- `scripts/`: operational and developer automation
+- `docker/`: local container definitions and bootstrap assets
+- repo root: shared workspace/tooling config such as `turbo`, TypeScript, ESLint, and package-manager files
 
-### 5.1 Catalog Browse
+## 5. Why The Layout Changed
+
+The old `apps/` and `packages/` split was technically valid but made the repository harder to scan because frontend, backend, and shared concerns were mixed at the same level. The new layout keeps the same runtime boundaries and package names, but groups them into clearer top-level domains:
+
+- `frontend/` for browser-facing and Next.js code
+- `backend/` for worker code, domain logic, database code, and provider adapters
+- `shared/` for cross-runtime contracts and configuration
+
+This is a navigation and maintenance refactor, not a product or runtime rewrite.
+
+## 6. Core Flows
+
+### 6.1 Catalog Browse
 1. User requests catalog page.
 2. Web server validates session.
-3. Web queries Postgres using resolved channel profile + filters.
+3. Web queries Postgres using resolved channel profile and filters.
 4. UI renders paginated results.
 
-### 5.2 Run Creation
+### 6.2 Run Creation
 1. User submits run form.
 2. Web validates session, role, and assigned YouTube key.
 3. Web creates `run_requests` record.
 4. Worker processes discovery job.
 5. Worker searches catalog and YouTube.
-6. Worker upserts new channel/source rows.
+6. Worker upserts new channel and source rows.
 7. Worker produces `run_results` snapshot.
 8. UI polls job status.
 
-### 5.3 LLM Enrichment
+### 6.3 LLM Enrichment
 1. User or system requests enrichment.
 2. Worker loads cached text context if present.
 3. Worker fetches missing YouTube context only when needed.
 4. Worker calls OpenAI.
-5. Result is stored as source snapshot + resolved enrichment projection.
+5. Result is stored as source snapshot and resolved enrichment projection.
 6. Errors are saved to job state and enrichment row.
 
-### 5.4 HypeAuditor Approval Flow
+### 6.4 HypeAuditor Approval Flow
 1. User requests advanced report.
 2. Request row is created in `pending_approval` unless an active request already exists.
 3. Admin approves or rejects.
@@ -152,21 +166,21 @@ docs/
 7. Result is stored and merged into resolved channel data.
 8. Audit events are recorded for request and approval.
 
-### 5.5 CSV Import
+### 6.5 CSV Import
 1. Admin uploads strict-template CSV.
 2. Web stores batch metadata.
 3. Worker validates and processes rows.
-4. Valid rows become imported source snapshots / overrides.
+4. Valid rows become imported source snapshots or overrides.
 5. Row-level failures are persisted.
 
-### 5.6 HubSpot Push
+### 6.6 HubSpot Push
 1. User selects creators.
 2. Web creates push batch.
 3. Worker pushes creators to HubSpot.
-4. Per-record success/failure is saved.
+4. Per-record success or failure is saved.
 5. UI shows batch results and retryable failures.
 
-## 6. Data Model Direction
+## 7. Data Model Direction
 
 ### Canonical Tables
 - `users`
@@ -193,7 +207,7 @@ docs/
 ### Queue / Operational Tables
 - `pgboss.job` and related internal queue tables
 
-## 7. Merge Strategy
+## 8. Merge Strategy
 
 Store both:
 - raw provider/import payloads
@@ -209,7 +223,7 @@ Resolved profile is computed by precedence:
 
 This avoids losing provenance and makes manual correction safe.
 
-## 8. Auth and Permissions
+## 9. Auth and Permissions
 
 - Auth.js credentials provider
 - Passwords hashed with argon2
@@ -220,7 +234,7 @@ This avoids losing provenance and makes manual correction safe.
 - `admin`
 - `user`
 
-## 9. Background Jobs
+## 10. Background Jobs
 
 Use `pg-boss`.
 
@@ -241,7 +255,7 @@ Initial job families:
 - idempotent where possible
 - explicit concurrency caps per provider
 
-## 10. Security Rules
+## 11. Security Rules
 
 - Encrypt user YouTube keys at rest with `APP_ENCRYPTION_KEY`
 - Never expose company secrets to the browser
@@ -249,7 +263,7 @@ Initial job families:
 - Keep audit events immutable
 - Prefer optimistic UI only for non-critical UX, never for approvals/import outcomes
 
-## 11. Testing Strategy
+## 12. Testing Strategy
 
 ### Unit
 - domain rules
@@ -258,69 +272,24 @@ Initial job families:
 - queue payload validation
 
 ### Integration
+- DB repositories and transactions
 - route handlers
 - auth rules
-- DB transactions
-- worker jobs against ephemeral Postgres
+- worker job behavior
+- Prisma migration safety
 
-### End-to-End
+### End-to-end
 - login
-- catalog browse
-- run creation
-- enrichment status
-- admin approval flow
-- CSV import
-- HubSpot push
+- catalog browse/detail
+- run creation and status
+- enrichment visibility
+- admin approvals
+- CSV import/export
+- HubSpot push flows
 
-CI gates must include:
-- typecheck
-- lint
-- Prisma validation
-- unit/integration tests
-- web build
-- worker build
-- Playwright smoke tests
+## 13. Migration Notes For Contributors
 
-## 12. Deployment Strategy
-
-### Environments
-- local
-- staging
-- production
-
-### Services
-- one web service
-- one worker service
-- one Postgres instance per environment
-
-### Required Operational Docs
-- migration procedure
-- rollback procedure
-- backup procedure
-- secret rotation procedure
-
-## 13. Observability
-
-Minimum v1 operational visibility:
-- structured logs with request/job ids
-- job queue dashboard on admin screen
-- audit log for privileged actions
-- persisted last-error fields on failed jobs and enrichments
-
-## 14. Performance Rules
-
-- use catalog projections for list pages
-- avoid provider refetch during enrich if cached context exists
-- batch DB writes inside transactions
-- do not over-fetch heavy provider payloads into page requests
-- use background jobs for imports, exports, HubSpot pushes, and heavy enrichments
-
-## 15. No-Pivot Guardrails
-
-Do not reintroduce the problems from the old codebase:
-- no runtime schema creation
-- no worker logic in the web app process
-- no unguarded admin routes
-- no partial-write success on critical flows
-- no duplicate catalog vs run truth models
-- no direct browser-to-backend-provider networking pattern
+- Package names did not change. Existing `@scouting-platform/*` imports remain valid.
+- The refactor is mostly path-level. If a script imports files by relative filesystem path, prefer the new `frontend/`, `backend/`, and `shared/` roots.
+- Workspace discovery now comes from `pnpm-workspace.yaml` entries for `frontend/*`, `backend/*`, `backend/packages/*`, and `shared/packages/*`.
+- Root tooling files remain at the repository root so editor, CI, and local commands continue to work from `/`.
