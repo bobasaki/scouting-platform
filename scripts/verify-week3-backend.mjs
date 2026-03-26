@@ -13,8 +13,8 @@ if (!databaseUrlTest) {
 }
 
 for (const args of [
-  ["-w", "vitest", "packages/core/src/week3.integration.test.ts", "--run"],
-  ["-w", "vitest", "apps/web/app/api/week3.integration.test.ts", "--run"],
+  ["-w", "vitest", "backend/packages/core/src/week3.integration.test.ts", "--run"],
+  ["-w", "vitest", "frontend/web/app/api/week3.integration.test.ts", "--run"],
 ]) {
   const result = spawnSync("pnpm", args, {
     env: process.env,

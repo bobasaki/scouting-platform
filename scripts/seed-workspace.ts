@@ -1,8 +1,8 @@
 import { Role, UserType } from "@prisma/client";
 import { COUNTRY_REGION_OPTIONS } from "@scouting-platform/contracts";
 
-import { hashPassword } from "../packages/core/src/auth/password";
-import { disconnectPrisma, prisma } from "../packages/db/src";
+import { hashPassword } from "../backend/packages/core/src/auth/password";
+import { disconnectPrisma, prisma } from "../backend/packages/db/src";
 
 async function upsertUser(input: {
   email: string;

@@ -1,4 +1,4 @@
-import { disconnectPrisma, prisma } from "../packages/db/src";
+import { disconnectPrisma, prisma } from "../backend/packages/db/src";
 
 async function main() {
   const includeCatalog = process.argv.includes("--include-catalog");

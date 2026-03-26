@@ -1,7 +1,7 @@
 import process from "node:process";
 
-import { disconnectPrisma } from "../packages/db/src";
-import { seedInitialAdmin } from "../packages/core/src/auth/seed-admin";
+import { disconnectPrisma } from "../backend/packages/db/src";
+import { seedInitialAdmin } from "../backend/packages/core/src/auth/seed-admin";
 
 function requiredEnv(name: string): string {
   const value = process.env[name]?.trim();

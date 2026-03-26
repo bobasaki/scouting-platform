@@ -11,6 +11,9 @@ declare const __non_webpack_require__: RuntimeRequire | undefined;
 
 function getRequireRoot(): string {
   const candidates = [
+    path.resolve(process.cwd(), "backend/packages/core/package.json"),
+    path.resolve(process.cwd(), "../backend/packages/core/package.json"),
+    path.resolve(process.cwd(), "../../backend/packages/core/package.json"),
     path.resolve(process.cwd(), "packages/core/package.json"),
     path.resolve(process.cwd(), "../packages/core/package.json"),
     path.resolve(process.cwd(), "../../packages/core/package.json"),

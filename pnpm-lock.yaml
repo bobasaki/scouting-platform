@@ -39,20 +39,79 @@ importers:
         specifier: ^3.0.9
         version: 3.2.4(@types/node@22.19.13)(jiti@2.6.1)(tsx@4.21.0)
 
-  apps/web:
+  backend/packages/core:
+    dependencies:
+      '@prisma/client':
+        specifier: ^6.5.0
+        version: 6.19.2(prisma@6.19.2(typescript@5.9.3))(typescript@5.9.3)
+      '@scouting-platform/contracts':
+        specifier: workspace:*
+        version: link:../../../shared/packages/contracts
+      '@scouting-platform/db':
+        specifier: workspace:*
+        version: link:../db
+      '@scouting-platform/integrations':
+        specifier: workspace:*
+        version: link:../integrations
+      argon2:
+        specifier: ^0.43.0
+        version: 0.43.1
+      csv-parse:
+        specifier: ^6.1.0
+        version: 6.1.0
+      pg-boss:
+        specifier: ^12.14.0
+        version: 12.14.0
+
+  backend/packages/db:
+    dependencies:
+      '@prisma/client':
+        specifier: ^6.5.0
+        version: 6.19.2(prisma@6.19.2(typescript@5.9.3))(typescript@5.9.3)
+    devDependencies:
+      prisma:
+        specifier: ^6.5.0
+        version: 6.19.2(typescript@5.9.3)
+
+  backend/packages/integrations:
+    dependencies:
+      openai:
+        specifier: ^4.0.0
+        version: 4.104.0(zod@4.3.6)
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
+
+  backend/worker:
+    dependencies:
+      '@scouting-platform/contracts':
+        specifier: workspace:*
+        version: link:../../shared/packages/contracts
+      '@scouting-platform/core':
+        specifier: workspace:*
+        version: link:../packages/core
+      pg-boss:
+        specifier: ^12.14.0
+        version: 12.14.0
+    devDependencies:
+      tsx:
+        specifier: ^4.19.3
+        version: 4.21.0
+
+  frontend/web:
     dependencies:
       '@auth/prisma-adapter':
         specifier: ^2.11.1
         version: 2.11.1(@prisma/client@6.19.2(prisma@6.19.2(typescript@5.9.3))(typescript@5.9.3))
       '@scouting-platform/contracts':
         specifier: workspace:*
-        version: link:../../packages/contracts
+        version: link:../../shared/packages/contracts
       '@scouting-platform/core':
         specifier: workspace:*
-        version: link:../../packages/core
+        version: link:../../backend/packages/core
       '@scouting-platform/db':
         specifier: workspace:*
-        version: link:../../packages/db
+        version: link:../../backend/packages/db
       next:
         specifier: ^15.2.2
         version: 15.5.12(@playwright/test@1.58.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -94,73 +153,14 @@ importers:
         specifier: ^3.0.9
         version: 3.2.4(@types/node@22.19.13)(jiti@2.6.1)(tsx@4.21.0)
 
-  apps/worker:
-    dependencies:
-      '@scouting-platform/contracts':
-        specifier: workspace:*
-        version: link:../../packages/contracts
-      '@scouting-platform/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      pg-boss:
-        specifier: ^12.14.0
-        version: 12.14.0
-    devDependencies:
-      tsx:
-        specifier: ^4.19.3
-        version: 4.21.0
-
-  packages/config:
+  shared/packages/config:
     dependencies:
       zod:
         specifier: ^4.3.6
         version: 4.3.6
 
-  packages/contracts:
+  shared/packages/contracts:
     dependencies:
-      zod:
-        specifier: ^4.3.6
-        version: 4.3.6
-
-  packages/core:
-    dependencies:
-      '@prisma/client':
-        specifier: ^6.5.0
-        version: 6.19.2(prisma@6.19.2(typescript@5.9.3))(typescript@5.9.3)
-      '@scouting-platform/contracts':
-        specifier: workspace:*
-        version: link:../contracts
-      '@scouting-platform/db':
-        specifier: workspace:*
-        version: link:../db
-      '@scouting-platform/integrations':
-        specifier: workspace:*
-        version: link:../integrations
-      argon2:
-        specifier: ^0.43.0
-        version: 0.43.1
-      csv-parse:
-        specifier: ^6.1.0
-        version: 6.1.0
-      pg-boss:
-        specifier: ^12.14.0
-        version: 12.14.0
-
-  packages/db:
-    dependencies:
-      '@prisma/client':
-        specifier: ^6.5.0
-        version: 6.19.2(prisma@6.19.2(typescript@5.9.3))(typescript@5.9.3)
-    devDependencies:
-      prisma:
-        specifier: ^6.5.0
-        version: 6.19.2(typescript@5.9.3)
-
-  packages/integrations:
-    dependencies:
-      openai:
-        specifier: ^4.0.0
-        version: 4.104.0(zod@4.3.6)
       zod:
         specifier: ^4.3.6
         version: 4.3.6
