@@ -17,7 +17,6 @@ import {
   requestChannelAdvancedReport,
   requestChannelEnrichment,
 } from "../../lib/channels-api";
-import { AdminChannelManualEditPanel } from "./admin-channel-manual-edit-panel";
 
 type ChannelDetailShellProps = Readonly<{
   channelId: string;
@@ -632,19 +631,14 @@ function StatusPopoverTag({
 function renderReadyState(
   channel: ChannelDetail,
   options: {
-    canManageManualEdits: boolean;
     enrichmentActionState: ChannelEnrichmentActionState;
     advancedReportActionState: ChannelAdvancedReportActionState;
     onRequestEnrichment: () => void | Promise<void>;
     onRequestAdvancedReport: () => void | Promise<void>;
-    onChannelUpdated?: (channel: ChannelDetail) => void;
   },
 ) {
   const enrichmentActionStatus = options.enrichmentActionState;
   const advancedReportActionStatus = options.advancedReportActionState;
-  const onChannelUpdated = options.onChannelUpdated;
-  const canRenderAdminManualEdits =
-    options.canManageManualEdits && typeof onChannelUpdated === "function";
   const isEnrichmentBusy =
     options.enrichmentActionState.type === "submitting" ||
     shouldPollEnrichmentStatus(channel.enrichment.status);
@@ -747,10 +741,6 @@ function renderReadyState(
           </dl>
         </div>
       </section>
-
-      {canRenderAdminManualEdits ? (
-        <AdminChannelManualEditPanel channel={channel} onChannelUpdated={onChannelUpdated} />
-      ) : null}
 
       <section aria-labelledby="channel-detail-shell-profile-heading" className="channel-detail-shell__panel">
         <header>
@@ -978,10 +968,8 @@ function renderReadyState(
 
 export function ChannelDetailShellView({
   advancedReportActionState,
-  canManageManualEdits,
   channelId,
   enrichmentActionState,
-  onChannelUpdated,
   onRequestAdvancedReport,
   onRequestEnrichment,
   onRetry,
@@ -1016,11 +1004,9 @@ export function ChannelDetailShellView({
       {requestState.status === "ready"
         ? renderReadyState(requestState.data, {
             advancedReportActionState,
-            canManageManualEdits: canManageManualEdits ?? false,
             enrichmentActionState,
             onRequestAdvancedReport,
             onRequestEnrichment,
-            ...(onChannelUpdated ? { onChannelUpdated } : {}),
           })
         : null}
     </div>

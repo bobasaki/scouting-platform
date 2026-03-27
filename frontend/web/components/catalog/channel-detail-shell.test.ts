@@ -364,7 +364,7 @@ describe("channel detail shell view", () => {
     expect(busyHtml).not.toContain("Requesting...");
   });
 
-  it("renders the admin manual edit panel when manual edit controls are enabled", () => {
+  it("does not render the admin manual edit panel in the creator detail page", () => {
     const html = renderToStaticMarkup(
       createElement(ChannelDetailShellView, {
         advancedReportActionState: {
@@ -389,9 +389,9 @@ describe("channel detail shell view", () => {
       }),
     );
 
-    expect(html).toContain("Admin profile controls");
-    expect(html).toContain("Save override");
-    expect(html).toContain("Restore fallback");
+    expect(html).not.toContain("Admin profile controls");
+    expect(html).not.toContain("Save override");
+    expect(html).not.toContain("Restore fallback");
   });
 
   it("renders retryable error feedback when the request fails", () => {
