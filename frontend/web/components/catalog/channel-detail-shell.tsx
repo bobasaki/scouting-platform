@@ -562,15 +562,6 @@ function renderReadyState(
   const isAdvancedReportBusy =
     options.advancedReportActionState.type === "submitting" ||
     shouldPollAdvancedReportStatus(channel.advancedReport.status);
-  const actionFeedback =
-    enrichmentActionStatus.message || advancedReportActionStatus.message
-      ? {
-          type: (enrichmentActionStatus.message
-            ? enrichmentActionStatus.type
-            : advancedReportActionStatus.type) as "idle" | "success" | "error" | "submitting",
-          message: enrichmentActionStatus.message || advancedReportActionStatus.message,
-        }
-      : null;
 
   return (
     <>
@@ -600,51 +591,73 @@ function renderReadyState(
             <p className="channel-detail-shell__description">{getChannelDescription(channel)}</p>
             <div className="channel-detail-shell__hero-controls">
               <div className="channel-detail-shell__status-row">
-                <span
-                  className={`channel-detail-shell__status channel-detail-shell__status--${channel.enrichment.status}`}
-                >
-                  Enrichment: {getEnrichmentStatusLabel(channel.enrichment.status)}
-                </span>
-                <span
-                  className={`channel-detail-shell__status channel-detail-shell__status--${channel.advancedReport.status}`}
-                >
-                  Advanced report: {getAdvancedReportStatusLabel(channel.advancedReport.status)}
-                </span>
-              </div>
-
-              <div className="channel-detail-shell__toolbar">
-                <button
-                  className="channel-detail-shell__button channel-detail-shell__button--tag"
-                  disabled={isEnrichmentBusy}
-                  onClick={() => {
-                    void options.onRequestEnrichment();
-                  }}
-                  type="button"
-                >
-                  {options.enrichmentActionState.type === "submitting"
-                    ? "Requesting..."
-                    : getEnrichmentActionLabel(channel.enrichment.status)}
-                </button>
-                <button
-                  className="channel-detail-shell__button channel-detail-shell__button--tag channel-detail-shell__button--secondary"
-                  disabled={isAdvancedReportBusy}
-                  onClick={() => {
-                    void options.onRequestAdvancedReport();
-                  }}
-                  type="button"
-                >
-                  {options.advancedReportActionState.type === "submitting"
-                    ? "Requesting..."
-                    : getAdvancedReportActionLabel(channel.advancedReport.status)}
-                </button>
-                {actionFeedback ? (
-                  <p
-                    className={`channel-detail-shell__action-status channel-detail-shell__action-status--${actionFeedback.type} channel-detail-shell__action-status--inline`}
-                    role={actionFeedback.type === "error" ? "alert" : "status"}
+                <details className="channel-detail-shell__status-popover">
+                  <summary
+                    className={`channel-detail-shell__status channel-detail-shell__status--${channel.enrichment.status}`}
                   >
-                    {actionFeedback.message}
-                  </p>
-                ) : null}
+                    Enrichment: {getEnrichmentStatusLabel(channel.enrichment.status)}
+                  </summary>
+                  <div className="channel-detail-shell__status-popover-panel">
+                    <h3 className="channel-detail-shell__subheading">Enrichment</h3>
+                    <p className="channel-detail-shell__body-copy">
+                      {getEnrichmentStatusMessage(channel.enrichment)}
+                    </p>
+                    <button
+                      className="channel-detail-shell__button channel-detail-shell__button--tag"
+                      disabled={isEnrichmentBusy}
+                      onClick={() => {
+                        void options.onRequestEnrichment();
+                      }}
+                      type="button"
+                    >
+                      {options.enrichmentActionState.type === "submitting"
+                        ? "Requesting..."
+                        : getEnrichmentActionLabel(channel.enrichment.status)}
+                    </button>
+                    {enrichmentActionStatus.message ? (
+                      <p
+                        className={`channel-detail-shell__action-status channel-detail-shell__action-status--${enrichmentActionStatus.type} channel-detail-shell__action-status--inline`}
+                        role={enrichmentActionStatus.type === "error" ? "alert" : "status"}
+                      >
+                        {enrichmentActionStatus.message}
+                      </p>
+                    ) : null}
+                  </div>
+                </details>
+
+                <details className="channel-detail-shell__status-popover">
+                  <summary
+                    className={`channel-detail-shell__status channel-detail-shell__status--${channel.advancedReport.status}`}
+                  >
+                    Advanced report: {getAdvancedReportStatusLabel(channel.advancedReport.status)}
+                  </summary>
+                  <div className="channel-detail-shell__status-popover-panel">
+                    <h3 className="channel-detail-shell__subheading">Advanced report</h3>
+                    <p className="channel-detail-shell__body-copy">
+                      {getAdvancedReportStatusMessage(channel)}
+                    </p>
+                    <button
+                      className="channel-detail-shell__button channel-detail-shell__button--tag channel-detail-shell__button--secondary"
+                      disabled={isAdvancedReportBusy}
+                      onClick={() => {
+                        void options.onRequestAdvancedReport();
+                      }}
+                      type="button"
+                    >
+                      {options.advancedReportActionState.type === "submitting"
+                        ? "Requesting..."
+                        : getAdvancedReportActionLabel(channel.advancedReport.status)}
+                    </button>
+                    {advancedReportActionStatus.message ? (
+                      <p
+                        className={`channel-detail-shell__action-status channel-detail-shell__action-status--${advancedReportActionStatus.type} channel-detail-shell__action-status--inline`}
+                        role={advancedReportActionStatus.type === "error" ? "alert" : "status"}
+                      >
+                        {advancedReportActionStatus.message}
+                      </p>
+                    ) : null}
+                  </div>
+                </details>
               </div>
             </div>
           </div>
