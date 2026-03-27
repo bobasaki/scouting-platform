@@ -34,7 +34,7 @@ describe("authenticated shell", () => {
     expect(html).toContain('href="/admin"');
     expect(html).toContain('href="/dashboard"');
     expect(html).toContain('href="/database"');
-    expect(html).toContain("Scouting Platform");
+    expect(html).toContain('src="/arch-logo.svg"');
     expect(html).toContain("admin page");
   });
 

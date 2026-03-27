@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import React, { type ReactNode } from "react";
 import type { AppRole } from "../../lib/navigation";
@@ -15,13 +16,14 @@ export function AuthenticatedShell({ children, role }: AuthenticatedShellProps) 
       <header className="auth-shell__header">
         <div className="auth-shell__header-inner">
           <Link className="auth-shell__brand" href="/dashboard">
-            <span className="auth-shell__brand-mark" aria-hidden="true">
-              SP
-            </span>
-            <span className="auth-shell__brand-copy">
-              <strong>Scouting Platform</strong>
-              <small>Creator scouting workspace</small>
-            </span>
+            <Image
+              alt="Arch"
+              className="auth-shell__brand-logo"
+              height={22}
+              priority
+              src="/arch-logo.svg"
+              width={83}
+            />
           </Link>
 
           <AppNavigation role={role} />

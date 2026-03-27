@@ -25,8 +25,8 @@
   --space-10: 2.25rem;
   --space-12: 2.75rem;
 
-  --font-family-sans: "Neue Haas Grotesk Display", "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
-  --font-family-display: "IvyPresto Display", "Iowan Old Style", "Palatino Linotype", serif;
+  --font-family-sans: "DM-Sans", "DM Sans", "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
+  --font-family-display: var(--font-family-sans);
   --font-size-100: 0.68rem;
   --font-size-200: 0.78rem;
   --font-size-300: 0.9rem;
@@ -4831,7 +4831,7 @@ h1,
 h2,
 h3 {
   font-family: var(--font-family-display);
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.03em;
 }
 
@@ -4848,7 +4848,7 @@ h3 {
 
 .bootstrap-home h1 {
   max-width: 12ch;
-  font-size: clamp(3rem, 8vw, 5.5rem);
+  font-size: clamp(2.8rem, 7vw, 5rem);
 }
 
 .bootstrap-home p {
@@ -4884,42 +4884,15 @@ h3 {
 }
 
 .auth-shell__brand {
-  gap: 0.9rem;
+  display: inline-flex;
+  align-items: center;
   color: var(--color-text);
   text-decoration: none;
 }
 
-.auth-shell__brand-mark {
-  width: 2.7rem;
-  height: 2.7rem;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--color-accent);
-  color: var(--color-highlight);
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.auth-shell__brand-copy {
-  display: grid;
-  gap: 0.08rem;
-}
-
-.auth-shell__brand-copy strong {
-  font-size: 0.95rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.auth-shell__brand-copy small {
-  color: var(--color-text-muted);
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.auth-shell__brand-logo {
+  width: auto;
+  height: 1.5rem;
 }
 
 .auth-shell__actions {
@@ -4976,25 +4949,44 @@ h3 {
 }
 
 .app-nav__list {
-  gap: 0.45rem;
+  gap: 1rem;
 }
 
 .app-nav__link {
-  border-color: rgba(0, 15, 65, 0.1);
-  background: rgba(255, 255, 255, 0.62);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  background: transparent;
   color: var(--color-text);
-  padding: 0.5rem 0.8rem;
+  padding: 0.1rem 0;
+  text-decoration: none;
+  white-space: nowrap;
 }
 
 .app-nav__link:hover {
-  border-color: rgba(0, 15, 65, 0.2);
-  background: rgba(255, 255, 255, 0.94);
+  color: var(--color-accent);
 }
 
 .app-nav__link--active {
-  border-color: transparent;
-  background: var(--color-accent);
-  color: #ffffff;
+  color: var(--color-accent);
+}
+
+.app-nav__link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.45rem;
+  height: 2px;
+  border-radius: 999px;
+  background: transparent;
+  transition: background 160ms ease;
+}
+
+.app-nav__link:hover::after,
+.app-nav__link--active::after {
+  background: var(--color-highlight);
 }
 
 .page-section {
@@ -5025,8 +5017,8 @@ h3 {
 
 .page-section__header h1 {
   margin: 0;
-  font-size: clamp(2.4rem, 4vw, 4.25rem);
-  line-height: 0.98;
+  font-size: clamp(2.15rem, 3.4vw, 3.5rem);
+  line-height: 1.02;
 }
 
 .page-section__description {
@@ -5201,6 +5193,14 @@ h3 {
   gap: 1rem;
 }
 
+.new-scouting__grid--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.new-scouting__field {
+  align-content: start;
+}
+
 .database-workspace__tabs,
 .database-admin__tabs {
   width: fit-content;
@@ -5245,6 +5245,13 @@ h3 {
 .export-prep__table-shell {
   overflow: auto;
   border-top: 1px solid rgba(0, 15, 65, 0.08);
+}
+
+.campaigns-workspace__table-shell {
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 1.35rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.8));
+  box-shadow: var(--shadow-panel);
 }
 
 .dashboard-workspace__table,
@@ -5434,8 +5441,8 @@ h3 {
 
 .channel-detail-shell__identity-copy h2,
 .login-card h1 {
-  font-size: clamp(2.25rem, 4vw, 4rem);
-  line-height: 0.98;
+  font-size: clamp(2.15rem, 4vw, 3.5rem);
+  line-height: 1.02;
 }
 
 .channel-detail-shell__thumbnail,
@@ -5494,6 +5501,23 @@ h3 {
   border-radius: 1rem;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.login-form__field input,
+.new-scouting__field input,
+.new-scouting__field select,
+.channel-detail-shell__manual-edit-field input,
+.export-prep__input {
+  min-height: 3rem;
+}
+
+.new-scouting__field textarea,
+.channel-detail-shell__manual-edit-field textarea {
+  min-height: 10rem;
+}
+
+.new-scouting__field small {
+  min-height: 1.15rem;
 }
 
 .login-form__field input:focus,
@@ -5579,8 +5603,8 @@ h3 {
     min-width: 0;
   }
 
-  .auth-shell__brand-copy strong {
-    font-size: 0.88rem;
+  .auth-shell__brand-logo {
+    height: 1.25rem;
   }
 
   .app-nav {
