@@ -168,6 +168,11 @@ type CatalogTableShellViewProps = {
   onNextPage: () => void;
 };
 
+type CatalogPopoverButtonProps = Readonly<{
+  children: React.ReactNode;
+  label: React.ReactNode;
+}>;
+
 const DEFAULT_PAGE_SIZE = 20;
 export const CATALOG_ENRICHMENT_POLL_INTERVAL_MS = 3000;
 export const CATALOG_BATCH_STATUS_POLL_INTERVAL_MS = 3000;
@@ -480,6 +485,64 @@ function toTitleCase(value: string): string {
       return `${segment.charAt(0).toUpperCase()}${segment.slice(1)}`;
     })
     .join(" ");
+}
+
+function CatalogPopoverButton({ children, label }: CatalogPopoverButtonProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function handlePointerDown(event: PointerEvent): void {
+      if (event.target instanceof Node && !rootRef.current?.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+
+    function handleFocusIn(event: FocusEvent): void {
+      if (event.target instanceof Node && !rootRef.current?.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent): void {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    }
+
+    if (!isOpen) {
+      return;
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    document.addEventListener("focusin", handleFocusIn, true);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+      document.removeEventListener("focusin", handleFocusIn, true);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isOpen]);
+
+  return (
+    <div
+      className={`catalog-table__filter-pill${isOpen ? " catalog-table__filter-pill--open" : ""}`}
+      ref={rootRef}
+    >
+      <button
+        aria-expanded={isOpen}
+        className="catalog-table__filter-pill-trigger"
+        onClick={() => {
+          setIsOpen((current) => !current);
+        }}
+        type="button"
+      >
+        {label}
+      </button>
+      {isOpen ? children : null}
+    </div>
+  );
 }
 
 function getCsvExportBatchSnapshot(
@@ -1031,11 +1094,14 @@ export function CatalogTableShellView({
             />
           </label>
 
-          <details className="catalog-table__filter-pill">
-            <summary>
-              Enrichment Status
-              {draftFilters.enrichmentStatus.length > 0 ? ` (${draftFilters.enrichmentStatus.length})` : ""}
-            </summary>
+          <CatalogPopoverButton
+            label={
+              <>
+                Enrichment Status
+                {draftFilters.enrichmentStatus.length > 0 ? ` (${draftFilters.enrichmentStatus.length})` : ""}
+              </>
+            }
+          >
             <div className="catalog-table__filter-popover">
               <FilterCheckboxGroup
                 legend="Enrichment status"
@@ -1044,13 +1110,16 @@ export function CatalogTableShellView({
                 selected={draftFilters.enrichmentStatus}
               />
             </div>
-          </details>
+          </CatalogPopoverButton>
 
-          <details className="catalog-table__filter-pill">
-            <summary>
-              Report Status
-              {draftFilters.advancedReportStatus.length > 0 ? ` (${draftFilters.advancedReportStatus.length})` : ""}
-            </summary>
+          <CatalogPopoverButton
+            label={
+              <>
+                Report Status
+                {draftFilters.advancedReportStatus.length > 0 ? ` (${draftFilters.advancedReportStatus.length})` : ""}
+              </>
+            }
+          >
             <div className="catalog-table__filter-popover">
               <FilterCheckboxGroup
                 legend="Advanced report status"
@@ -1059,7 +1128,7 @@ export function CatalogTableShellView({
                 selected={draftFilters.advancedReportStatus}
               />
             </div>
-          </details>
+          </CatalogPopoverButton>
 
           <button
             className="catalog-table__button catalog-table__button--secondary"

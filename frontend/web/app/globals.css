@@ -6464,6 +6464,7 @@ button:disabled,
 }
 
 .catalog-table__filter-pill summary,
+.catalog-table__filter-pill-trigger,
 .catalog-table__segments-pill summary {
   list-style: none;
   display: inline-flex;
@@ -6476,13 +6477,19 @@ button:disabled,
   color: var(--color-text);
   font-size: 0.86rem;
   font-weight: 600;
+  font: inherit;
   padding: 0.62rem 0.85rem;
   cursor: pointer;
+  text-align: left;
 }
 
 .catalog-table__filter-pill summary::-webkit-details-marker,
 .catalog-table__segments-pill summary::-webkit-details-marker {
   display: none;
+}
+
+.catalog-table__filter-pill-trigger {
+  width: 100%;
 }
 
 .catalog-table__filter-popover,
