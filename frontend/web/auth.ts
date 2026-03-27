@@ -16,14 +16,6 @@ function normalizeCredential(value: unknown): string {
   return value.trim();
 }
 
-function resolveTrustHost(env: AuthEnv = process.env): boolean {
-  return (
-    env.AUTH_TRUST_HOST === "true" ||
-    (typeof env.NEXTAUTH_URL_INTERNAL === "string" &&
-      env.NEXTAUTH_URL_INTERNAL.length > 0)
-  );
-}
-
 export function resolveAuthSecret(env: AuthEnv = process.env): string | undefined {
   const rawSecret = env.AUTH_SECRET ?? env.NEXTAUTH_SECRET;
   const trimmedSecret = typeof rawSecret === "string" ? rawSecret.trim() : "";
@@ -43,7 +35,6 @@ const authSecret = resolveAuthSecret();
 
 export const authConfig = {
   ...(authSecret ? { secret: authSecret } : {}),
-  trustHost: resolveTrustHost(),
   pages: {
     signIn: "/login"
   },
