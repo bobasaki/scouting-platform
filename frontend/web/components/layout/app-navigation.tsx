@@ -20,37 +20,35 @@ export function AppNavigation({ role }: AppNavigationProps) {
 
   return (
     <nav aria-label="Primary navigation" className="app-nav">
-      <div className="app-nav__groups">
-        {APP_NAVIGATION_GROUPS.map((group) => {
-          const groupItems = navigationItems.filter((item) => item.group === group.key);
+      {APP_NAVIGATION_GROUPS.map((group) => {
+        const groupItems = navigationItems.filter((item) => item.group === group.key);
 
-          if (groupItems.length === 0) {
-            return null;
-          }
+        if (groupItems.length === 0) {
+          return null;
+        }
 
-          return (
-            <div className="app-nav__group" key={group.key}>
-              <span className="app-nav__group-label">{getNavigationGroupLabel(group.key)}</span>
-              <ul className="app-nav__list">
-                {groupItems.map((item) => (
-                  <li key={item.key}>
-                    <Link
-                      className={
-                        pathname === item.href || pathname.startsWith(`${item.href}/`)
-                          ? "app-nav__link app-nav__link--active"
-                          : "app-nav__link"
-                      }
-                      href={item.href}
-                    >
-                      {item.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        })}
-      </div>
+        return (
+          <div className="app-nav__group" key={group.key}>
+            <span className="app-nav__group-label">{getNavigationGroupLabel(group.key)}</span>
+            <ul className="app-nav__list">
+              {groupItems.map((item) => (
+                <li key={item.key}>
+                  <Link
+                    className={
+                      pathname === item.href || pathname.startsWith(`${item.href}/`)
+                        ? "app-nav__link app-nav__link--active"
+                        : "app-nav__link"
+                    }
+                    href={item.href}
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
     </nav>
   );
 }

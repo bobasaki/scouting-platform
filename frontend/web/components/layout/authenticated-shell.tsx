@@ -16,14 +16,17 @@ export function AuthenticatedShell({ children, role }: AuthenticatedShellProps) 
       <header className="auth-shell__header">
         <div className="auth-shell__header-inner">
           <Link className="auth-shell__brand" href="/dashboard">
-            <Image
-              alt="Arch"
-              className="auth-shell__brand-logo"
-              height={22}
-              priority
-              src="/arch-logo.svg"
-              width={83}
-            />
+            <span className="auth-shell__brand-mark">
+              <Image
+                alt="Arch"
+                className="auth-shell__brand-logo"
+                height={22}
+                priority
+                src="/arch-logo.svg"
+                width={83}
+              />
+            </span>
+            <span className="auth-shell__brand-wordmark">ARCH.</span>
           </Link>
 
           <AppNavigation role={role} />

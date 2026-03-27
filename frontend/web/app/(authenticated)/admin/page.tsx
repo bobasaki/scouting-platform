@@ -26,6 +26,7 @@ export default async function AdminPage() {
 
   return (
     <PageSection
+      section="Admin"
       title="Admin"
       description="Triage admin-only work, catch setup gaps early, and jump into catalog, export, HubSpot, or the full HypeAuditor queue from one workspace."
     >

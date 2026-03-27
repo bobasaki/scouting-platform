@@ -24,6 +24,7 @@ export default async function AdminUsersPage() {
 
   return (
     <PageSection
+      section="Admin"
       title="User Management"
       description="Create users and reset passwords for campaign managers."
     >
