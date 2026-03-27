@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { createAdminUser, fetchAdminUsers, updateAdminUserPassword } from "../../lib/admin-users-api";
+import { SearchableSelect, type SearchableSelectOption } from "../ui/searchable-select";
 
 type CreateUserFormState = {
   email: string;
@@ -75,6 +76,16 @@ export function AdminUsersManager() {
   const [pendingPasswordUserId, setPendingPasswordUserId] = useState<string | null>(null);
 
   const hasUsers = users.length > 0;
+  const roleOptions: SearchableSelectOption[] = [
+    { value: "user", label: "User" },
+    { value: "admin", label: "Admin" },
+  ];
+  const userTypeOptions: SearchableSelectOption[] = [
+    { value: "campaign_manager", label: "Campaign Manager" },
+    { value: "campaign_lead", label: "Campaign Lead" },
+    { value: "hoc", label: "HoC" },
+    { value: "admin", label: "Admin" },
+  ];
 
   const loadUsers = useCallback(async (signal?: AbortSignal) => {
     setIsLoadingUsers(true);
@@ -336,38 +347,35 @@ export function AdminUsersManager() {
           </label>
           <label className="admin-users__field">
             <span>Role</span>
-            <select
-              name="role"
-              onChange={(event) => {
-                const nextRole = event.currentTarget.value === "admin" ? "admin" : "user";
+            <SearchableSelect
+              ariaLabel="Role"
+              onChange={(value) => {
+                const nextRole = value === "admin" ? "admin" : "user";
                 updateCreateUserFormState("role", nextRole);
                 updateCreateUserFormState(
                   "userType",
                   nextRole === "admin" ? "admin" : "campaign_manager",
                 );
               }}
+              options={roleOptions}
+              placeholder="Select role"
+              searchPlaceholder="Search roles..."
               value={createUserForm.role}
-            >
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
-            </select>
+            />
           </label>
           <label className="admin-users__field">
             <span>User type</span>
-            <select
+            <SearchableSelect
+              ariaLabel="User type"
               disabled={createUserForm.role === "admin"}
-              name="userType"
-              onChange={(event) => {
-                const value = event.currentTarget.value as UserType;
-                updateCreateUserFormState("userType", value);
+              onChange={(value) => {
+                updateCreateUserFormState("userType", value as UserType);
               }}
+              options={userTypeOptions}
+              placeholder="Select user type"
+              searchPlaceholder="Search user types..."
               value={createUserForm.userType}
-            >
-              <option value="campaign_manager">Campaign Manager</option>
-              <option value="campaign_lead">Campaign Lead</option>
-              <option value="hoc">HoC</option>
-              <option value="admin">Admin</option>
-            </select>
+            />
           </label>
           <label className="admin-users__field">
             <span>Password</span>

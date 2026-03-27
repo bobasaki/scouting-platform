@@ -24,6 +24,7 @@ type ComponentState = {
     email: string;
     name: string;
     role: "admin" | "user";
+    userType: "admin" | "campaign_manager" | "campaign_lead" | "hoc";
     password: string;
   };
   isCreatingUser: boolean;
@@ -95,6 +96,7 @@ const DEFAULT_STATE: ComponentState = {
     email: "",
     name: "",
     role: "user",
+    userType: "campaign_manager",
     password: "",
   },
   isCreatingUser: false,
@@ -275,6 +277,7 @@ describe("admin users manager", () => {
       email: "  campaign@example.com  ",
       name: "  Campaign User  ",
       role: "user" as const,
+      userType: "campaign_manager" as const,
       password: "StrongPassword123",
     };
     const passwordDraftByUserId = {
@@ -314,6 +317,7 @@ describe("admin users manager", () => {
       email: "campaign@example.com",
       name: "Campaign User",
       role: "user",
+      userType: "campaign_manager",
       password: "StrongPassword123",
     });
 
