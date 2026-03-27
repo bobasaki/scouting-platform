@@ -35,6 +35,7 @@ describe("authenticated shell", () => {
     expect(html).toContain('href="/dashboard"');
     expect(html).toContain('href="/database"');
     expect(html).toContain('src="/arch-logo.svg"');
+    expect(html).not.toContain("ARCH.</span>");
     expect(html).toContain("admin page");
   });
 

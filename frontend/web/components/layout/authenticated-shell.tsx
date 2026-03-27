@@ -26,7 +26,6 @@ export function AuthenticatedShell({ children, role }: AuthenticatedShellProps) 
                 width={83}
               />
             </span>
-            <span className="auth-shell__brand-wordmark">ARCH.</span>
           </Link>
 
           <AppNavigation role={role} />
