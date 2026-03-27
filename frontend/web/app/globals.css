@@ -6085,8 +6085,12 @@ body {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
   cursor: pointer;
   font: inherit;
+  font-size: 0.96rem;
+  font-weight: 500;
+  letter-spacing: normal;
   padding: 0.8rem 0.95rem;
   text-align: left;
+  text-transform: none;
   transition:
     border-color 160ms ease,
     box-shadow 160ms ease,
@@ -6155,7 +6159,9 @@ body {
   background: rgba(255, 255, 255, 0.92);
   color: var(--color-text);
   font: inherit;
+  letter-spacing: normal;
   padding: 0.72rem 0.85rem;
+  text-transform: none;
 }
 
 .searchable-select__options {
@@ -6178,8 +6184,11 @@ body {
   cursor: pointer;
   font: inherit;
   font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: normal;
   padding: 0.7rem 0.8rem;
   text-align: left;
+  text-transform: none;
   transition:
     background 160ms ease,
     color 160ms ease;
@@ -6205,7 +6214,20 @@ body {
 .searchable-select__empty {
   margin: 0;
   font-size: 0.9rem;
+  letter-spacing: normal;
   padding: 0.45rem 0.35rem 0.2rem;
+  text-transform: none;
+}
+
+.dashboard-workspace__filters .new-scouting__field span,
+.database-records__filters .new-scouting__field span,
+.campaigns-workspace__form .new-scouting__field span,
+.new-scouting__grid .new-scouting__field span,
+.admin-users__field span {
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
 }
 
 .dashboard-workspace__table-shell,
