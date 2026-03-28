@@ -1,5 +1,5 @@
 import React from "react";
-import { listCampaigns, listClients } from "@scouting-platform/core";
+import { listCampaigns, listClients, listDropdownValues } from "@scouting-platform/core";
 import { redirect } from "next/navigation";
 
 import { auth } from "../../../auth";
@@ -13,9 +13,10 @@ export default async function DatabasePage() {
     redirect("/login");
   }
 
-  const [campaigns, clients] = await Promise.all([
+  const [campaigns, clients, dropdownValues] = await Promise.all([
     listCampaigns({ userId: session.user.id, query: { active: true } }),
     listClients({ userId: session.user.id }),
+    listDropdownValues(),
   ]);
 
   return (
@@ -23,7 +24,12 @@ export default async function DatabasePage() {
       title="Database"
       description="Manage clients and campaigns from one database workspace while keeping creator catalog browsing in its own dedicated page."
     >
-      <DatabaseAdminWorkspace campaigns={campaigns} clients={clients} />
+      <DatabaseAdminWorkspace
+        campaigns={campaigns}
+        clients={clients}
+        dropdownValues={dropdownValues.items}
+        isAdmin={session.user.role === "admin"}
+      />
     </PageSection>
   );
 }

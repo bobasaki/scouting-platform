@@ -1,24 +1,39 @@
 "use client";
 
-import type { ListCampaignsResponse, ListClientsResponse } from "@scouting-platform/contracts";
+import type {
+  DropdownValue,
+  ListCampaignsResponse,
+  ListClientsResponse,
+} from "@scouting-platform/contracts";
 import { useSearchParams, useRouter } from "next/navigation";
 import React from "react";
 
 import { CampaignsWorkspace } from "../campaigns/campaigns-workspace";
 import { ClientsWorkspace } from "../database/clients-workspace";
+import { DropdownValuesWorkspace } from "./dropdown-values-workspace";
 
 export function DatabaseAdminWorkspace({
   campaigns,
   clients,
+  dropdownValues,
+  isAdmin,
 }: Readonly<{
   campaigns: ListCampaignsResponse;
   clients: ListClientsResponse;
+  dropdownValues: DropdownValue[];
+  isAdmin: boolean;
 }>) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const activeTab = searchParams.get("tab") === "campaigns" ? "campaigns" : "clients";
+  const requestedTab = searchParams.get("tab");
+  const activeTab =
+    requestedTab === "campaigns"
+      ? "campaigns"
+      : requestedTab === "dropdown-values" && isAdmin
+        ? "dropdown-values"
+        : "clients";
 
-  function selectTab(tab: "clients" | "campaigns") {
+  function selectTab(tab: "clients" | "campaigns" | "dropdown-values") {
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", tab);
     router.replace(`/database?${params.toString()}`);
@@ -41,11 +56,22 @@ export function DatabaseAdminWorkspace({
         >
           Campaigns
         </button>
+        {isAdmin ? (
+          <button
+            className={activeTab === "dropdown-values" ? "database-admin__tab database-admin__tab--active" : "database-admin__tab"}
+            onClick={() => selectTab("dropdown-values")}
+            type="button"
+          >
+            Dropdown Values
+          </button>
+        ) : null}
       </section>
 
       <section className="database-admin__panel">
         {activeTab === "clients" ? (
           <ClientsWorkspace initialData={clients} />
+        ) : activeTab === "dropdown-values" ? (
+          <DropdownValuesWorkspace initialData={dropdownValues} />
         ) : (
           <CampaignsWorkspace initialData={campaigns} />
         )}
