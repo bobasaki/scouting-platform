@@ -1,7 +1,7 @@
 import process from "node:process";
 
-import { PrismaClient, Role } from "@prisma/client";
-import argon2 from "argon2";
+import { disconnectPrisma } from "../backend/packages/db/src";
+import { seedInitialAdmin } from "../backend/packages/core/src/auth/seed-admin";
 
 function requiredEnv(name: string): string {
   const value = process.env[name]?.trim();
@@ -26,47 +26,16 @@ async function main(): Promise<void> {
     throw new Error("INITIAL_ADMIN_PASSWORD must be at least 8 characters");
   }
 
-  const prisma = new PrismaClient();
-  const passwordHash = await argon2.hash(password, {
-    type: argon2.argon2id,
-    memoryCost: 19_456,
-    timeCost: 2,
-    parallelism: 1,
-  });
-
   try {
-    const user = await prisma.user.upsert({
-      where: { email },
-      create: {
-        email,
-        name,
-        role: Role.ADMIN,
-        passwordHash,
-        isActive: true,
-      },
-      update: {
-        name,
-        role: Role.ADMIN,
-        passwordHash,
-        isActive: true,
-      },
-    });
-
-    await prisma.auditEvent.create({
-      data: {
-        actorUserId: user.id,
-        action: "system.admin_seeded",
-        entityType: "user",
-        entityId: user.id,
-        metadata: {
-          email: user.email,
-        },
-      },
+    const user = await seedInitialAdmin({
+      email,
+      password,
+      name,
     });
 
     process.stdout.write(`Seeded admin user: ${user.email}\n`);
   } finally {
-    await prisma.$disconnect();
+    await disconnectPrisma();
   }
 }
 

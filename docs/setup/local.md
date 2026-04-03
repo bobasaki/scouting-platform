@@ -6,13 +6,15 @@ For staging deployment, use [`/docs/setup/staging-railway.md`](./staging-railway
 
 ## Prerequisites
 
-Install:
+Required for the container-only path:
 - Git
 - Docker Engine + Docker Compose
+
+Optional for host-side workspace commands:
 - nvm (recommended, installs Node.js 22 from `.nvmrc`)
 - Corepack (bundled with modern Node)
 
-Verify:
+If you plan to run host-side workspace commands, verify:
 
 ```bash
 nvm --version
@@ -26,20 +28,48 @@ docker compose version
 
 From repo root:
 
+Fastest container-only path:
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+This boots Postgres, runs bootstrap setup, applies Prisma migrations, seeds the initial admin, and
+starts both the web app and worker entirely inside Docker.
+
+If you also want host-side `pnpm` commands available, use the longer toolchain setup:
+
 ```bash
 nvm install
 nvm use
 corepack enable
 corepack prepare pnpm@10.6.1 --activate
 cp .env.example .env
-pnpm install
 pnpm infra:up
-pnpm db:wait
-pnpm db:migrate
-export INITIAL_ADMIN_EMAIL="admin@example.com"
-export INITIAL_ADMIN_PASSWORD="replace-me-strong-password"
-export INITIAL_ADMIN_NAME="Initial Admin"
-pnpm db:seed:admin
+pnpm infra:ps
+pnpm infra:logs
+```
+
+`pnpm infra:up` is the host-side shorthand for the same full-stack Docker Compose bring-up.
+
+Then sign in at `http://localhost:3000/login` with:
+
+```text
+email: admin@example.com
+password: StrongAdminPassword123
+```
+
+The Compose bootstrap service now installs dependencies, waits for Postgres, ensures the test DB
+exists, applies Prisma migrations, and idempotently seeds the initial admin before `web` and
+`worker` start.
+
+The first `pnpm infra:up` can take a few minutes because the bootstrap container installs the
+workspace dependencies into Docker-managed volumes.
+
+Optional host-side verification after the stack is up:
+
+```bash
 pnpm db:validate
 pnpm lint
 pnpm typecheck
@@ -50,14 +80,21 @@ pnpm test
 ## Day-to-day commands
 
 ```bash
-pnpm infra:up         # start local Postgres
+pnpm infra:up         # build and start postgres + bootstrap + web + worker
+pnpm dev:stack        # alias for the full local dev stack
 pnpm infra:pull       # pull latest postgres:17-alpine image
 pnpm infra:refresh-postgres # pull + recreate postgres service + wait for readiness
 pnpm infra:ps         # inspect container status
-pnpm infra:logs       # tail Postgres logs
+pnpm infra:logs       # tail stack logs
 pnpm infra:down       # stop containers
 pnpm infra:reset-db   # destroy and recreate DB volume
 pnpm security:scan:postgres # advisory High/Critical CVE scan for postgres image
+```
+
+Advanced helper:
+
+```bash
+pnpm infra:db:up      # start only local Postgres for edge-case troubleshooting
 ```
 
 ## DB integration test prep (Week 3 backend)
@@ -65,14 +102,15 @@ pnpm security:scan:postgres # advisory High/Critical CVE scan for postgres image
 Run this sequence before DB-backed integration suites:
 
 ```bash
-pnpm infra:up
+docker compose up --build
+# or: pnpm infra:up
 pnpm infra:ps
-docker compose exec -T postgres sh -lc "psql -U scouting -d scouting_platform -v ON_ERROR_STOP=1 -tAc \"SELECT 1 FROM pg_database WHERE datname = 'scouting_platform_test'\" | grep -q 1 || psql -U scouting -d scouting_platform -v ON_ERROR_STOP=1 -c \"CREATE DATABASE scouting_platform_test\""
 pnpm db:migrate:test
 pnpm verify:week3:backend
 ```
 
 Notes:
+- `pnpm infra:up` already ensures `scouting_platform_test` exists as part of the bootstrap service.
 - `pnpm db:migrate:test` migrates using `DATABASE_URL_TEST`.
 - `pnpm verify:week3:backend` runs Week 3 core + API integration suites sequentially.
 
@@ -138,7 +176,7 @@ POSTGRES_PORT=5433 pnpm infra:up
 ```
 
 - update `DATABASE_URL` and `DATABASE_URL_TEST` in `.env` to match the new port
-- rerun `pnpm db:migrate:test` before DB-backed tests
+- rerun `pnpm infra:up`
 
 ### Wrong Node version
 
@@ -166,6 +204,47 @@ Fix:
 - run `pnpm infra:logs` for errors
 - run `pnpm db:wait` and retry `pnpm db:validate`
 
+### Invalid app encryption key
+
+Symptoms:
+- bootstrap, web, or worker exits quickly with `APP_ENCRYPTION_KEY must be exactly 32 characters`
+
+Fix:
+- set `APP_ENCRYPTION_KEY` in `.env` to a real 32-character value
+- rerun `pnpm infra:up`
+
+### Bootstrap fails with `parameter not set`
+
+Symptoms:
+- bootstrap exits during `pnpm db:generate`
+- logs show `scripts/with-local-env.sh: ... ./.env: ... parameter not set`
+
+Cause:
+- an older checkout is shell-sourcing `.env`, so a quoted secret containing `$...` is treated as shell expansion instead of a literal string
+
+Fix:
+- update to the latest `dev`
+- keep quoted secrets in `.env` as plain literal values; the current local env loader reads them without shell expansion
+- rerun `docker compose up --build`
+
+### Docker login fails with native `argon2` error
+
+Symptoms:
+- login page shows `Unable to sign in right now. Please try again.`
+- `pnpm infra:logs` or `docker compose logs web` shows `No native build was found ... webpack=true`
+- the same log mentions `.next/server/vendor-chunks`
+- or `docker compose logs web` shows `CallbackRouteError` with `RUNTIME_REQUIRE is not a function`
+
+Fix:
+- keep native password hashing externalized in `frontend/web/next.config.ts` and runtime-resolved in `backend/packages/core/src/auth/password.ts`
+- restart the web service so Next picks up the config change:
+
+```bash
+docker compose up -d --build web
+```
+
+- if the stack was started before the fix landed, rerun `pnpm infra:up`
+
 ### Prisma user denied access (`P1010`)
 
 Symptoms:
@@ -176,7 +255,7 @@ Common cause:
 
 Fix:
 - run `pnpm infra:ps` and confirm compose Postgres is up and mapped to the expected host port
-- if needed, remap compose Postgres and align `.env` URLs:
+- if needed, remap the full stack and align `.env` URLs:
   - `POSTGRES_PORT=5433 pnpm infra:up`
   - update both `DATABASE_URL` and `DATABASE_URL_TEST` to `localhost:5433`
 - run `pnpm db:migrate:test`

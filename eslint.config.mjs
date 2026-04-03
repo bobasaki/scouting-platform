@@ -18,6 +18,7 @@ export default [
       "**/.turbo/**",
       "**/dist/**",
       "**/coverage/**",
+      "docs/patterns/**/*.ts",
       "pnpm-lock.yaml",
     ],
   },
@@ -31,7 +32,7 @@ export default [
   },
   {
     name: nextCoreWebVitals.name,
-    files: ["apps/web/**/*.{js,jsx,ts,tsx}"],
+    files: ["frontend/web/**/*.{js,jsx,ts,tsx}"],
     rules: {
       ...nextCoreWebVitals.rules,
       "@next/next/no-html-link-for-pages": "off",
@@ -40,7 +41,7 @@ export default [
       ...(nextCoreWebVitals.settings ?? {}),
       next: {
         ...(nextCoreWebVitals.settings?.next ?? {}),
-        rootDir: "apps/web/",
+        rootDir: "frontend/web/",
       },
     },
   },
@@ -54,7 +55,7 @@ export default [
     },
   },
   {
-    files: ["apps/web/next-env.d.ts"],
+    files: ["frontend/web/next-env.d.ts"],
     rules: {
       "@typescript-eslint/triple-slash-reference": "off",
     },

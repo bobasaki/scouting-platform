@@ -1,0 +1,854 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN @map("admin")
+  USER  @map("user")
+
+  @@map("role")
+}
+
+enum UserType {
+  ADMIN            @map("admin")
+  CAMPAIGN_MANAGER @map("campaign_manager")
+  CAMPAIGN_LEAD    @map("campaign_lead")
+  HOC              @map("hoc")
+
+  @@map("user_type")
+}
+
+enum CredentialProvider {
+  YOUTUBE_DATA_API @map("youtube_data_api")
+
+  @@map("credential_provider")
+}
+
+enum RunRequestStatus {
+  QUEUED    @map("queued")
+  RUNNING   @map("running")
+  COMPLETED @map("completed")
+  FAILED    @map("failed")
+
+  @@map("run_request_status")
+}
+
+enum RunResultSource {
+  CATALOG   @map("catalog")
+  DISCOVERY @map("discovery")
+
+  @@map("run_result_source")
+}
+
+enum DropdownValueFieldKey {
+  CURRENCY             @map("currency")
+  DEAL_TYPE            @map("deal_type")
+  ACTIVATION_TYPE      @map("activation_type")
+  INFLUENCER_TYPE      @map("influencer_type")
+  INFLUENCER_VERTICAL  @map("influencer_vertical")
+  COUNTRY_REGION       @map("country_region")
+  LANGUAGE             @map("language")
+
+  @@map("dropdown_value_field_key")
+}
+
+enum RunMonth {
+  JANUARY   @map("january")
+  FEBRUARY  @map("february")
+  MARCH     @map("march")
+  APRIL     @map("april")
+  MAY       @map("may")
+  JUNE      @map("june")
+  JULY      @map("july")
+  AUGUST    @map("august")
+  SEPTEMBER @map("september")
+  OCTOBER   @map("october")
+  NOVEMBER  @map("november")
+  DECEMBER  @map("december")
+
+  @@map("run_month")
+}
+
+enum ChannelManualOverrideField {
+  TITLE         @map("title")
+  HANDLE        @map("handle")
+  DESCRIPTION   @map("description")
+  THUMBNAIL_URL @map("thumbnail_url")
+
+  @@map("channel_manual_override_field")
+}
+
+enum ChannelEnrichmentStatus {
+  MISSING   @map("missing")
+  QUEUED    @map("queued")
+  RUNNING   @map("running")
+  COMPLETED @map("completed")
+  FAILED    @map("failed")
+  STALE     @map("stale")
+
+  @@map("channel_enrichment_status")
+}
+
+enum AdvancedReportRequestStatus {
+  PENDING_APPROVAL @map("pending_approval")
+  APPROVED         @map("approved")
+  REJECTED         @map("rejected")
+  QUEUED           @map("queued")
+  RUNNING          @map("running")
+  COMPLETED        @map("completed")
+  FAILED           @map("failed")
+
+  @@map("advanced_report_request_status")
+}
+
+enum ChannelInsightSource {
+  ADMIN_MANUAL @map("admin_manual")
+  CSV_IMPORT   @map("csv_import")
+  HYPEAUDITOR  @map("hypeauditor")
+
+  @@map("channel_insight_source")
+}
+
+enum ChannelProviderPayloadProvider {
+  HYPEAUDITOR @map("hypeauditor")
+
+  @@map("channel_provider_payload_provider")
+}
+
+enum CsvImportBatchStatus {
+  QUEUED    @map("queued")
+  RUNNING   @map("running")
+  COMPLETED @map("completed")
+  FAILED    @map("failed")
+
+  @@map("csv_import_batch_status")
+}
+
+enum CsvImportRowStatus {
+  PENDING  @map("pending")
+  IMPORTED @map("imported")
+  FAILED   @map("failed")
+
+  @@map("csv_import_row_status")
+}
+
+enum CsvExportBatchStatus {
+  QUEUED    @map("queued")
+  RUNNING   @map("running")
+  COMPLETED @map("completed")
+  FAILED    @map("failed")
+
+  @@map("csv_export_batch_status")
+}
+
+enum HubspotPushBatchStatus {
+  QUEUED    @map("queued")
+  RUNNING   @map("running")
+  COMPLETED @map("completed")
+  FAILED    @map("failed")
+
+  @@map("hubspot_push_batch_status")
+}
+
+enum HubspotPushBatchRowStatus {
+  PENDING @map("pending")
+  PUSHED  @map("pushed")
+  FAILED  @map("failed")
+
+  @@map("hubspot_push_batch_row_status")
+}
+
+enum HubspotImportBatchStatus {
+  QUEUED    @map("queued")
+  RUNNING   @map("running")
+  COMPLETED @map("completed")
+  FAILED    @map("failed")
+
+  @@map("hubspot_import_batch_status")
+}
+
+enum HubspotImportBatchRowStatus {
+  PENDING  @map("pending")
+  PREPARED @map("prepared")
+  FAILED   @map("failed")
+
+  @@map("hubspot_import_batch_row_status")
+}
+
+enum CsvExportScopeType {
+  SELECTED @map("selected")
+  FILTERED @map("filtered")
+
+  @@map("csv_export_scope_type")
+}
+
+model User {
+  id                            String                  @id @default(uuid()) @db.Uuid
+  name                          String?
+  email                         String                  @unique
+  emailVerified                 DateTime?               @map("email_verified")
+  image                         String?
+  passwordHash                  String                  @map("password_hash")
+  role                          Role                    @default(USER)
+  userType                      UserType                @default(CAMPAIGN_MANAGER) @map("user_type")
+  isActive                      Boolean                 @default(true) @map("is_active")
+  createdAt                     DateTime                @default(now()) @map("created_at")
+  updatedAt                     DateTime                @updatedAt @map("updated_at")
+  accounts                      Account[]
+  sessions                      Session[]
+  credentials                   UserProviderCredential[]
+  auditEvents                   AuditEvent[]            @relation("AuditActor")
+  savedSegments                 SavedSegment[]
+  runRequests                   RunRequest[]            @relation("RunRequestedBy")
+  campaignManagedRuns           RunRequest[]            @relation("RunCampaignManager")
+  createdChannelManualOverrides ChannelManualOverride[] @relation("ChannelManualOverrideCreatedBy")
+  updatedChannelManualOverrides ChannelManualOverride[] @relation("ChannelManualOverrideUpdatedBy")
+  requestedChannelEnrichments   ChannelEnrichment[]     @relation("ChannelEnrichmentRequestedBy")
+  requestedAdvancedReports      AdvancedReportRequest[] @relation("AdvancedReportRequestedBy")
+  reviewedAdvancedReports       AdvancedReportRequest[] @relation("AdvancedReportReviewedBy")
+  requestedCsvImportBatches     CsvImportBatch[]        @relation("CsvImportRequestedBy")
+  requestedCsvExportBatches     CsvExportBatch[]        @relation("CsvExportRequestedBy")
+  requestedHubspotPushBatches   HubspotPushBatch[]      @relation("HubspotPushRequestedBy")
+  requestedHubspotImportBatches HubspotImportBatch[]    @relation("HubspotImportRequestedBy")
+  createdCampaigns              Campaign[]              @relation("CampaignCreatedBy")
+  youtubeDiscoveryCache         YoutubeDiscoveryCache[]
+
+  @@map("users")
+}
+
+model DropdownValue {
+  id        String                @id @default(uuid()) @db.Uuid
+  fieldKey  DropdownValueFieldKey @map("field_key")
+  value     String
+  createdAt DateTime              @default(now()) @map("created_at")
+  updatedAt DateTime              @updatedAt @map("updated_at")
+
+  @@unique([fieldKey, value], map: "dropdown_values_field_key_value_key")
+  @@index([fieldKey], map: "dropdown_values_field_key_idx")
+  @@index([createdAt], map: "dropdown_values_created_at_idx")
+  @@map("dropdown_values")
+}
+
+model Client {
+  id        String     @id @default(uuid()) @db.Uuid
+  name      String     @unique
+  domain    String?    @map("domain")
+  countryRegion String? @map("country_region")
+  city      String?    @map("city")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  campaigns Campaign[]
+
+  @@index([createdAt], map: "clients_created_at_idx")
+  @@map("clients")
+}
+
+model Market {
+  id        String     @id @default(uuid()) @db.Uuid
+  name      String     @unique
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  campaigns Campaign[]
+
+  @@index([createdAt], map: "markets_created_at_idx")
+  @@map("markets")
+}
+
+model Campaign {
+  id              String      @id @default(uuid()) @db.Uuid
+  name            String
+  clientId        String      @map("client_id") @db.Uuid
+  marketId        String      @map("market_id") @db.Uuid
+  briefLink       String?     @map("brief_link")
+  month           RunMonth
+  year            Int
+  isActive        Boolean     @default(true) @map("is_active")
+  createdByUserId String?     @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+  client          Client      @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  market          Market      @relation(fields: [marketId], references: [id], onDelete: Restrict)
+  createdByUser   User?       @relation("CampaignCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  runRequests     RunRequest[]
+
+  @@unique([name, clientId, marketId, month, year], map: "campaigns_name_client_market_month_year_key")
+  @@index([clientId], map: "campaigns_client_id_idx")
+  @@index([marketId], map: "campaigns_market_id_idx")
+  @@index([isActive], map: "campaigns_is_active_idx")
+  @@index([createdAt], map: "campaigns_created_at_idx")
+  @@map("campaigns")
+}
+
+model Account {
+  id                String  @id @default(uuid()) @db.Uuid
+  userId            String  @map("user_id") @db.Uuid
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refreshToken      String? @map("refresh_token") @db.Text
+  accessToken       String? @map("access_token") @db.Text
+  expiresAt         Int?    @map("expires_at")
+  tokenType         String? @map("token_type")
+  scope             String?
+  idToken           String? @map("id_token") @db.Text
+  sessionState      String? @map("session_state")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId], map: "accounts_provider_provider_account_id_key")
+  @@index([userId], map: "accounts_user_id_idx")
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(uuid()) @db.Uuid
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id") @db.Uuid
+  expires      DateTime
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "sessions_user_id_idx")
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token], map: "verification_tokens_identifier_token_key")
+  @@unique([token], map: "verification_tokens_token_key")
+  @@map("verification_tokens")
+}
+
+model UserProviderCredential {
+  id                String             @id @default(uuid()) @db.Uuid
+  userId            String             @map("user_id") @db.Uuid
+  provider          CredentialProvider
+  encryptedSecret   String             @map("encrypted_secret") @db.Text
+  encryptionIv      String             @map("encryption_iv")
+  encryptionAuthTag String             @map("encryption_auth_tag")
+  keyVersion        Int                @default(1) @map("key_version")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider], map: "user_provider_credentials_user_id_provider_key")
+  @@index([provider], map: "user_provider_credentials_provider_idx")
+  @@map("user_provider_credentials")
+}
+
+model Channel {
+  id              String                  @id @default(uuid()) @db.Uuid
+  youtubeChannelId String                 @unique @map("youtube_channel_id")
+  title           String
+  handle          String?
+  youtubeUrl      String?                 @map("youtube_url")
+  description     String?                 @db.Text
+  thumbnailUrl    String?                 @map("thumbnail_url")
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+  runResults      RunResult[]
+  manualOverrides ChannelManualOverride[]
+  youtubeContext  ChannelYoutubeContext?
+  enrichment      ChannelEnrichment?
+  insights        ChannelInsight?
+  providerPayloads ChannelProviderPayload[]
+  advancedReportRequests AdvancedReportRequest[]
+  contacts        ChannelContact[]
+  metrics         ChannelMetric?
+  csvImportRows   CsvImportRow[]
+  hubspotPushBatchRows HubspotPushBatchRow[]
+  hubspotImportBatchRows HubspotImportBatchRow[]
+
+  @@index([youtubeChannelId], map: "channels_youtube_channel_id_idx")
+  @@map("channels")
+}
+
+model ChannelContact {
+  id               String         @id @default(uuid()) @db.Uuid
+  channelId        String         @map("channel_id") @db.Uuid
+  email            String
+  firstName        String?        @map("first_name")
+  lastName         String?        @map("last_name")
+  csvImportBatchId String?        @map("csv_import_batch_id") @db.Uuid
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  channel          Channel        @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  csvImportBatch   CsvImportBatch? @relation(fields: [csvImportBatchId], references: [id], onDelete: SetNull)
+
+  @@unique([channelId, email], map: "channel_contacts_channel_id_email_key")
+  @@index([channelId], map: "channel_contacts_channel_id_idx")
+  @@index([csvImportBatchId], map: "channel_contacts_csv_import_batch_id_idx")
+  @@map("channel_contacts")
+}
+
+model ChannelMetric {
+  channelId        String         @id @map("channel_id") @db.Uuid
+  subscriberCount  BigInt?        @map("subscriber_count")
+  viewCount        BigInt?        @map("view_count")
+  videoCount       BigInt?        @map("video_count")
+  youtubeAverageViews BigInt?     @map("youtube_average_views")
+  youtubeEngagementRate Float?    @map("youtube_engagement_rate")
+  youtubeFollowers  BigInt?       @map("youtube_followers")
+  csvImportBatchId String?        @map("csv_import_batch_id") @db.Uuid
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  channel          Channel        @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  csvImportBatch   CsvImportBatch? @relation(fields: [csvImportBatchId], references: [id], onDelete: SetNull)
+
+  @@index([csvImportBatchId], map: "channel_metrics_csv_import_batch_id_idx")
+  @@map("channel_metrics")
+}
+
+model ChannelManualOverride {
+  id              String                     @id @default(uuid()) @db.Uuid
+  channelId       String                     @map("channel_id") @db.Uuid
+  field           ChannelManualOverrideField
+  value           String?                    @db.Text
+  fallbackValue   String?                    @map("fallback_value") @db.Text
+  createdByUserId String                     @map("created_by_user_id") @db.Uuid
+  updatedByUserId String                     @map("updated_by_user_id") @db.Uuid
+  createdAt       DateTime                   @default(now()) @map("created_at")
+  updatedAt       DateTime                   @updatedAt @map("updated_at")
+  channel         Channel                    @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  createdByUser   User                       @relation("ChannelManualOverrideCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  updatedByUser   User                       @relation("ChannelManualOverrideUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([channelId, field], map: "channel_manual_overrides_channel_id_field_key")
+  @@index([channelId], map: "channel_manual_overrides_channel_id_idx")
+  @@index([updatedAt], map: "channel_manual_overrides_updated_at_idx")
+  @@index([createdByUserId], map: "channel_manual_overrides_created_by_user_id_idx")
+  @@index([updatedByUserId], map: "channel_manual_overrides_updated_by_user_id_idx")
+  @@map("channel_manual_overrides")
+}
+
+model ChannelYoutubeContext {
+  channelId  String    @id @map("channel_id") @db.Uuid
+  context    Json?
+  fetchedAt  DateTime? @map("fetched_at")
+  lastError  String?   @map("last_error") @db.Text
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  channel    Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@index([fetchedAt], map: "channel_youtube_contexts_fetched_at_idx")
+  @@map("channel_youtube_contexts")
+}
+
+model ChannelEnrichment {
+  channelId         String                  @id @map("channel_id") @db.Uuid
+  status            ChannelEnrichmentStatus @default(MISSING)
+  requestedByUserId String                  @map("requested_by_user_id") @db.Uuid
+  requestedAt       DateTime                @map("requested_at")
+  startedAt         DateTime?               @map("started_at")
+  completedAt       DateTime?               @map("completed_at")
+  lastError         String?                 @map("last_error") @db.Text
+  rawOpenaiPayload  Json?                   @map("raw_openai_payload")
+  rawOpenaiPayloadFetchedAt DateTime?       @map("raw_openai_payload_fetched_at")
+  youtubeFetchedAt  DateTime?               @map("youtube_fetched_at")
+  summary           String?                 @db.Text
+  topics            Json?
+  brandFitNotes     String?                 @map("brand_fit_notes") @db.Text
+  confidence        Float?
+  createdAt         DateTime                @default(now()) @map("created_at")
+  updatedAt         DateTime                @updatedAt @map("updated_at")
+  channel           Channel                 @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  requestedByUser   User                    @relation("ChannelEnrichmentRequestedBy", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([status], map: "channel_enrichments_status_idx")
+  @@index([completedAt], map: "channel_enrichments_completed_at_idx")
+  @@index([requestedByUserId], map: "channel_enrichments_requested_by_user_id_idx")
+  @@map("channel_enrichments")
+}
+
+model ChannelInsight {
+  channelId                              String               @id @map("channel_id") @db.Uuid
+  audienceCountries                      Json?                @map("audience_countries")
+  audienceCountriesSource                ChannelInsightSource? @map("audience_countries_source")
+  audienceCountriesSourceUpdatedAt       DateTime?            @map("audience_countries_source_updated_at")
+  audienceGenderAge                      Json?                @map("audience_gender_age")
+  audienceGenderAgeSource                ChannelInsightSource? @map("audience_gender_age_source")
+  audienceGenderAgeSourceUpdatedAt       DateTime?            @map("audience_gender_age_source_updated_at")
+  audienceInterests                      Json?                @map("audience_interests")
+  audienceInterestsSource                ChannelInsightSource? @map("audience_interests_source")
+  audienceInterestsSourceUpdatedAt       DateTime?            @map("audience_interests_source_updated_at")
+  estimatedPriceCurrencyCode             String?              @map("estimated_price_currency_code")
+  estimatedPriceMin                      Float?               @map("estimated_price_min")
+  estimatedPriceMax                      Float?               @map("estimated_price_max")
+  estimatedPriceSource                   ChannelInsightSource? @map("estimated_price_source")
+  estimatedPriceSourceUpdatedAt          DateTime?            @map("estimated_price_source_updated_at")
+  brandMentions                          Json?                @map("brand_mentions")
+  brandMentionsSource                    ChannelInsightSource? @map("brand_mentions_source")
+  brandMentionsSourceUpdatedAt           DateTime?            @map("brand_mentions_source_updated_at")
+  createdAt                              DateTime             @default(now()) @map("created_at")
+  updatedAt                              DateTime             @updatedAt @map("updated_at")
+  channel                                Channel              @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@map("channel_insights")
+}
+
+model ChannelProviderPayload {
+  id                   String                        @id @default(uuid()) @db.Uuid
+  channelId            String                        @map("channel_id") @db.Uuid
+  provider             ChannelProviderPayloadProvider
+  payload              Json
+  fetchedAt            DateTime                      @default(now()) @map("fetched_at")
+  createdAt            DateTime                      @default(now()) @map("created_at")
+  channel              Channel                       @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  advancedReportRequest AdvancedReportRequest?       @relation("AdvancedReportRequestProviderPayload")
+
+  @@index([channelId], map: "channel_provider_payloads_channel_id_idx")
+  @@index([provider, fetchedAt], map: "channel_provider_payloads_provider_fetched_at_idx")
+  @@map("channel_provider_payloads")
+}
+
+model AdvancedReportRequest {
+  id                String                       @id @default(uuid()) @db.Uuid
+  channelId         String                       @map("channel_id") @db.Uuid
+  requestedByUserId String                       @map("requested_by_user_id") @db.Uuid
+  status            AdvancedReportRequestStatus  @default(PENDING_APPROVAL)
+  decisionNote      String?                      @map("decision_note") @db.Text
+  reviewedByUserId  String?                      @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt        DateTime?                    @map("reviewed_at")
+  providerPayloadId String?                      @unique @map("provider_payload_id") @db.Uuid
+  startedAt         DateTime?                    @map("started_at")
+  completedAt       DateTime?                    @map("completed_at")
+  lastError         String?                      @map("last_error") @db.Text
+  providerFetchedAt DateTime?                    @map("provider_fetched_at")
+  lastProviderAttemptAt DateTime?                @map("last_provider_attempt_at")
+  nextProviderAttemptAt DateTime?                @map("next_provider_attempt_at")
+  createdAt         DateTime                     @default(now()) @map("created_at")
+  updatedAt         DateTime                     @updatedAt @map("updated_at")
+  channel           Channel                      @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  requestedByUser   User                         @relation("AdvancedReportRequestedBy", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+  reviewedByUser    User?                        @relation("AdvancedReportReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: Restrict)
+  providerPayload   ChannelProviderPayload?      @relation("AdvancedReportRequestProviderPayload", fields: [providerPayloadId], references: [id], onDelete: SetNull)
+
+  @@index([channelId], map: "advanced_report_requests_channel_id_idx")
+  @@index([channelId, createdAt], map: "advanced_report_requests_channel_id_created_at_idx")
+  @@index([status], map: "advanced_report_requests_status_idx")
+  @@index([status, createdAt], map: "advanced_report_requests_status_created_at_idx")
+  @@index([requestedByUserId], map: "advanced_report_requests_requested_by_user_id_idx")
+  @@index([reviewedByUserId], map: "advanced_report_requests_reviewed_by_user_id_idx")
+  @@index([createdAt], map: "advanced_report_requests_created_at_idx")
+  @@map("advanced_report_requests")
+}
+
+model AuditEvent {
+  id         String    @id @default(uuid()) @db.Uuid
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  action     String
+  entityType String    @map("entity_type")
+  entityId   String    @map("entity_id")
+  metadata   Json?
+  createdAt  DateTime  @default(now()) @map("created_at")
+  actorUser  User?     @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId], map: "audit_events_actor_user_id_idx")
+  @@index([entityType, entityId], map: "audit_events_entity_idx")
+  @@map("audit_events")
+}
+
+model SavedSegment {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  name      String
+  filters   Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "saved_segments_user_id_idx")
+  @@index([userId, updatedAt], map: "saved_segments_user_id_updated_at_idx")
+  @@map("saved_segments")
+}
+
+model CsvImportBatch {
+  id               String              @id @default(uuid()) @db.Uuid
+  requestedByUserId String             @map("requested_by_user_id") @db.Uuid
+  fileName         String              @map("file_name")
+  templateVersion  String              @map("template_version")
+  status           CsvImportBatchStatus @default(QUEUED)
+  totalRowCount    Int                 @default(0) @map("total_row_count")
+  importedRowCount Int                 @default(0) @map("imported_row_count")
+  failedRowCount   Int                 @default(0) @map("failed_row_count")
+  startedAt        DateTime?           @map("started_at")
+  completedAt      DateTime?           @map("completed_at")
+  lastError        String?             @map("last_error") @db.Text
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+  requestedByUser  User                @relation("CsvImportRequestedBy", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+  rows             CsvImportRow[]
+  contacts         ChannelContact[]
+  metrics          ChannelMetric[]
+
+  @@index([requestedByUserId], map: "csv_import_batches_requested_by_user_id_idx")
+  @@index([status], map: "csv_import_batches_status_idx")
+  @@index([status, createdAt], map: "csv_import_batches_status_created_at_idx")
+  @@index([createdAt], map: "csv_import_batches_created_at_idx")
+  @@map("csv_import_batches")
+}
+
+model CsvImportRow {
+  id               String           @id @default(uuid()) @db.Uuid
+  batchId          String           @map("batch_id") @db.Uuid
+  rowNumber        Int              @map("row_number")
+  status           CsvImportRowStatus @default(PENDING)
+  youtubeChannelId String           @map("youtube_channel_id")
+  channelTitle     String           @map("channel_title")
+  contactEmail     String?          @map("contact_email")
+  firstName        String?          @map("first_name")
+  lastName         String?          @map("last_name")
+  subscriberCount  String?          @map("subscriber_count")
+  viewCount        String?          @map("view_count")
+  videoCount       String?          @map("video_count")
+  notes            String?          @db.Text
+  sourceLabel      String?          @map("source_label")
+  channelId        String?          @map("channel_id") @db.Uuid
+  errorMessage     String?          @map("error_message") @db.Text
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  batch            CsvImportBatch   @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  channel          Channel?         @relation(fields: [channelId], references: [id], onDelete: SetNull)
+
+  @@unique([batchId, rowNumber], map: "csv_import_rows_batch_id_row_number_key")
+  @@index([batchId], map: "csv_import_rows_batch_id_idx")
+  @@index([status], map: "csv_import_rows_status_idx")
+  @@index([channelId], map: "csv_import_rows_channel_id_idx")
+  @@index([youtubeChannelId], map: "csv_import_rows_youtube_channel_id_idx")
+  @@map("csv_import_rows")
+}
+
+model CsvExportBatch {
+  id                String               @id @default(uuid()) @db.Uuid
+  requestedByUserId String               @map("requested_by_user_id") @db.Uuid
+  scopeType         CsvExportScopeType   @map("scope_type")
+  scopePayload      Json                 @map("scope_payload")
+  schemaVersion     String               @map("schema_version")
+  fileName          String               @map("file_name")
+  status            CsvExportBatchStatus @default(QUEUED)
+  rowCount          Int                  @default(0) @map("row_count")
+  csvContent        String?              @map("csv_content") @db.Text
+  startedAt         DateTime?            @map("started_at")
+  completedAt       DateTime?            @map("completed_at")
+  lastError         String?              @map("last_error") @db.Text
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+  requestedByUser   User                 @relation("CsvExportRequestedBy", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([requestedByUserId], map: "csv_export_batches_requested_by_user_id_idx")
+  @@index([requestedByUserId, createdAt], map: "csv_export_batches_requested_by_user_id_created_at_idx")
+  @@index([status], map: "csv_export_batches_status_idx")
+  @@index([createdAt], map: "csv_export_batches_created_at_idx")
+  @@map("csv_export_batches")
+}
+
+model HubspotPushBatch {
+  id                String                 @id @default(uuid()) @db.Uuid
+  requestedByUserId String                 @map("requested_by_user_id") @db.Uuid
+  scopePayload      Json                   @map("scope_payload")
+  status            HubspotPushBatchStatus @default(QUEUED)
+  totalRowCount     Int                    @default(0) @map("total_row_count")
+  pushedRowCount    Int                    @default(0) @map("pushed_row_count")
+  failedRowCount    Int                    @default(0) @map("failed_row_count")
+  startedAt         DateTime?              @map("started_at")
+  completedAt       DateTime?              @map("completed_at")
+  lastError         String?                @map("last_error") @db.Text
+  createdAt         DateTime               @default(now()) @map("created_at")
+  updatedAt         DateTime               @updatedAt @map("updated_at")
+  requestedByUser   User                   @relation("HubspotPushRequestedBy", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+  rows              HubspotPushBatchRow[]
+
+  @@index([requestedByUserId], map: "hubspot_push_batches_requested_by_user_id_idx")
+  @@index([requestedByUserId, createdAt], map: "hubspot_push_batches_requested_by_user_id_created_at_idx")
+  @@index([status], map: "hubspot_push_batches_status_idx")
+  @@index([createdAt], map: "hubspot_push_batches_created_at_idx")
+  @@map("hubspot_push_batches")
+}
+
+model HubspotPushBatchRow {
+  id              String                    @id @default(uuid()) @db.Uuid
+  batchId         String                    @map("batch_id") @db.Uuid
+  channelId       String                    @map("channel_id") @db.Uuid
+  contactEmail    String?                   @map("contact_email")
+  status          HubspotPushBatchRowStatus @default(PENDING)
+  hubspotObjectId String?                   @map("hubspot_object_id")
+  errorMessage    String?                   @map("error_message") @db.Text
+  createdAt       DateTime                  @default(now()) @map("created_at")
+  updatedAt       DateTime                  @updatedAt @map("updated_at")
+  batch           HubspotPushBatch          @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  channel         Channel                   @relation(fields: [channelId], references: [id], onDelete: Restrict)
+
+  @@unique([batchId, channelId], map: "hubspot_push_batch_rows_batch_id_channel_id_key")
+  @@index([batchId], map: "hubspot_push_batch_rows_batch_id_idx")
+  @@index([channelId], map: "hubspot_push_batch_rows_channel_id_idx")
+  @@index([status], map: "hubspot_push_batch_rows_status_idx")
+  @@map("hubspot_push_batch_rows")
+}
+
+model HubspotImportBatch {
+  id                String                   @id @default(uuid()) @db.Uuid
+  requestedByUserId String                   @map("requested_by_user_id") @db.Uuid
+  runRequestId      String                   @map("run_request_id") @db.Uuid
+  fileName          String                   @map("file_name")
+  schemaVersion     String                   @map("schema_version")
+  status            HubspotImportBatchStatus @default(QUEUED)
+  totalRowCount     Int                      @default(0) @map("total_row_count")
+  preparedRowCount  Int                      @default(0) @map("prepared_row_count")
+  failedRowCount    Int                      @default(0) @map("failed_row_count")
+  csvContent        String?                  @map("csv_content") @db.Text
+  startedAt         DateTime?                @map("started_at")
+  completedAt       DateTime?                @map("completed_at")
+  lastError         String?                  @map("last_error") @db.Text
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  updatedAt         DateTime                 @updatedAt @map("updated_at")
+  requestedByUser   User                     @relation("HubspotImportRequestedBy", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+  runRequest        RunRequest               @relation(fields: [runRequestId], references: [id], onDelete: Restrict)
+  rows              HubspotImportBatchRow[]
+
+  @@index([requestedByUserId], map: "hubspot_import_batches_requested_by_user_id_idx")
+  @@index([requestedByUserId, createdAt], map: "hubspot_import_batches_requested_by_user_id_created_at_idx")
+  @@index([runRequestId], map: "hubspot_import_batches_run_request_id_idx")
+  @@index([status], map: "hubspot_import_batches_status_idx")
+  @@index([createdAt], map: "hubspot_import_batches_created_at_idx")
+  @@map("hubspot_import_batches")
+}
+
+model HubspotImportBatchRow {
+  id               String                      @id @default(uuid()) @db.Uuid
+  batchId          String                      @map("batch_id") @db.Uuid
+  channelId        String                      @map("channel_id") @db.Uuid
+  contactEmail     String                      @map("contact_email")
+  firstName        String                      @map("first_name")
+  lastName         String                      @map("last_name")
+  payload          Json                        @map("payload")
+  status           HubspotImportBatchRowStatus @default(PENDING)
+  errorMessage     String?                     @map("error_message") @db.Text
+  createdAt        DateTime                    @default(now()) @map("created_at")
+  updatedAt        DateTime                    @updatedAt @map("updated_at")
+  batch            HubspotImportBatch          @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  channel          Channel                     @relation(fields: [channelId], references: [id], onDelete: Restrict)
+
+  @@unique([batchId, channelId, contactEmail], map: "hubspot_import_batch_rows_batch_id_channel_id_contact_email_key")
+  @@index([batchId], map: "hubspot_import_batch_rows_batch_id_idx")
+  @@index([channelId], map: "hubspot_import_batch_rows_channel_id_idx")
+  @@index([status], map: "hubspot_import_batch_rows_status_idx")
+  @@map("hubspot_import_batch_rows")
+}
+
+model RunRequest {
+  id                String           @id @default(uuid()) @db.Uuid
+  requestedByUserId String           @map("requested_by_user_id") @db.Uuid
+  name              String
+  query             String
+  target            Int?
+  campaignId        String?          @map("campaign_id") @db.Uuid
+  client            String?
+  market            String?
+  campaignManagerUserId String?      @map("campaign_manager_user_id") @db.Uuid
+  briefLink         String?          @map("brief_link")
+  campaignName      String?          @map("campaign_name")
+  month             RunMonth?
+  year              Int?
+  dealOwner         String?          @map("deal_owner")
+  dealName          String?          @map("deal_name")
+  pipeline          String?
+  dealStage         String?          @map("deal_stage")
+  currency          String?
+  dealType          String?          @map("deal_type")
+  activationType    String?          @map("activation_type")
+  hubspotInfluencerType String?      @map("hubspot_influencer_type")
+  hubspotInfluencerVertical String?  @map("hubspot_influencer_vertical")
+  hubspotCountryRegion String?       @map("hubspot_country_region")
+  hubspotLanguage   String?          @map("hubspot_language")
+  status            RunRequestStatus @default(QUEUED)
+  lastError         String?          @map("last_error") @db.Text
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+  startedAt         DateTime?        @map("started_at")
+  completedAt       DateTime?        @map("completed_at")
+  requestedByUser   User             @relation("RunRequestedBy", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+  campaign          Campaign?        @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  campaignManagerUser User?          @relation("RunCampaignManager", fields: [campaignManagerUserId], references: [id], onDelete: SetNull)
+  hubspotImportBatches HubspotImportBatch[]
+  hubspotRowOverrides RunHubspotRowOverride[]
+  results           RunResult[]
+
+  @@index([requestedByUserId], map: "run_requests_requested_by_user_id_idx")
+  @@index([requestedByUserId, createdAt], map: "run_requests_requested_by_user_id_created_at_idx")
+  @@index([campaignId], map: "run_requests_campaign_id_idx")
+  @@index([campaignManagerUserId], map: "run_requests_campaign_manager_user_id_idx")
+  @@index([campaignManagerUserId, createdAt], map: "run_requests_campaign_manager_user_id_created_at_idx")
+  @@index([client], map: "run_requests_client_idx")
+  @@index([client, createdAt], map: "run_requests_client_created_at_idx")
+  @@index([market], map: "run_requests_market_idx")
+  @@index([market, createdAt], map: "run_requests_market_created_at_idx")
+  @@index([status], map: "run_requests_status_idx")
+  @@index([createdAt], map: "run_requests_created_at_idx")
+  @@map("run_requests")
+}
+
+model RunHubspotRowOverride {
+  id                String     @id @default(uuid()) @db.Uuid
+  runRequestId      String     @map("run_request_id") @db.Uuid
+  rowKey            String     @map("row_key")
+  firstName         String?    @map("first_name")
+  lastName          String?    @map("last_name")
+  email             String?
+  currency          String?
+  dealType          String?    @map("deal_type")
+  activationType    String?    @map("activation_type")
+  influencerType    String?    @map("influencer_type")
+  influencerVertical String?   @map("influencer_vertical")
+  countryRegion     String?    @map("country_region")
+  language          String?
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+  runRequest        RunRequest @relation(fields: [runRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([runRequestId, rowKey], map: "run_hubspot_row_overrides_run_request_id_row_key_key")
+  @@index([runRequestId], map: "run_hubspot_row_overrides_run_request_id_idx")
+  @@index([createdAt], map: "run_hubspot_row_overrides_created_at_idx")
+  @@map("run_hubspot_row_overrides")
+}
+
+model RunResult {
+  id         String          @id @default(uuid()) @db.Uuid
+  runRequestId String        @map("run_request_id") @db.Uuid
+  channelId  String          @map("channel_id") @db.Uuid
+  rank       Int
+  source     RunResultSource
+  createdAt  DateTime        @default(now()) @map("created_at")
+  runRequest RunRequest      @relation(fields: [runRequestId], references: [id], onDelete: Cascade)
+  channel    Channel         @relation(fields: [channelId], references: [id], onDelete: Restrict)
+
+  @@unique([runRequestId, channelId], map: "run_results_run_request_id_channel_id_key")
+  @@index([runRequestId], map: "run_results_run_request_id_idx")
+  @@map("run_results")
+}
+
+model YoutubeDiscoveryCache {
+  id         String   @id @default(uuid()) @db.Uuid
+  cacheKey   String   @unique @map("cache_key")
+  userId     String   @map("user_id") @db.Uuid
+  query      String
+  maxResults Int      @map("max_results")
+  payload    Json
+  fetchedAt  DateTime @map("fetched_at")
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([cacheKey], map: "youtube_discovery_cache_cache_key_idx")
+  @@index([expiresAt], map: "youtube_discovery_cache_expires_at_idx")
+  @@map("youtube_discovery_cache")
+}

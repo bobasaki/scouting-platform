@@ -1,0 +1,452 @@
+import type {
+  ChannelAdvancedReportStatus,
+  ChannelDetail,
+  ChannelEnrichmentStatus,
+} from "@scouting-platform/contracts";
+import { createElement, type ReactNode } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("next/image", () => ({
+  default: ({
+    alt,
+    className,
+    height,
+    src,
+    width,
+  }: {
+    alt: string;
+    className?: string;
+    height: number;
+    src: string;
+    width: number;
+  }) => createElement("img", { alt, className, height, src, width }),
+}));
+
+vi.mock("next/link", async () => {
+  const react = await vi.importActual<typeof import("react")>("react");
+
+  return {
+    default: ({
+      href,
+      className,
+      children,
+    }: {
+      href: string;
+      className?: string;
+      children: ReactNode;
+    }) => react.createElement("a", { href, className }, children),
+  };
+});
+
+import { ChannelDetailShellView } from "./channel-detail-shell";
+
+function createChannelDetail(overrides?: Partial<ChannelDetail>): ChannelDetail {
+  return {
+    id: "53adac17-f39d-4731-a61f-194150fbc431",
+    youtubeChannelId: "UC123",
+    title: "Orbital Deep Dive",
+    handle: "@orbitaldeepdive",
+    description: "Weekly coverage of launch systems and creator strategy.",
+    thumbnailUrl: "https://example.com/thumb.jpg",
+    createdAt: "2026-03-01T10:00:00.000Z",
+    updatedAt: "2026-03-08T10:00:00.000Z",
+    enrichment: {
+      status: "completed",
+      updatedAt: "2026-03-08T10:00:00.000Z",
+      completedAt: "2026-03-08T10:00:00.000Z",
+      lastError: null,
+      summary: "Creator focused on launches and industry analysis.",
+      topics: ["space", "launches"],
+      brandFitNotes: "Strong fit for launch providers.",
+      confidence: 0.82,
+    },
+    advancedReport: {
+      requestId: "6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b",
+      status: "completed",
+      updatedAt: "2026-03-08T10:00:00.000Z",
+      completedAt: "2026-03-08T10:00:00.000Z",
+      lastError: null,
+      requestedAt: "2026-03-07T08:00:00.000Z",
+      reviewedAt: "2026-03-07T09:00:00.000Z",
+      decisionNote: "Approved.",
+      lastCompletedReport: {
+        requestId: "6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b",
+        completedAt: "2026-03-08T10:00:00.000Z",
+        ageDays: 12,
+        withinFreshWindow: true,
+      },
+    },
+    insights: {
+      audienceCountries: [
+        {
+          countryCode: "US",
+          countryName: "United States",
+          percentage: 32.5,
+        },
+      ],
+      audienceGenderAge: [
+        {
+          gender: "female",
+          ageRange: "18-24",
+          percentage: 21.4,
+        },
+      ],
+      audienceInterests: [
+        {
+          label: "Space tech",
+          score: 0.88,
+        },
+      ],
+      estimatedPrice: {
+        currencyCode: "USD",
+        min: 500,
+        max: 900,
+      },
+      brandMentions: [
+        {
+          brandName: "SpaceX",
+        },
+      ],
+    },
+    ...overrides,
+  };
+}
+
+function renderReadyView(options?: {
+  channel?: ChannelDetail;
+  enrichmentActionState?: {
+    type: "idle" | "submitting" | "success" | "error";
+    message: string;
+  };
+  advancedReportActionState?: {
+    type: "idle" | "submitting" | "success" | "error";
+    message: string;
+  };
+}): string {
+  return renderToStaticMarkup(
+    createElement(ChannelDetailShellView, {
+      advancedReportActionState: options?.advancedReportActionState ?? {
+        type: "idle",
+        message: "",
+      },
+      channelId: "53adac17-f39d-4731-a61f-194150fbc431",
+      enrichmentActionState: options?.enrichmentActionState ?? {
+        type: "idle",
+        message: "",
+      },
+      onRequestAdvancedReport: vi.fn(),
+      onRequestEnrichment: vi.fn(),
+      onRetry: vi.fn(),
+      requestState: {
+        status: "ready",
+        data: options?.channel ?? createChannelDetail(),
+        error: null,
+      },
+    }),
+  );
+}
+
+function createEnrichmentScenario(status: ChannelEnrichmentStatus): ChannelDetail {
+  return createChannelDetail({
+    enrichment: {
+      status,
+      updatedAt: status === "missing" ? null : "2026-03-08T10:00:00.000Z",
+      completedAt:
+        status === "completed" || status === "stale" ? "2026-03-08T10:00:00.000Z" : null,
+      lastError: status === "failed" ? "OpenAI enrichment request failed" : null,
+      summary:
+        status === "missing"
+          ? null
+          : "Creator focused on launches and industry analysis.",
+      topics: status === "missing" ? null : ["space", "launches"],
+      brandFitNotes: status === "missing" ? null : "Strong fit for launch providers.",
+      confidence: status === "missing" ? null : 0.82,
+    },
+  });
+}
+
+function createAdvancedReportScenario(status: ChannelAdvancedReportStatus): ChannelDetail {
+  return createChannelDetail({
+    advancedReport: {
+      requestId: status === "missing" ? null : "6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b",
+      status,
+      updatedAt: status === "missing" ? null : "2026-03-08T10:00:00.000Z",
+      completedAt:
+        status === "completed" || status === "stale" ? "2026-03-08T10:00:00.000Z" : null,
+      lastError: status === "failed" ? "HypeAuditor request failed" : null,
+      requestedAt: status === "missing" ? null : "2026-03-07T08:00:00.000Z",
+      reviewedAt:
+        status === "approved" ||
+        status === "queued" ||
+        status === "running" ||
+        status === "completed" ||
+        status === "failed" ||
+        status === "rejected"
+          ? "2026-03-07T09:00:00.000Z"
+          : null,
+      decisionNote:
+        status === "rejected" ? "Budget denied." : status === "missing" ? null : "Approved.",
+      lastCompletedReport:
+        status === "missing"
+          ? null
+          : {
+              requestId: "6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b",
+              completedAt: "2026-03-08T10:00:00.000Z",
+              ageDays: status === "stale" ? 145 : 12,
+              withinFreshWindow: status !== "stale",
+            },
+    },
+    insights:
+      status === "missing"
+        ? {
+            audienceCountries: [],
+            audienceGenderAge: [],
+            audienceInterests: [],
+            estimatedPrice: null,
+            brandMentions: [],
+          }
+        : createChannelDetail().insights,
+  });
+}
+
+describe("channel detail shell view", () => {
+  it("renders the live channel detail layout for a resolved channel", () => {
+    const html = renderReadyView();
+
+    expect(html).toContain("Orbital Deep Dive");
+    expect(html).toContain("@orbitaldeepdive");
+    expect(html).toContain("Creator profile");
+    expect(html).not.toContain("Catalog metadata");
+    expect(html).toContain("Enrichment: Ready");
+    expect(html).toContain("Advanced report: Completed");
+    expect(html).toContain("Weekly coverage of launch systems and creator strategy.");
+    expect(html).toContain("Creator focused on launches and industry analysis.");
+    expect(html).toContain("Last completed report is fresh (12 days old).");
+    expect(html).toContain("United States");
+    expect(html).toContain("SpaceX");
+    expect(html).toContain("USD 500-900");
+    expect(html.match(/>Last error</g)?.length ?? 0).toBe(1);
+  });
+
+  it("renders enrichment status tags for requestable states", () => {
+    const scenarios: Array<{
+      status: ChannelEnrichmentStatus;
+      statusLabel: string;
+    }> = [
+      {
+        status: "missing",
+        statusLabel: "Enrichment: Missing",
+      },
+      {
+        status: "failed",
+        statusLabel: "Enrichment: Failed",
+      },
+      {
+        status: "stale",
+        statusLabel: "Enrichment: Stale",
+      },
+    ];
+
+    for (const scenario of scenarios) {
+      const html = renderReadyView({
+        channel: createEnrichmentScenario(scenario.status),
+      });
+
+      expect(html).toContain(scenario.statusLabel);
+    }
+  });
+
+  it("renders busy enrichment status tags for queued and running states", () => {
+    const queuedHtml = renderReadyView({
+      channel: createEnrichmentScenario("queued"),
+    });
+    const runningHtml = renderReadyView({
+      channel: createEnrichmentScenario("running"),
+    });
+
+    expect(queuedHtml).toContain("Enrichment: Queued");
+    expect(runningHtml).toContain("Enrichment: Running");
+  });
+
+  it("keeps enrichment request feedback out of the closed default view", () => {
+    const successHtml = renderReadyView({
+      channel: createEnrichmentScenario("missing"),
+      enrichmentActionState: {
+        type: "success",
+        message:
+          "Enrichment request recorded. This page refreshes automatically while the worker runs, and the current result stays visible below until the refresh completes.",
+      },
+    });
+    const busyHtml = renderReadyView({
+      channel: createEnrichmentScenario("missing"),
+      enrichmentActionState: {
+        type: "submitting",
+        message: "",
+      },
+    });
+
+    expect(successHtml).not.toContain("Enrichment request recorded.");
+    expect(busyHtml).not.toContain("Requesting...");
+  });
+
+  it("renders advanced report status tags for requestable states", () => {
+    const scenarios: Array<{
+      status: ChannelAdvancedReportStatus;
+      statusLabel: string;
+    }> = [
+      {
+        status: "missing",
+        statusLabel: "Advanced report: Missing",
+      },
+      {
+        status: "failed",
+        statusLabel: "Advanced report: Failed",
+      },
+      {
+        status: "rejected",
+        statusLabel: "Advanced report: Rejected",
+      },
+      {
+        status: "stale",
+        statusLabel: "Advanced report: Stale",
+      },
+    ];
+
+    for (const scenario of scenarios) {
+      const html = renderReadyView({
+        channel: createAdvancedReportScenario(scenario.status),
+      });
+
+      expect(html).toContain(scenario.statusLabel);
+    }
+  });
+
+  it("renders both status tags when enrichment and advanced report are fresh", () => {
+    const html = renderReadyView({
+      channel: createAdvancedReportScenario("completed"),
+    });
+
+    expect(html).toContain("Enrichment: Ready");
+    expect(html).toContain("Advanced report: Completed");
+  });
+
+  it("renders busy advanced report status tags for pending and active states", () => {
+    const pendingApprovalHtml = renderReadyView({
+      channel: createAdvancedReportScenario("pending_approval"),
+    });
+    const runningHtml = renderReadyView({
+      channel: createAdvancedReportScenario("running"),
+    });
+
+    expect(pendingApprovalHtml).toContain("Advanced report: Pending Approval");
+    expect(runningHtml).toContain("Advanced report: Running");
+  });
+
+  it("keeps advanced report request feedback out of the closed default view", () => {
+    const successHtml = renderReadyView({
+      channel: createAdvancedReportScenario("missing"),
+      advancedReportActionState: {
+        type: "success",
+        message:
+          "Advanced report request recorded. This page refreshes automatically while approval and worker status change, and the current audience insights stay visible below until a newer report completes.",
+      },
+    });
+    const busyHtml = renderReadyView({
+      channel: createAdvancedReportScenario("missing"),
+      advancedReportActionState: {
+        type: "submitting",
+        message: "",
+      },
+    });
+
+    expect(successHtml).not.toContain("Advanced report request recorded.");
+    expect(busyHtml).not.toContain("Requesting...");
+  });
+
+  it("does not render the admin manual edit panel in the creator detail page", () => {
+    const html = renderToStaticMarkup(
+      createElement(ChannelDetailShellView, {
+        advancedReportActionState: {
+          type: "idle",
+          message: "",
+        },
+        channelId: "53adac17-f39d-4731-a61f-194150fbc431",
+        canManageManualEdits: true,
+        enrichmentActionState: {
+          type: "idle",
+          message: "",
+        },
+        onChannelUpdated: vi.fn(),
+        onRequestAdvancedReport: vi.fn(),
+        onRequestEnrichment: vi.fn(),
+        onRetry: vi.fn(),
+        requestState: {
+          status: "ready",
+          data: createChannelDetail(),
+          error: null,
+        },
+      }),
+    );
+
+    expect(html).not.toContain("Admin profile controls");
+    expect(html).not.toContain("Save override");
+    expect(html).not.toContain("Restore fallback");
+  });
+
+  it("renders retryable error feedback when the request fails", () => {
+    const html = renderToStaticMarkup(
+      createElement(ChannelDetailShellView, {
+        advancedReportActionState: {
+          type: "idle",
+          message: "",
+        },
+        channelId: "53adac17-f39d-4731-a61f-194150fbc431",
+        enrichmentActionState: {
+          type: "idle",
+          message: "",
+        },
+        onRequestAdvancedReport: vi.fn(),
+        onRequestEnrichment: vi.fn(),
+        onRetry: vi.fn(),
+        requestState: {
+          status: "error",
+          data: null,
+          error: "Catalog temporarily unavailable.",
+        },
+      }),
+    );
+
+    expect(html).toContain('role="alert"');
+    expect(html).toContain("Catalog temporarily unavailable.");
+    expect(html).toContain(">Retry<");
+  });
+
+  it("renders an explicit not-found state for missing catalog records", () => {
+    const html = renderToStaticMarkup(
+      createElement(ChannelDetailShellView, {
+        advancedReportActionState: {
+          type: "idle",
+          message: "",
+        },
+        channelId: "missing-channel-id",
+        enrichmentActionState: {
+          type: "idle",
+          message: "",
+        },
+        onRequestAdvancedReport: vi.fn(),
+        onRequestEnrichment: vi.fn(),
+        onRetry: vi.fn(),
+        requestState: {
+          status: "notFound",
+          data: null,
+          error: null,
+        },
+      }),
+    );
+
+    expect(html).toContain("Channel not found");
+    expect(html).toContain("We could not find a catalog record for");
+    expect(html).toContain("<code>missing-channel-id</code>");
+  });
+});

@@ -1,325 +1,341 @@
 # Architecture
 
+Current-state architecture for `scouting-platform` as of 2026-04-01.
+
+Historical note:
+- [docs/ADR-001-architecture.md](./docs/ADR-001-architecture.md) preserves the original monorepo/service-boundary decision.
+- [docs/ADR-003-repository-layout-simplification.md](./docs/ADR-003-repository-layout-simplification.md) is the accepted ADR that governs the current repository layout.
+
 ## 1. System Shape
 
-The system has three runtime components:
-- `web`: Next.js application for UI, auth, and server-side route handlers
-- `worker`: Node.js process for background jobs and provider orchestration
+The production system has three runtime components:
+- `web`: Next.js application for authenticated UI, Auth.js, server-rendered pages, and route handlers
+- `worker`: separate Node.js process for `pg-boss` jobs and provider orchestration
 - `db`: Postgres as the only persistent database
 
-Recommended hosting: Railway with separate staging and production environments.
+Recommended hosting remains Railway with separate staging and production environments.
 
-## 2. Architectural Decisions That Must Not Change Without an ADR
+## 2. ADR-Governed Constraints
 
-1. Catalog is canonical.
-2. Runs are snapshots, not a second data model.
-3. Worker is separate from web.
+The following rules remain architectural constraints, not implementation preferences:
+
+1. Catalog data is canonical.
+2. Runs are snapshots layered on top of the catalog, not a second canonical creator model.
+3. The worker remains separate from the web process.
 4. Postgres is mandatory.
 5. Prisma migrations are the only schema change mechanism.
-6. `pg-boss` is the job system.
-7. Browser never talks directly to YouTube, OpenAI, HypeAuditor, or HubSpot.
+6. `pg-boss` is the queue.
+7. The browser never talks directly to YouTube, OpenAI, HypeAuditor, or HubSpot.
 8. Manual admin overrides outrank all automated data.
-9. Every async workflow stores status and last error.
+9. Every async workflow persists status, timestamps, and `lastError`.
 10. Every privileged action emits an audit event.
 
-Any change to these requires:
-- a short ADR in `/docs`
-- approval from both Ivan and Marin
+Any change to these rules requires an ADR in [`/docs`](./docs/README.md).
 
-## 3. Monorepo Layout
+## 3. Repository Layout
+
+The active repository layout is:
 
 ```text
-apps/
+frontend/
   web/
     app/
     components/
     lib/
+    e2e/
+backend/
   worker/
     src/
-packages/
-  db/
-    prisma/
-    src/
-  core/
-    src/
-      auth/
-      channels/
-      runs/
-      enrichment/
-      imports/
-      hubspot/
-      approvals/
-  integrations/
-    src/
-      youtube/
-      openai/
-      hypeauditor/
-      hubspot/
-  contracts/
-    src/
-  config/
-    src/
+  packages/
+    core/
+      src/
+    db/
+      prisma/
+      src/
+    integrations/
+      src/
+shared/
+  packages/
+    contracts/
+      src/
+    config/
+      src/
 docs/
-  ADR-001-architecture.md
-  ADR-002-data-ownership-and-precedence.md
-  README.md
-  setup/
+scripts/
+docker/
 ```
 
-## 4. Responsibility Split by Package
+There are no active top-level `apps/` or `packages/` workspaces in the current repo state.
 
-### apps/web
-- auth screens
-- app shell
+## 4. Directory Responsibilities
+
+### `frontend/web`
+- authenticated workspace UI
+- top-level navigation and shell
 - server-rendered pages
-- route handlers / BFF layer
-- permission-aware UI
-- polling and mutation UX
+- route handlers / BFF boundary
+- session-aware access checks
+- page/component tests and Playwright coverage
 
-### apps/worker
-- job registration
-- job execution
-- scheduled maintenance tasks
-- provider retry logic
-- long-running imports/exports/enrichment
+### `backend/worker`
+- `pg-boss` bootstrap
+- worker registration
+- long-running discovery, enrichment, import, export, and HubSpot preparation jobs
+- retry and durability handling for queued workflows
 
-### packages/db
+### `backend/packages/core`
+- domain services
+- business rules
+- run creation and discovery orchestration
+- campaign, client, dropdown, export, and HubSpot preparation services
+- audit logging and approval workflows
+
+### `backend/packages/db`
 - Prisma schema
 - migrations
 - Prisma client setup
-- transaction helpers
-- DB-owned query abstractions where useful
+- DB access helpers and transaction helpers
 
-### packages/core
-- domain services
-- business rules
-- merge/preference logic
-- run orchestration
-- approval rules
-- import/export orchestration
-
-### packages/integrations
-- YouTube API adapter
-- OpenAI adapter
+### `backend/packages/integrations`
+- YouTube discovery/context adapter
+- OpenAI enrichment adapter
 - HypeAuditor adapter
 - HubSpot adapter
 
-### packages/contracts
-- zod schemas
-- DTOs
-- route contracts
-- queue payload contracts
+### `shared/packages/contracts`
+- Zod request/response contracts
+- queue payload schemas
+- DTOs shared between UI, routes, worker, and core services
 
-### packages/config
+### `shared/packages/config`
 - env validation
-- runtime configuration
 - feature flags
-- shared constants
+- shared runtime constants
 
-## 5. Core Flows
+## 5. Auth and User Model
 
-### 5.1 Catalog Browse
-1. User requests catalog page.
-2. Web server validates session.
-3. Web queries Postgres using resolved channel profile + filters.
-4. UI renders paginated results.
+Authentication is email/password through Auth.js credentials.
 
-### 5.2 Run Creation
-1. User submits run form.
-2. Web validates session, role, and assigned YouTube key.
-3. Web creates `run_requests` record.
-4. Worker processes discovery job.
-5. Worker searches catalog and YouTube.
-6. Worker upserts new channel/source rows.
-7. Worker produces `run_results` snapshot.
-8. UI polls job status.
+The user model has two layers and they serve different purposes:
 
-### 5.3 LLM Enrichment
-1. User or system requests enrichment.
-2. Worker loads cached text context if present.
-3. Worker fetches missing YouTube context only when needed.
-4. Worker calls OpenAI.
-5. Result is stored as source snapshot + resolved enrichment projection.
-6. Errors are saved to job state and enrichment row.
+### `role` is the permission boundary
 
-### 5.4 HypeAuditor Approval Flow
-1. User requests advanced report.
-2. Request row is created in `pending_approval`.
-3. Admin approves or rejects.
-4. Approved request becomes a queued job.
-5. Worker calls HypeAuditor.
-6. Result is stored and merged into resolved channel data.
-7. Audit events are recorded for request and approval.
+Values:
+- `admin`
+- `user`
 
-### 5.5 CSV Import
-1. Admin uploads strict-template CSV.
-2. Web stores batch metadata.
-3. Worker validates and processes rows.
-4. Valid rows become imported source snapshots / overrides.
-5. Row-level failures are persisted.
+`role` is what the session, top-level navigation, and admin-only route guards use.
 
-### 5.6 HubSpot Push
-1. User selects creators.
-2. Web creates push batch.
-3. Worker pushes creators to HubSpot.
-4. Per-record success/failure is saved.
-5. UI shows batch results and retryable failures.
+### `userType` is the business-facing persona
 
-## 6. Data Model Direction
+Values:
+- `admin`
+- `campaign_manager`
+- `campaign_lead`
+- `hoc`
 
-### Canonical Tables
+`userType` does not replace `role`. It describes business responsibility inside the non-admin workspace:
+- `campaign_manager` users are the only users eligible for run-level campaign manager assignment
+- `campaign_lead` and `hoc` users can create campaign/client reference data
+- `admin` user type is reserved for `role=admin` accounts
+
+The important rule for contributors is:
+- use `role` for permission boundaries
+- use `userType` for business semantics and workflow-specific rules
+
+## 6. Current Workspace Surfaces
+
+The top-level authenticated navigation exposes five primary surfaces:
+- `Dashboard`
+- `New scouting`
+- `Catalog`
+- `Database`
+- `Admin`
+
+Supporting workflow pages still exist outside the top-level nav:
+- `Exports` for CSV batch history and results
+- `HubSpot` for import-ready batch history plus legacy push history
+- run detail pages at `/runs/[runId]`
+- preparation pages at `/exports/prepare/[runId]` and `/hubspot/prepare/[runId]`
+
+Legacy compatibility routes remain in place:
+- `/runs` redirects to `/dashboard`
+- `/campaigns` redirects to `/database?tab=campaigns`
+- `/runs/new` opens the new scouting workspace with a legacy notice
+
+## 7. Campaign-Linked Scouting Model
+
+Runs are now campaign-linked.
+
+Run creation requires:
+- an authenticated user with an assigned YouTube Data API key
+- an active campaign
+- a target count
+- a scouting prompt/query
+- a campaign manager selection from active `role=user` + `userType=campaign_manager` users
+
+At run creation time, the system copies campaign-derived metadata onto `run_requests` so the run remains a durable snapshot:
+- campaign context: `campaignId`, `campaignName`, `client`, `market`, `briefLink`, `month`, `year`
+- ownership/outbound context: `campaignManagerUserId`, `dealOwner`, `dealName`, `pipeline`, `dealStage`
+- HubSpot preparation defaults: `currency`, `dealType`, `activationType`, `hubspotInfluencerType`, `hubspotInfluencerVertical`, `hubspotCountryRegion`, `hubspotLanguage`
+
+The current creation flow is:
+1. Validate session and assigned YouTube key.
+2. Validate that the selected campaign exists and is active.
+3. Validate that the selected campaign manager is an active Campaign Manager user.
+4. Create a `run_requests` snapshot row with campaign-derived metadata.
+5. Queue `runs.discover`.
+6. Worker searches both the existing catalog and YouTube discovery.
+7. Worker upserts new channels and stores `run_results`.
+8. Dashboard and run detail pages use the stored snapshot plus results.
+
+## 8. Current Data Model Direction
+
+### Identity and auth
 - `users`
 - `sessions`
+- `accounts`
 - `user_provider_credentials`
+
+### Catalog and enrichment
 - `channels`
 - `channel_contacts`
 - `channel_metrics`
 - `channel_enrichments`
 - `channel_manual_overrides`
-- `saved_segments`
-- `run_requests`
-- `run_results`
-- `advanced_report_requests`
-- `csv_import_batches`
-- `csv_import_rows`
-- `hubspot_push_batches`
-- `audit_events`
-
-### Raw/Source Tables
 - `channel_source_snapshots`
 - `channel_provider_payloads`
 
-### Queue / Operational Tables
-- `pgboss.job` and related internal queue tables
+### Reference data
+- `clients`
+- `markets`
+- `campaigns`
+- `dropdown_values`
 
-## 7. Merge Strategy
+### Runs and outbound workflows
+- `run_requests`
+- `run_results`
+- `run_hubspot_row_overrides`
+- `csv_import_batches`
+- `csv_import_rows`
+- `csv_export_batches`
+- `hubspot_push_batches`
+- `hubspot_push_batch_rows`
+- `hubspot_import_batches`
+- `hubspot_import_batch_rows`
 
-Store both:
-- raw provider/import payloads
-- resolved channel profile used by the UI
+### Admin and operational
+- `advanced_report_requests`
+- `audit_events`
+- `saved_segments`
+- `pgboss.*` queue tables
 
-Resolved profile is computed by precedence:
-1. admin manual override
-2. admin CSV import
-3. HypeAuditor
-4. LLM
-5. heuristics
-6. YouTube raw
+## 9. Data Precedence
 
-This avoids losing provenance and makes manual correction safe.
+Resolved catalog/profile data follows the accepted precedence order:
 
-## 8. Auth and Permissions
+1. `admin_manual`
+2. `csv_import`
+3. `hypeauditor`
+4. `llm`
+5. `heuristics`
+6. `youtube_raw`
 
-- Auth.js credentials provider
-- Passwords hashed with argon2
-- Role column on `users`
-- Admin-only actions enforced in route handlers and service layer
+The system stores both raw/source payloads and resolved creator data used by the UI.
 
-### Roles
-- `admin`
-- `user`
+## 10. API Boundary
 
-## 9. Background Jobs
+The web app exposes the current BFF surface through route families in `frontend/web/app/api`:
 
-Use `pg-boss`.
+### Auth
+- `/api/auth/[...nextauth]`
 
-Initial job families:
+### Catalog and saved segments
+- `/api/channels`
+- `/api/channels/[id]`
+- `/api/channels/[id]/enrich`
+- `/api/channels/[id]/advanced-report-requests`
+- `/api/segments`
+- `/api/segments/[id]`
+
+### Campaign/reference data and scouting metadata
+- `/api/campaigns`
+- `/api/clients`
+- `/api/users/campaign-managers`
+- `/api/admin/dropdown-values`
+
+### Runs and preparation previews
+- `/api/runs`
+- `/api/runs/[id]`
+- `/api/runs/[id]/csv-preview`
+- `/api/runs/[id]/hubspot-preview`
+
+### Admin workflows
+- `/api/admin/dashboard`
+- `/api/admin/users`
+- `/api/admin/users/[id]`
+- `/api/admin/users/[id]/password`
+- `/api/admin/users/[id]/youtube-key`
+- `/api/admin/advanced-report-requests`
+- `/api/admin/advanced-report-requests/[id]`
+- `/api/admin/advanced-report-requests/[id]/approve`
+- `/api/admin/advanced-report-requests/[id]/reject`
+- `/api/admin/channels/[id]/manual-overrides`
+- `/api/admin/csv-import-batches`
+- `/api/admin/csv-import-batches/[id]`
+
+### Batch result and download flows
+- `/api/csv-export-batches`
+- `/api/csv-export-batches/[id]`
+- `/api/csv-export-batches/[id]/download`
+- `/api/hubspot-push-batches`
+- `/api/hubspot-push-batches/[id]`
+- `/api/hubspot-import-batches`
+- `/api/hubspot-import-batches/[id]`
+- `/api/hubspot-import-batches/[id]/download`
+
+## 11. Background Jobs
+
+Current job names are:
 - `runs.discover`
 - `runs.recompute`
 - `channels.enrich.llm`
 - `channels.enrich.hypeauditor`
 - `imports.csv.process`
 - `exports.csv.generate`
+- `hubspot.import.batch`
 - `hubspot.push.batch`
 - `maintenance.refresh-stale`
 
-### Job Requirements
-- stable payload schema
-- retries with bounded backoff
-- status + timestamps + last error
-- idempotent where possible
-- explicit concurrency caps per provider
+Every job family uses stable payload contracts in [`shared/packages/contracts/src/jobs.ts`](./shared/packages/contracts/src/jobs.ts), and every persisted workflow stores status/timestamps/`lastError`.
 
-## 10. Security Rules
+## 12. Security Rules
 
-- Encrypt user YouTube keys at rest with `APP_ENCRYPTION_KEY`
-- Never expose company secrets to the browser
-- Use server-side permission checks for every mutation
-- Keep audit events immutable
-- Prefer optimistic UI only for non-critical UX, never for approvals/import outcomes
+- Encrypt user YouTube keys at rest with `APP_ENCRYPTION_KEY`.
+- Never expose company secrets to the browser.
+- Enforce authorization server-side for every protected mutation.
+- Keep audit events immutable.
+- Keep provider calls in backend packages and workers only.
 
-## 11. Testing Strategy
+## 13. Testing Strategy
 
 ### Unit
 - domain rules
 - merge precedence
-- provider adapters
-- queue payload validation
+- adapter behavior
+- utility contracts and helpers
 
 ### Integration
+- Prisma repositories and transactions
 - route handlers
 - auth rules
-- DB transactions
-- worker jobs against ephemeral Postgres
+- queued job execution
+- migration safety
 
-### End-to-End
+### End-to-end
 - login
-- catalog browse
-- run creation
-- enrichment status
-- admin approval flow
-- CSV import
-- HubSpot push
-
-CI gates must include:
-- typecheck
-- lint
-- Prisma validation
-- unit/integration tests
-- web build
-- worker build
-- Playwright smoke tests
-
-## 12. Deployment Strategy
-
-### Environments
-- local
-- staging
-- production
-
-### Services
-- one web service
-- one worker service
-- one Postgres instance per environment
-
-### Required Operational Docs
-- migration procedure
-- rollback procedure
-- backup procedure
-- secret rotation procedure
-
-## 13. Observability
-
-Minimum v1 operational visibility:
-- structured logs with request/job ids
-- job queue dashboard on admin screen
-- audit log for privileged actions
-- persisted last-error fields on failed jobs and enrichments
-
-## 14. Performance Rules
-
-- use catalog projections for list pages
-- avoid provider refetch during enrich if cached context exists
-- batch DB writes inside transactions
-- do not over-fetch heavy provider payloads into page requests
-- use background jobs for imports, exports, HubSpot pushes, and heavy enrichments
-
-## 15. No-Pivot Guardrails
-
-Do not reintroduce the problems from the old codebase:
-- no runtime schema creation
-- no worker logic in the web app process
-- no unguarded admin routes
-- no partial-write success on critical flows
-- no duplicate catalog vs run truth models
-- no direct browser-to-backend-provider networking pattern
+- catalog browse/detail
+- new scouting flow
+- dashboard/run review
+- admin approvals/imports
+- export and HubSpot preparation flows
