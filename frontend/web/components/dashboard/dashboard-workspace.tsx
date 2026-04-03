@@ -4,6 +4,7 @@ import type { ListRecentRunsResponse, ListRunsQuery } from "@scouting-platform/c
 import Link from "next/link";
 import React, { useEffect, useMemo, useState } from "react";
 
+import { useDocumentVisibility } from "../../lib/document-visibility";
 import { getCsvPreviewHref, getHubspotPreviewHref } from "../../lib/navigation";
 import {
   formatCampaignManagerLabel,
@@ -12,7 +13,12 @@ import {
   getRunCoveragePercent,
 } from "../../lib/run-metadata";
 import { fetchRecentRuns } from "../../lib/runs-api";
-import { RUN_STATUS_POLL_INTERVAL_MS, shouldPollRunStatus } from "../runs/run-presentation";
+import {
+  formatRunStatusLabel,
+  formatRunTimestamp,
+  RUN_STATUS_POLL_INTERVAL_MS,
+  shouldPollRunStatus,
+} from "../runs/run-presentation";
 import { SearchableSelect, type SearchableSelectOption } from "../ui/searchable-select";
 
 type DashboardRunsRequestState =
@@ -92,6 +98,7 @@ export function DashboardWorkspace({
   );
   const [filters, setFilters] = useState<DashboardFiltersState>(initialFilters);
   const [reloadToken, setReloadToken] = useState(0);
+  const isDocumentVisible = useDocumentVisibility();
 
   useEffect(() => {
     let didCancel = false;
@@ -123,7 +130,10 @@ export function DashboardWorkspace({
           error: null,
         });
 
-        if (recentRuns.items.some((run) => shouldPollRunStatus(run.status))) {
+        if (
+          isDocumentVisible &&
+          recentRuns.items.some((run) => shouldPollRunStatus(run.status))
+        ) {
           timeoutId = setTimeout(() => {
             void loadRuns(true);
           }, RUN_STATUS_POLL_INTERVAL_MS);
@@ -151,7 +161,7 @@ export function DashboardWorkspace({
         clearTimeout(timeoutId);
       }
     };
-  }, [filters, initialData, reloadToken]);
+  }, [filters, initialData, isDocumentVisible, reloadToken]);
 
   const filterOptions = requestState.status === "ready" ? requestState.data.filterOptions : null;
   const campaignManagerOptions: SearchableSelectOption[] = useMemo(
@@ -280,6 +290,8 @@ export function DashboardWorkspace({
                     <th>Brief Link</th>
                     <th>Influencer List</th>
                     <th>Coverage</th>
+                    <th>Status</th>
+                    <th>Started</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -310,6 +322,12 @@ export function DashboardWorkspace({
                           </Link>
                         </td>
                         <td>{renderCoverageCell(run.resultCount, run.target)}</td>
+                        <td>
+                          <span className={`dashboard-workspace__status dashboard-workspace__status--${run.status}`}>
+                            {formatRunStatusLabel(run.status)}
+                          </span>
+                        </td>
+                        <td>{formatRunTimestamp(run.createdAt)}</td>
                         <td>
                           <div className="dashboard-workspace__row-actions">
                             <Link

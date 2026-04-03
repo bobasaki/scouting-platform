@@ -46,29 +46,14 @@ ensurePlaywrightEnvironment();
 
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: ["**/smoke.spec.ts", "**/authenticated.spec.ts"],
+  testMatch: ["**/smoke.spec.ts", "**/remote-authenticated.spec.ts"],
   fullyParallel: false,
-  globalSetup: "./e2e/global-setup.ts",
-  globalTeardown: "./e2e/global-teardown.ts",
-  timeout: 30_000,
-  retries: process.env.CI ? 2 : 0,
-  reporter: process.env.CI ? "github" : "list",
+  timeout: 45_000,
+  retries: 1,
+  reporter: "list",
   use: {
-    baseURL: "http://127.0.0.1:3101",
+    baseURL: "https://scouting.marsilux.com",
     trace: "on-first-retry",
   },
-  webServer: {
-    command: "next start -p 3101 -H 127.0.0.1",
-    env: {
-      ...process.env,
-      AUTH_TRUST_HOST: "true",
-      AUTH_SECRET:
-        process.env.AUTH_SECRET ??
-        process.env.NEXTAUTH_SECRET ??
-        "playwright-smoke-auth-secret-not-for-production",
-    },
-    url: "http://127.0.0.1:3101",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  // No webServer block — the server is already running remotely.
 });
