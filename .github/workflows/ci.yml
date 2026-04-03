@@ -101,6 +101,69 @@ jobs:
       - name: Playwright smoke
         run: pnpm --filter @scouting-platform/web test:smoke
 
+  remote-smoke:
+    if: >-
+      github.event_name != 'schedule' &&
+      (
+        github.event_name != 'pull_request' ||
+        github.event.pull_request.head.repo.full_name == github.repository
+      )
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      APP_ENCRYPTION_KEY: 01234567890123456789012345678901
+      E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+      E2E_MANAGER_EMAIL: ${{ secrets.E2E_MANAGER_EMAIL }}
+      E2E_MANAGER_PASSWORD: ${{ secrets.E2E_MANAGER_PASSWORD }}
+
+    steps:
+      - name: Validate remote smoke secrets
+        run: |
+          missing=0
+
+          for name in \
+            E2E_ADMIN_EMAIL \
+            E2E_ADMIN_PASSWORD \
+            E2E_MANAGER_EMAIL \
+            E2E_MANAGER_PASSWORD
+          do
+            if [ -z "${!name}" ]; then
+              echo "::error title=Missing remote smoke secret::$name is required for the remote staging smoke job."
+              missing=1
+            fi
+          done
+
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.1
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: pnpm --filter @scouting-platform/web exec playwright install --with-deps chromium
+
+      - name: Playwright remote smoke
+        run: pnpm --filter @scouting-platform/web exec playwright test -c playwright.remote.config.ts
+
   postgres-image-scan:
     if: github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'schedule'
     continue-on-error: true
