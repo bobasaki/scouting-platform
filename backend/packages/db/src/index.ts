@@ -21,9 +21,7 @@ const globalForPrisma = globalThis as GlobalWithPrisma;
 
 export const prisma = globalForPrisma.__scoutingPrisma ?? createPrismaClient();
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.__scoutingPrisma = prisma;
-}
+globalForPrisma.__scoutingPrisma = prisma;
 
 export async function withDbTransaction<T>(
   callback: (tx: DbTransactionClient) => Promise<T>,
