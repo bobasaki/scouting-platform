@@ -17,25 +17,25 @@ export type DbTransactionOptions = {
   timeout?: number;
 };
 
-function getDatabaseUrl({ databaseUrl }: CreatePrismaClientOptions): string | undefined {
+function getDatabaseUrl({ databaseUrl }: CreatePrismaClientOptions): string {
   const resolvedDatabaseUrl = databaseUrl ?? process.env.DATABASE_URL;
   const trimmedDatabaseUrl = resolvedDatabaseUrl?.trim();
 
-  return trimmedDatabaseUrl ? trimmedDatabaseUrl : undefined;
+  if (!trimmedDatabaseUrl) {
+    throw new Error("DATABASE_URL is required to create a Prisma client");
+  }
+
+  return trimmedDatabaseUrl;
 }
 
 export function createPrismaClient(options: CreatePrismaClientOptions = {}): PrismaClient {
   const databaseUrl = getDatabaseUrl(options);
 
-  if (databaseUrl) {
-    return new PrismaClient({
-      adapter: new PrismaPg({
-        connectionString: databaseUrl,
-      }),
-    });
-  }
-
-  return new PrismaClient();
+  return new PrismaClient({
+    adapter: new PrismaPg({
+      connectionString: databaseUrl,
+    }),
+  });
 }
 
 const globalForPrisma = globalThis as GlobalWithPrisma;
