@@ -5,24 +5,27 @@ const DEFAULT_MIN_LONG_FORM_VIDEOS = 12;
 const PLAYLIST_ITEMS_PAGE_SIZE = 25;
 const YOUTUBE_SHORTS_MAX_DURATION_SECONDS = 180;
 
-const contextInputSchema = z.object({
-  apiKey: z.string().trim().min(1),
-  channelId: z.string().trim().min(1),
-  maxVideos: z.number().int().min(1).max(DEFAULT_MAX_INSPECTED_UPLOADS).default(
-    DEFAULT_MAX_INSPECTED_UPLOADS,
-  ),
-  minLongFormVideos: z.number().int().min(1).max(DEFAULT_MAX_INSPECTED_UPLOADS).default(
-    DEFAULT_MIN_LONG_FORM_VIDEOS,
-  ),
-}).superRefine((value, context) => {
-  if (value.minLongFormVideos > value.maxVideos) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "minLongFormVideos cannot exceed maxVideos",
-      path: ["minLongFormVideos"],
-    });
-  }
-});
+const contextInputSchema = z
+  .object({
+    apiKey: z.string().trim().min(1),
+    channelId: z.string().trim().min(1),
+    maxVideos: z
+      .number()
+      .int()
+      .min(1)
+      .max(DEFAULT_MAX_INSPECTED_UPLOADS)
+      .default(DEFAULT_MAX_INSPECTED_UPLOADS),
+    minLongFormVideos: z
+      .number()
+      .int()
+      .min(1)
+      .max(DEFAULT_MAX_INSPECTED_UPLOADS)
+      .default(DEFAULT_MIN_LONG_FORM_VIDEOS),
+  })
+  .transform((value) => ({
+    ...value,
+    minLongFormVideos: Math.min(value.minLongFormVideos, value.maxVideos),
+  }));
 
 const channelResponseSchema = z.object({
   items: z
@@ -503,7 +506,7 @@ export async function fetchYoutubeChannelContext(
     await assertSuccessResponseOrThrow(playlistResponse);
 
     const parsedPlaylist = parsePlaylistItemsResponse(await parseJsonResponse(playlistResponse));
-    const pageRecentVideos = parsedPlaylist.items
+    const pageRecentVideos: YoutubeChannelContextDraft["recentVideos"] = parsedPlaylist.items
       .slice(0, remainingVideos)
       .map((item) => ({
         youtubeVideoId: toNullableTrimmed(item.contentDetails?.videoId),
