@@ -211,7 +211,10 @@ describe("hubspot push manager view", () => {
       }),
     );
 
-    expect(html).toContain("No HubSpot import history yet");
+    expect(html).toContain("No legacy HubSpot import history yet");
+    expect(html).toContain(
+      "Use the Google Sheets export flow from Dashboard or Database for new handoffs.",
+    );
     expect(html).toContain("Open Database");
     expect(html).toContain('href="/database?tab=runs"');
   });

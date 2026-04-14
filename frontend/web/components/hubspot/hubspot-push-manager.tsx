@@ -301,8 +301,8 @@ function renderHistoryState(props: HubspotPushManagerViewProps): ReactElement {
   if (historyState.items.length === 0) {
     return (
       <div className="hubspot-push__empty-state">
-        <h3>No HubSpot import history yet</h3>
-        <p>Start a HubSpot import batch from Dashboard or Database to review it here.</p>
+        <h3>No legacy HubSpot import history yet</h3>
+        <p>Use the Google Sheets export flow from Dashboard or Database for new handoffs. Legacy HubSpot batches still appear here when they exist.</p>
         <Link className="hubspot-push__link" href={props.catalogHref}>
           Open Database
         </Link>

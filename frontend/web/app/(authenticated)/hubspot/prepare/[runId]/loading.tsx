@@ -5,8 +5,8 @@ import { SkeletonPageBody, SkeletonTable } from "../../../../../components/ui/sk
 export default function HubspotPrepareLoading() {
   return (
     <PageSection
-      title="HubSpot Preparation"
-      description="Review all HubSpot columns, fill required gaps, and export a ready-to-import file."
+      title="Google Sheets Export"
+      description="Review the HubSpot-ready columns, fill required gaps, and export them into Google Sheets for manual HubSpot import."
     >
       <SkeletonPageBody>
         <SkeletonTable columns={8} rows={6} />

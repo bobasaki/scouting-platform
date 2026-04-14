@@ -128,7 +128,7 @@ describe("dashboard workspace", () => {
     expect(html).toContain(">Completed<");
     expect(html).toContain(">2026-03-15 12:00 UTC<");
     expect(html).toContain("Export");
-    expect(html).toContain("HubSpot");
+    expect(html).toContain("Google Sheets");
     expect(html).toContain("All campaign managers");
     expect(html).toContain("All clients");
     expect(html).toContain("All markets");

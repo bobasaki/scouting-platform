@@ -342,7 +342,7 @@ export function DashboardWorkspace({
                               href={getHubspotPreviewHref(run.id)}
                               target="_blank"
                             >
-                              HubSpot
+                              Google Sheets
                             </Link>
                           </div>
                         </td>
