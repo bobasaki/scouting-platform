@@ -31,6 +31,7 @@ function buildManualOverrideResponse() {
         topics: ["space", "launches"],
         brandFitNotes: "Strong fit for launch providers.",
         confidence: 0.82,
+        structuredProfile: null,
       },
       advancedReport: {
         requestId: null,

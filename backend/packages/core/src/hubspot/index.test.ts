@@ -5,33 +5,25 @@ import { buildHubspotContactProperties } from "./index";
 
 function buildStructuredProfile(
   overrides: {
-    metadata?: Partial<ChannelStructuredProfile["metadata"]>;
-    niche?: Partial<ChannelStructuredProfile["niche"]>;
+    root?: Partial<ChannelStructuredProfile>;
     brandSafety?: Partial<ChannelStructuredProfile["brandSafety"]>;
   } = {},
 ) {
   return {
-    metadata: {
-      language: "en",
-      contentFormats: ["long_form"],
-      sponsorSignals: [],
-      geoHints: [],
-      uploadCadenceHint: "weekly",
-      ...overrides.metadata,
-    },
-    niche: {
-      primary: "gaming",
-      secondary: ["tech"],
-      confidence: 0.82,
-      ...overrides.niche,
-    },
+    primaryNiche: "gaming",
+    secondaryNiches: ["tech"],
+    contentFormats: ["long_form"],
+    brandFitTags: [],
+    language: "en",
+    geoHints: [],
+    sponsorSignals: [],
     brandSafety: {
-      status: "safe",
+      status: "low",
       flags: [],
       rationale: "Safe",
-      confidence: 0.8,
       ...overrides.brandSafety,
     },
+    ...overrides.root,
   };
 }
 
@@ -127,10 +119,9 @@ describe("buildHubspotContactProperties", () => {
         topics: ["obscure niche"],
         brandFitNotes: "",
         structuredProfile: buildStructuredProfile({
-          niche: {
-            primary: "obscure niche",
-            secondary: [],
-            confidence: 0.4,
+          root: {
+            primaryNiche: "other",
+            secondaryNiches: [],
           },
         }),
       },
@@ -149,10 +140,9 @@ describe("buildHubspotContactProperties", () => {
         topics: ["minecraft"],
         brandFitNotes: "",
         structuredProfile: buildStructuredProfile({
-          niche: {
-            primary: "minecraft",
-            secondary: [],
-            confidence: 0.9,
+          root: {
+            primaryNiche: "other",
+            secondaryNiches: [],
           },
         }),
       },

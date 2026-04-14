@@ -10,23 +10,17 @@ function buildStructuredProfile(input: {
   secondary?: string[];
 }) {
   return {
-    metadata: {
-      language: "en",
-      contentFormats: ["long_form"],
-      sponsorSignals: [],
-      geoHints: [],
-      uploadCadenceHint: "weekly",
-    },
-    niche: {
-      primary: input.primary,
-      secondary: input.secondary ?? [],
-      confidence: 0.8,
-    },
+    primaryNiche: input.primary,
+    secondaryNiches: input.secondary ?? [],
+    contentFormats: ["long_form"],
+    brandFitTags: [],
+    language: "en",
+    geoHints: [],
+    sponsorSignals: [],
     brandSafety: {
-      status: "safe",
+      status: "low",
       flags: [],
       rationale: "Safe",
-      confidence: 0.8,
     },
   };
 }
@@ -56,7 +50,7 @@ describe("inferVerticalsForHubspot", () => {
   it("uses audience interests as supporting evidence", () => {
     expect(inferVerticalsForHubspot({
       structuredProfile: buildStructuredProfile({
-        primary: "commentary",
+        primary: "commentary_reaction",
         secondary: ["tech"],
       }),
       topics: [],
@@ -66,9 +60,7 @@ describe("inferVerticalsForHubspot", () => {
 
   it("suppresses broad parents when only the child is supported", () => {
     expect(inferVerticalsForHubspot({
-      structuredProfile: buildStructuredProfile({
-        primary: "minecraft",
-      }),
+      structuredProfile: null,
       topics: ["minecraft"],
       audienceInterests: [],
     })).toEqual(["Minecraft"]);

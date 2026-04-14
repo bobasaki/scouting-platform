@@ -64,6 +64,7 @@ function createChannelDetail(overrides?: Partial<ChannelDetail>): ChannelDetail 
       topics: ["space", "launches"],
       brandFitNotes: "Strong fit for launch providers.",
       confidence: 0.82,
+      structuredProfile: null,
     },
     advancedReport: {
       requestId: null,

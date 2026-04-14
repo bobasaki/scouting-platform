@@ -22,6 +22,7 @@ import { ServiceError } from "../errors";
 import { mapYoutubeLanguageToHubspot } from "../hubspot/language-mapping";
 import { enqueueJob } from "../queue";
 import { logProviderSpend } from "../telemetry";
+import { deriveChannelClassificationSignals } from "./classification-signals";
 import { deriveYoutubeMetrics, isYoutubeShortVideo, normalizeYoutubeContext } from "./metrics";
 import { isYoutubeContextFresh, resolveChannelEnrichmentStatus } from "./status";
 
@@ -509,6 +510,7 @@ export async function executeChannelLlmEnrichment(input: {
               description: executionState.channel.description,
             },
             youtubeContext: youtubeMetrics.context,
+            derivedSignals: deriveChannelClassificationSignals(youtubeMetrics.context),
           });
         } catch (error) {
           logProviderSpend({

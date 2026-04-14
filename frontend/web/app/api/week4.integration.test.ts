@@ -120,6 +120,7 @@ integration("week 4 API integration", () => {
     const payload = await response.json();
     expect(payload.channelId).toBe(channel.id);
     expect(payload.enrichment.status).toBe("queued");
+    expect(payload.enrichment.structuredProfile).toBeNull();
 
     const jobs = await prisma.$queryRaw<Array<{ count: number }>>`
       SELECT COUNT(*)::int AS count
@@ -193,23 +194,17 @@ integration("week 4 API integration", () => {
         brandFitNotes: "Strong fit for gaming peripherals.",
         confidence: 0.82,
         structuredProfile: {
-          metadata: {
-            language: "en",
-            contentFormats: ["long_form"],
-            sponsorSignals: [],
-            geoHints: ["US"],
-            uploadCadenceHint: "weekly",
-          },
-          niche: {
-            primary: "gaming_commentary",
-            secondary: ["live_service_games"],
-            confidence: 0.84,
-          },
+          primaryNiche: "gaming",
+          secondaryNiches: ["commentary_reaction"],
+          contentFormats: ["long_form"],
+          brandFitTags: ["gaming_hardware", "entertainment_media"],
+          language: "English",
+          geoHints: ["United States"],
+          sponsorSignals: ["Peripheral reviews", "Game commentary"],
           brandSafety: {
-            status: "safe",
+            status: "low",
             flags: [],
-            rationale: "No visible safety concerns in the stored enrichment.",
-            confidence: 0.79,
+            rationale: "Context is gaming-focused with no evident safety concerns in the stored sample.",
           },
         },
       },
@@ -241,6 +236,19 @@ integration("week 4 API integration", () => {
     expect(detailPayload.enrichment.topics).toEqual(["gaming", "commentary"]);
     expect(detailPayload.enrichment.brandFitNotes).toBe("Strong fit for gaming peripherals.");
     expect(detailPayload.enrichment.confidence).toBe(0.82);
-    expect(detailPayload.enrichment.structuredProfile?.niche.primary).toBe("gaming_commentary");
+    expect(detailPayload.enrichment.structuredProfile).toEqual({
+      primaryNiche: "gaming",
+      secondaryNiches: ["commentary_reaction"],
+      contentFormats: ["long_form"],
+      brandFitTags: ["gaming_hardware", "entertainment_media"],
+      language: "English",
+      geoHints: ["United States"],
+      sponsorSignals: ["Peripheral reviews", "Game commentary"],
+      brandSafety: {
+        status: "low",
+        flags: [],
+        rationale: "Context is gaming-focused with no evident safety concerns in the stored sample.",
+      },
+    });
   });
 });

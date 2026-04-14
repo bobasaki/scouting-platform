@@ -147,9 +147,9 @@ function collectSignals(input: {
   const structuredProfile = channelStructuredProfileSchema.safeParse(input.structuredProfile);
 
   if (structuredProfile.success) {
-    pushSignal(signals, "nichePrimary", structuredProfile.data.niche.primary);
+    pushSignal(signals, "nichePrimary", structuredProfile.data.primaryNiche);
 
-    for (const value of structuredProfile.data.niche.secondary) {
+    for (const value of structuredProfile.data.secondaryNiches) {
       pushSignal(signals, "nicheSecondary", value);
     }
   }

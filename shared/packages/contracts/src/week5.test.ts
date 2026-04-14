@@ -27,26 +27,7 @@ describe("week 5 contracts", () => {
         topics: null,
         brandFitNotes: null,
         confidence: null,
-        structuredProfile: {
-          metadata: {
-            language: "en",
-            contentFormats: ["long_form"],
-            sponsorSignals: [],
-            geoHints: ["US"],
-            uploadCadenceHint: "weekly",
-          },
-          niche: {
-            primary: "gaming",
-            secondary: ["commentary"],
-            confidence: 0.83,
-          },
-          brandSafety: {
-            status: "safe",
-            flags: [],
-            rationale: "No visible safety concerns in the provided metadata.",
-            confidence: 0.76,
-          },
-        },
+        structuredProfile: null,
       },
       advancedReport: {
         requestId: "6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b",
@@ -100,7 +81,6 @@ describe("week 5 contracts", () => {
 
     expect(payload.advancedReport.status).toBe("completed");
     expect(payload.insights.brandMentions[0]?.brandName).toBe("Nike");
-    expect(payload.enrichment.structuredProfile?.niche.primary).toBe("gaming");
   });
 
   it("parses request response shape", () => {

@@ -143,6 +143,7 @@ describe("fetchYoutubeChannelContext", () => {
           likeCount: 10,
           commentCount: 5,
           categoryId: "20",
+          categoryName: "Gaming",
           tags: ["gaming", "commentary"],
         },
         {
@@ -156,12 +157,81 @@ describe("fetchYoutubeChannelContext", () => {
           likeCount: 20,
           commentCount: 10,
           categoryId: "24",
+          categoryName: "Entertainment",
           tags: ["analysis"],
         },
       ],
       diagnostics: {
         warnings: [],
       },
+    });
+  });
+
+  it("leaves categoryName null for unmapped YouTube category ids", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [
+            {
+              id: "UC-CONTEXT-UNMAPPED",
+              snippet: {
+                title: "Channel Name",
+              },
+              contentDetails: {
+                relatedPlaylists: {
+                  uploads: "UU-CONTEXT-UNMAPPED",
+                },
+              },
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [
+            {
+              contentDetails: {
+                videoId: "video-1",
+              },
+              snippet: {
+                title: "Latest video",
+                publishedAt: "2024-01-10T12:00:00Z",
+              },
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [
+            {
+              id: "video-1",
+              contentDetails: {
+                duration: "PT4M",
+              },
+              snippet: {
+                categoryId: "29",
+              },
+              statistics: {
+                viewCount: "100",
+                likeCount: "10",
+                commentCount: "5",
+              },
+            },
+          ],
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const context = await fetchYoutubeChannelContext({
+      apiKey: "yt-key",
+      channelId: "UC-CONTEXT-UNMAPPED",
+    });
+
+    expect(context.recentVideos[0]).toMatchObject({
+      categoryId: "29",
+      categoryName: null,
     });
   });
 
@@ -266,12 +336,14 @@ describe("fetchYoutubeChannelContext", () => {
       durationSeconds: 900,
       isShort: false,
       categoryId: "20",
+      categoryName: "Gaming",
       tags: ["batch-one"],
     });
     expect(context.recentVideos[49]).toMatchObject({
       durationSeconds: 45,
       isShort: true,
       categoryId: "24",
+      categoryName: "Entertainment",
       tags: ["batch-two"],
     });
   });
@@ -399,6 +471,7 @@ describe("fetchYoutubeChannelContext", () => {
         likeCount: null,
         commentCount: null,
         categoryId: null,
+        categoryName: null,
         tags: [],
       },
     ]);

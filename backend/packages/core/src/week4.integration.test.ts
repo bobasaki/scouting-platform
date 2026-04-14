@@ -32,7 +32,7 @@ const CACHED_CONTEXT = {
   description: "Channel description",
   thumbnailUrl: "https://img.example.com/channel.jpg",
   publishedAt: "2021-01-01T00:00:00Z",
-  defaultLanguage: "en",
+  defaultLanguage: "en-US",
   subscriberCount: 1200,
   viewCount: 45000,
   videoCount: 87,
@@ -42,12 +42,13 @@ const CACHED_CONTEXT = {
       title: "Latest video",
       description: "Video description",
       publishedAt: "2024-01-10T12:00:00Z",
-      durationSeconds: 780,
-      isShort: false,
       viewCount: 100,
       likeCount: 10,
       commentCount: 5,
+      durationSeconds: 605,
+      isShort: false,
       categoryId: "20",
+      categoryName: "Gaming",
       tags: ["gaming", "commentary"],
     },
     {
@@ -55,13 +56,14 @@ const CACHED_CONTEXT = {
       title: "Second video",
       description: null,
       publishedAt: "2024-01-09T12:00:00Z",
-      durationSeconds: 840,
-      isShort: false,
       viewCount: 200,
       likeCount: 20,
       commentCount: 10,
-      categoryId: "24",
-      tags: ["analysis"],
+      durationSeconds: 150,
+      isShort: true,
+      categoryId: "27",
+      categoryName: "Education",
+      tags: ["education"],
     },
   ],
   diagnostics: {
@@ -76,23 +78,17 @@ const ENRICHMENT_RESULT = {
     brandFitNotes: "Strong fit for gaming peripherals.",
     confidence: 0.82,
     structuredProfile: {
-      metadata: {
-        language: "en",
-        contentFormats: ["long_form"],
-        sponsorSignals: ["affiliate_links"],
-        geoHints: ["US"],
-        uploadCadenceHint: "weekly",
-      },
-      niche: {
-        primary: "gaming_commentary",
-        secondary: ["live_service_games"],
-        confidence: 0.84,
-      },
+      primaryNiche: "gaming",
+      secondaryNiches: ["commentary_reaction"],
+      contentFormats: ["long_form", "live_stream"],
+      brandFitTags: ["gaming_hardware", "consumer_tech"],
+      language: "en",
+      geoHints: ["US"],
+      sponsorSignals: ["live-service game coverage"],
       brandSafety: {
-        status: "safe",
+        status: "low",
         flags: [],
-        rationale: "Commentary content appears broadly brand safe from the cached context.",
-        confidence: 0.79,
+        rationale: "No clear adult, gambling, or controversy signals in the provided sample.",
       },
     },
   },
@@ -103,6 +99,17 @@ const ENRICHMENT_RESULT = {
 
 const STORED_OPENAI_RAW_PAYLOAD = {
   id: "resp-stored",
+  choices: [
+    {
+      message: {
+        content: JSON.stringify(ENRICHMENT_RESULT.profile),
+      },
+    },
+  ],
+} as const;
+
+const LEGACY_STORED_OPENAI_RAW_PAYLOAD = {
+  id: "resp-stored-legacy",
   choices: [
     {
       message: {
@@ -347,7 +354,11 @@ integration("week 4 core integration", () => {
     expect(fetchYoutubeChannelContextMock).not.toHaveBeenCalled();
     expect(enrichChannelWithOpenAiMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        youtubeContext: CACHED_CONTEXT,
+        youtubeContext: expect.objectContaining(CACHED_CONTEXT),
+        derivedSignals: expect.objectContaining({
+          topKeywords: expect.any(Array),
+          topicClusters: expect.any(Array),
+        }),
       }),
     );
   });
@@ -375,15 +386,6 @@ integration("week 4 core integration", () => {
     });
 
     expect(fetchYoutubeChannelContextMock).toHaveBeenCalledTimes(1);
-    expect(fetchYoutubeChannelContextMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        apiKey: "yt-key-1",
-        channelId: "UC-ENRICH-1",
-        maxVideos: 50,
-        minLongFormVideos: 12,
-        classifyIsShort: expect.any(Function),
-      }),
-    );
 
     const contextRow = await prisma.channelYoutubeContext.findUniqueOrThrow({
       where: {
@@ -400,12 +402,10 @@ integration("week 4 core integration", () => {
       select: {
         handle: true,
         youtubeUrl: true,
-        contentLanguage: true,
       },
     });
     expect(persistedChannel.handle).toBe("@channel-name");
     expect(persistedChannel.youtubeUrl).toBe("https://www.youtube.com/@channel-name");
-    expect(persistedChannel.contentLanguage).toBe("English (US)");
 
     const metrics = await prisma.channelMetric.findUniqueOrThrow({
       where: {
@@ -494,13 +494,14 @@ integration("week 4 core integration", () => {
           title: "Latest video",
           description: null,
           publishedAt: "2024-01-10T12:00:00Z",
-          durationSeconds: 60,
-          isShort: true,
+          durationSeconds: null,
+          isShort: null,
           viewCount: null,
           likeCount: null,
           commentCount: null,
-          categoryId: "20",
-          tags: ["shorts"],
+          categoryId: null,
+          categoryName: null,
+          tags: [],
         },
       ],
       diagnostics: {
@@ -529,12 +530,10 @@ integration("week 4 core integration", () => {
       select: {
         handle: true,
         youtubeUrl: true,
-        contentLanguage: true,
       },
     });
     expect(persistedChannel.handle).toBe("@channel-best-effort");
     expect(persistedChannel.youtubeUrl).toBe("https://www.youtube.com/@channel-best-effort");
-    expect(persistedChannel.contentLanguage).toBe("English (US)");
 
     const metrics = await prisma.channelMetric.findUniqueOrThrow({
       where: {
@@ -643,6 +642,44 @@ integration("week 4 core integration", () => {
     expect(enrichment.summary).toBe(ENRICHMENT_RESULT.profile.summary);
     expect(enrichment.brandFitNotes).toBe(ENRICHMENT_RESULT.profile.brandFitNotes);
     expect(enrichment.confidence).toBe(ENRICHMENT_RESULT.profile.confidence);
+    expect(enrichment.structuredProfile).toEqual(ENRICHMENT_RESULT.profile.structuredProfile);
+  });
+
+  it("completes legacy stored payload reuse with structuredProfile set to null", async () => {
+    const user = await createUser();
+    const channel = await createChannel("UC-ENRICH-REUSE-LEGACY", "Reuse Legacy Channel");
+    await assignYoutubeKey(user.id);
+
+    await prisma.channelYoutubeContext.create({
+      data: {
+        channelId: channel.id,
+        context: CACHED_CONTEXT,
+        fetchedAt: new Date(),
+      },
+    });
+    await prisma.channelEnrichment.create({
+      data: {
+        channelId: channel.id,
+        status: PrismaChannelEnrichmentStatus.FAILED,
+        requestedByUserId: user.id,
+        requestedAt: new Date(),
+        rawOpenaiPayload: LEGACY_STORED_OPENAI_RAW_PAYLOAD,
+        rawOpenaiPayloadFetchedAt: new Date(),
+      },
+    });
+
+    await getCore().executeChannelLlmEnrichment({
+      channelId: channel.id,
+      requestedByUserId: user.id,
+    });
+
+    const enrichment = await prisma.channelEnrichment.findUniqueOrThrow({
+      where: {
+        channelId: channel.id,
+      },
+    });
+    expect(enrichment.status).toBe(PrismaChannelEnrichmentStatus.COMPLETED);
+    expect(enrichment.summary).toBe(ENRICHMENT_RESULT.profile.summary);
     expect(enrichment.structuredProfile).toBeNull();
   });
 

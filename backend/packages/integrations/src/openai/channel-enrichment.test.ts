@@ -2,37 +2,24 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   OpenAiChannelEnrichmentError,
+  type EnrichChannelWithOpenAiInput,
   extractStoredOpenAiChannelEnrichmentProfileFromRawPayload,
   enrichChannelWithOpenAi,
 } from "./channel-enrichment";
 
 const STRUCTURED_PROFILE = {
-  metadata: {
-    language: "en",
-    contentFormats: ["long_form"],
-    sponsorSignals: ["affiliate_links"],
-    geoHints: ["US"],
-    uploadCadenceHint: "weekly",
-  },
-  niche: {
-    primary: "gaming_commentary",
-    secondary: ["live_service_games"],
-    confidence: 0.84,
-  },
+  primaryNiche: "gaming",
+  secondaryNiches: ["commentary_reaction"],
+  contentFormats: ["long_form", "live_stream"],
+  brandFitTags: ["gaming_hardware", "consumer_tech"],
+  language: "en",
+  geoHints: ["US"],
+  sponsorSignals: ["live-service game coverage"],
   brandSafety: {
-    status: "safe",
+    status: "low",
     flags: [],
-    rationale: "Commentary focuses on mainstream gaming topics without visible safety concerns.",
-    confidence: 0.78,
+    rationale: "No clear adult, gambling, or controversy signals in the provided sample.",
   },
-} as const;
-
-const VALID_PROFILE_PAYLOAD = {
-  summary: "Creator focused on gaming commentary.",
-  topics: ["gaming", "commentary"],
-  brandFitNotes: "Strong fit for gaming peripherals and live-service titles.",
-  confidence: 0.82,
-  structuredProfile: STRUCTURED_PROFILE,
 } as const;
 
 const TEST_INPUT = {
@@ -50,7 +37,7 @@ const TEST_INPUT = {
     description: "Channel description",
     thumbnailUrl: null,
     publishedAt: null,
-    defaultLanguage: null,
+    defaultLanguage: "en-US",
     subscriberCount: 1000,
     viewCount: 100000,
     videoCount: 42,
@@ -60,23 +47,42 @@ const TEST_INPUT = {
         title: "Video 1",
         description: "Description 1",
         publishedAt: "2024-01-01T00:00:00Z",
-        durationSeconds: 640,
-        isShort: false,
         viewCount: null,
         likeCount: null,
         commentCount: null,
-        categoryId: "20",
-        tags: ["gameplay", "commentary"],
+        durationSeconds: null,
+        isShort: null,
+        categoryId: null,
+        categoryName: null,
+        tags: [],
       },
     ],
     diagnostics: {
       warnings: [],
     },
   },
-};
+  derivedSignals: {
+    topKeywords: ["gaming", "commentary", "launch"],
+    topicClusters: ["gaming", "reviews_comparisons"],
+    dominantYoutubeCategoryName: "Gaming",
+    contentMixHint: "long_form",
+    uploadCadenceHint: "weekly",
+  },
+} satisfies EnrichChannelWithOpenAiInput;
+
+function createStructuredResponse(overrides?: Record<string, unknown>) {
+  return {
+    summary: "Creator focused on gaming commentary.",
+    topics: ["gaming", "commentary"],
+    brandFitNotes: "Strong fit for gaming peripherals and live-service titles.",
+    confidence: 0.82,
+    structuredProfile: STRUCTURED_PROFILE,
+    ...(overrides ?? {}),
+  };
+}
 
 describe("enrichChannelWithOpenAi", () => {
-  it("sends a compact, slimmed youtube context prompt", async () => {
+  it("sends a compact, slimmed youtube context prompt with derived signals and taxonomy hints", async () => {
     const longDescription = "x".repeat(240);
     const create = vi.fn<
       (input: Record<string, unknown>) => Promise<{ choices: Array<{ message: { content: string } }> }>
@@ -84,7 +90,7 @@ describe("enrichChannelWithOpenAi", () => {
       choices: [
         {
           message: {
-            content: JSON.stringify(VALID_PROFILE_PAYLOAD),
+            content: JSON.stringify(createStructuredResponse()),
           },
         },
       ],
@@ -100,13 +106,14 @@ describe("enrichChannelWithOpenAi", () => {
           title: `Video ${index + 1}`,
           description: index === 0 ? longDescription : `Description ${index + 1}`,
           publishedAt: "2024-01-01T00:00:00Z",
-          durationSeconds: index === 0 ? 120 : 600 + index,
-          isShort: index === 0,
           viewCount: index + 100,
           likeCount: index + 10,
           commentCount: index + 1,
+          durationSeconds: 600 + index,
+          isShort: false,
           categoryId: "20",
-          tags: [`tag-${index + 1}`, "gaming"],
+          categoryName: "Gaming",
+          tags: [`tag-${index + 1}`],
         })),
         diagnostics: {
           warnings: ["some warning"],
@@ -131,46 +138,55 @@ describe("enrichChannelWithOpenAi", () => {
     expect(content).toMatch(/^\{"channel":/);
 
     const parsed = JSON.parse(content as string) as {
+      derivedSignals: typeof TEST_INPUT.derivedSignals;
+      taxonomyHints: {
+        primaryNicheValues: string[];
+        contentFormatValues: string[];
+        brandFitTagValues: string[];
+      };
       youtubeContext: {
+        defaultLanguage: string | null;
         description?: string;
         recentVideos: Array<{
           description: string | null;
           durationSeconds: number | null;
           isShort: boolean | null;
           categoryId: string | null;
+          categoryName: string | null;
           tags: string[];
         }>;
       };
     };
 
     expect(parsed.youtubeContext).not.toHaveProperty("description");
+    expect(parsed.youtubeContext.defaultLanguage).toBe("en-US");
     expect(parsed.youtubeContext.recentVideos).toHaveLength(5);
     expect(
       parsed.youtubeContext.recentVideos.every(
         (video) => video.description === null || video.description.length <= 200,
       ),
     ).toBe(true);
-    expect(parsed.youtubeContext.recentVideos[0]).toMatchObject({
-      durationSeconds: 120,
-      isShort: true,
-      categoryId: "20",
-      tags: ["tag-1", "gaming"],
-    });
+    expect(parsed.youtubeContext.recentVideos[0]?.isShort).toBe(false);
+    expect(parsed.youtubeContext.recentVideos[0]?.tags).toEqual(["tag-1"]);
+    expect(parsed.derivedSignals).toEqual(TEST_INPUT.derivedSignals);
+    expect(parsed.taxonomyHints.primaryNicheValues).toContain("gaming");
+    expect(parsed.taxonomyHints.contentFormatValues).toContain("long_form");
+    expect(parsed.taxonomyHints.brandFitTagValues).toContain("consumer_tech");
   });
 
   it("uses gpt-5-nano by default and omits temperature", async () => {
-    const create = vi.fn<(input: Record<string, unknown>) => Promise<{ id: string; choices: Array<{ message: { content: string } }> }>>(
-      async () => ({
-        id: "resp-default-model",
-        choices: [
-          {
-            message: {
-              content: JSON.stringify(VALID_PROFILE_PAYLOAD),
-            },
+    const create = vi.fn<
+      (input: Record<string, unknown>) => Promise<{ id: string; choices: Array<{ message: { content: string } }> }>
+    >(async () => ({
+      id: "resp-default-model",
+      choices: [
+        {
+          message: {
+            content: JSON.stringify(createStructuredResponse()),
           },
-        ],
-      }),
-    );
+        },
+      ],
+    }));
 
     await enrichChannelWithOpenAi({
       ...TEST_INPUT,
@@ -197,17 +213,17 @@ describe("enrichChannelWithOpenAi", () => {
     const originalModel = process.env.OPENAI_MODEL;
     process.env.OPENAI_MODEL = "gpt-5";
 
-    const create = vi.fn<(input: Record<string, unknown>) => Promise<{ choices: Array<{ message: { content: string } }> }>>(
-      async () => ({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify(VALID_PROFILE_PAYLOAD),
-            },
+    const create = vi.fn<
+      (input: Record<string, unknown>) => Promise<{ choices: Array<{ message: { content: string } }> }>
+    >(async () => ({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify(createStructuredResponse()),
           },
-        ],
-      }),
-    );
+        },
+      ],
+    }));
 
     try {
       await enrichChannelWithOpenAi({
@@ -239,17 +255,17 @@ describe("enrichChannelWithOpenAi", () => {
     const originalModel = process.env.OPENAI_MODEL;
     process.env.OPENAI_MODEL = "gpt-5-nano";
 
-    const create = vi.fn<(input: Record<string, unknown>) => Promise<{ choices: Array<{ message: { content: string } }> }>>(
-      async () => ({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify(VALID_PROFILE_PAYLOAD),
-            },
+    const create = vi.fn<
+      (input: Record<string, unknown>) => Promise<{ choices: Array<{ message: { content: string } }> }>
+    >(async () => ({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify(createStructuredResponse()),
           },
-        ],
-      }),
-    );
+        },
+      ],
+    }));
 
     try {
       await enrichChannelWithOpenAi({
@@ -289,7 +305,7 @@ describe("enrichChannelWithOpenAi", () => {
               choices: [
                 {
                   message: {
-                    content: JSON.stringify(VALID_PROFILE_PAYLOAD),
+                    content: JSON.stringify(createStructuredResponse()),
                   },
                 },
               ],
@@ -299,11 +315,81 @@ describe("enrichChannelWithOpenAi", () => {
       },
     });
 
-    expect(result.profile).toEqual(VALID_PROFILE_PAYLOAD);
+    expect(result.profile).toEqual(createStructuredResponse());
     expect(result.rawPayload.id).toBe("resp-1");
   });
 
-  it("can recover legacy stored payloads that predate structuredProfile", () => {
+  it("throws when the model returns output without structuredProfile", async () => {
+    await expect(
+      enrichChannelWithOpenAi({
+        ...TEST_INPUT,
+        client: {
+          chat: {
+            completions: {
+              create: async () => ({
+                choices: [
+                  {
+                    message: {
+                      content: JSON.stringify({
+                        summary: "Creator focused on gaming commentary.",
+                        topics: ["gaming"],
+                        brandFitNotes: "Strong fit for gaming peripherals.",
+                        confidence: 0.82,
+                      }),
+                    },
+                  },
+                ],
+              }),
+            },
+          },
+        },
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        code: "OPENAI_INVALID_RESPONSE",
+        status: 502,
+        message: "OpenAI returned invalid enrichment output",
+      } satisfies Partial<OpenAiChannelEnrichmentError>),
+    );
+  });
+
+  it("throws when structuredProfile contains invalid enum values", async () => {
+    await expect(
+      enrichChannelWithOpenAi({
+        ...TEST_INPUT,
+        client: {
+          chat: {
+            completions: {
+              create: async () => ({
+                choices: [
+                  {
+                    message: {
+                      content: JSON.stringify(
+                        createStructuredResponse({
+                          structuredProfile: {
+                            ...STRUCTURED_PROFILE,
+                            primaryNiche: "unknown_vertical",
+                          },
+                        }),
+                      ),
+                    },
+                  },
+                ],
+              }),
+            },
+          },
+        },
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        code: "OPENAI_INVALID_RESPONSE",
+        status: 502,
+        message: "OpenAI returned invalid enrichment output",
+      } satisfies Partial<OpenAiChannelEnrichmentError>),
+    );
+  });
+
+  it("parses legacy stored payloads and fills structuredProfile with null", () => {
     const profile = extractStoredOpenAiChannelEnrichmentProfileFromRawPayload({
       choices: [
         {
@@ -326,40 +412,6 @@ describe("enrichChannelWithOpenAi", () => {
       confidence: 0.82,
       structuredProfile: null,
     });
-  });
-
-  it("throws when the model returns output that fails schema validation", async () => {
-    await expect(
-      enrichChannelWithOpenAi({
-        ...TEST_INPUT,
-        client: {
-          chat: {
-            completions: {
-              create: async () => ({
-                choices: [
-                  {
-                    message: {
-                      content: JSON.stringify({
-                        summary: "",
-                        topics: [],
-                        brandFitNotes: "",
-                        confidence: 4,
-                      }),
-                    },
-                  },
-                ],
-              }),
-            },
-          },
-        },
-      }),
-    ).rejects.toEqual(
-      expect.objectContaining({
-        code: "OPENAI_INVALID_RESPONSE",
-        status: 502,
-        message: "OpenAI returned invalid enrichment output",
-      } satisfies Partial<OpenAiChannelEnrichmentError>),
-    );
   });
 
   it("maps auth failures", async () => {

@@ -136,6 +136,23 @@ const YOUTUBE_CHANNELS_URL = "https://youtube.googleapis.com/youtube/v3/channels
 const YOUTUBE_PLAYLIST_ITEMS_URL = "https://youtube.googleapis.com/youtube/v3/playlistItems";
 const YOUTUBE_VIDEOS_URL = "https://youtube.googleapis.com/youtube/v3/videos";
 
+const youtubeCategoryNameById: Record<string, string> = {
+  "1": "Film & Animation",
+  "2": "Autos & Vehicles",
+  "10": "Music",
+  "15": "Pets & Animals",
+  "17": "Sports",
+  "19": "Travel & Events",
+  "20": "Gaming",
+  "22": "People & Blogs",
+  "23": "Comedy",
+  "24": "Entertainment",
+  "25": "News & Politics",
+  "26": "Howto & Style",
+  "27": "Education",
+  "28": "Science & Technology",
+};
+
 const quotaErrorReasons = new Set([
   "quotaExceeded",
   "dailyLimitExceeded",
@@ -178,6 +195,7 @@ export const youtubeChannelContextSchema = z.object({
       likeCount: z.number().nullable().optional().default(null),
       commentCount: z.number().nullable().optional().default(null),
       categoryId: z.string().trim().nullable().optional().default(null),
+      categoryName: z.string().trim().nullable().optional().default(null),
       tags: z.array(z.string().trim().min(1)).optional().default([]),
     }),
   ),
@@ -215,6 +233,7 @@ type YoutubeChannelContextDraft = {
     likeCount: number | null;
     commentCount: number | null;
     categoryId: string | null;
+    categoryName: string | null;
     tags: string[];
   }>;
   diagnostics: {
@@ -287,6 +306,14 @@ function toTrimmedStringArray(values: string[] | undefined): string[] {
         .filter((value) => value.length > 0),
     ),
   );
+}
+
+function getEnglishCategoryName(categoryId: string | null): string | null {
+  if (!categoryId) {
+    return null;
+  }
+
+  return youtubeCategoryNameById[categoryId] ?? null;
 }
 
 function parseDurationToSeconds(value: string | undefined): number | null {
@@ -528,6 +555,7 @@ export async function fetchYoutubeChannelContext(
         likeCount: null,
         commentCount: null,
         categoryId: null,
+        categoryName: null,
         tags: [],
       }));
 
@@ -560,6 +588,7 @@ export async function fetchYoutubeChannelContext(
                 likeCount: toNullableNumber(item.statistics?.likeCount),
                 commentCount: toNullableNumber(item.statistics?.commentCount),
                 categoryId: toNullableTrimmed(item.snippet?.categoryId),
+                categoryName: getEnglishCategoryName(toNullableTrimmed(item.snippet?.categoryId)),
                 tags: toTrimmedStringArray(item.snippet?.tags),
               },
             ];
@@ -583,6 +612,7 @@ export async function fetchYoutubeChannelContext(
           video.likeCount = stats.likeCount;
           video.commentCount = stats.commentCount;
           video.categoryId = stats.categoryId;
+          video.categoryName = stats.categoryName;
           video.tags = stats.tags;
         });
       } catch (error) {

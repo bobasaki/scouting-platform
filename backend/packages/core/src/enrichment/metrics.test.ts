@@ -1,12 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  buildCanonicalYoutubeUrl,
-  deriveYoutubeMetrics,
-  isYoutubeLongFormVideo,
-  isYoutubeShortVideo,
-  normalizeYoutubeHandle,
-} from "./metrics";
+import { buildCanonicalYoutubeUrl, deriveYoutubeMetrics, normalizeYoutubeHandle } from "./metrics";
 
 describe("youtube enrichment metrics helpers", () => {
   it("normalizes handles and prefers handle-based canonical URLs", () => {
@@ -14,14 +8,6 @@ describe("youtube enrichment metrics helpers", () => {
     expect(normalizeYoutubeHandle("@channel-name")).toBe("@channel-name");
     expect(buildCanonicalYoutubeUrl("UC-1", "channel-name")).toBe("https://www.youtube.com/@channel-name");
     expect(buildCanonicalYoutubeUrl("UC-1", null)).toBe("https://www.youtube.com/channel/UC-1");
-  });
-
-  it("classifies shorts deterministically from duration", () => {
-    expect(isYoutubeShortVideo(180)).toBe(true);
-    expect(isYoutubeShortVideo(181)).toBe(false);
-    expect(isYoutubeLongFormVideo(181)).toBe(true);
-    expect(isYoutubeLongFormVideo(180)).toBe(false);
-    expect(isYoutubeShortVideo(null)).toBeNull();
   });
 
   it("computes average views and engagement rate from complete recent video statistics", () => {
@@ -42,26 +28,28 @@ describe("youtube enrichment metrics helpers", () => {
           title: "Video 1",
           description: null,
           publishedAt: null,
-          durationSeconds: 120,
-          isShort: true,
           viewCount: 100,
           likeCount: 10,
           commentCount: 5,
-          categoryId: "20",
-          tags: ["gameplay"],
+          durationSeconds: null,
+          isShort: null,
+          categoryId: null,
+          categoryName: null,
+          tags: [],
         },
         {
           youtubeVideoId: "video-2",
           title: "Video 2",
           description: null,
           publishedAt: null,
-          durationSeconds: 900,
-          isShort: false,
           viewCount: 200,
           likeCount: 20,
           commentCount: 10,
-          categoryId: "24",
-          tags: ["analysis"],
+          durationSeconds: null,
+          isShort: null,
+          categoryId: null,
+          categoryName: null,
+          tags: [],
         },
       ],
       diagnostics: {
@@ -74,7 +62,6 @@ describe("youtube enrichment metrics helpers", () => {
     expect(metrics.averageViews).toBe(250);
     expect(metrics.engagementRate).toBeCloseTo(15, 5);
     expect(metrics.context.diagnostics.warnings).toEqual([]);
-    expect(metrics.context.recentVideos.map((video) => video.isShort)).toEqual([true, false]);
   });
 
   it("keeps engagement rate best-effort and records diagnostics when usable video stats are incomplete", () => {
@@ -95,12 +82,13 @@ describe("youtube enrichment metrics helpers", () => {
           title: "Video 1",
           description: null,
           publishedAt: null,
-          durationSeconds: 95,
-          isShort: true,
           viewCount: null,
           likeCount: null,
           commentCount: null,
+          durationSeconds: null,
+          isShort: null,
           categoryId: null,
+          categoryName: null,
           tags: [],
         },
         {
@@ -108,12 +96,13 @@ describe("youtube enrichment metrics helpers", () => {
           title: "Video 2",
           description: null,
           publishedAt: null,
-          durationSeconds: 0,
-          isShort: true,
           viewCount: 0,
           likeCount: 10,
           commentCount: 5,
+          durationSeconds: null,
+          isShort: null,
           categoryId: null,
+          categoryName: null,
           tags: [],
         },
       ],
@@ -148,25 +137,27 @@ describe("youtube enrichment metrics helpers", () => {
           title: "Video 1",
           description: null,
           publishedAt: null,
-          durationSeconds: 720,
-          isShort: false,
           viewCount: 100,
           likeCount: 8,
           commentCount: 2,
-          categoryId: "20",
-          tags: ["news"],
+          durationSeconds: null,
+          isShort: null,
+          categoryId: null,
+          categoryName: null,
+          tags: [],
         },
         {
           youtubeVideoId: "video-2",
           title: "Video 2",
           description: null,
           publishedAt: null,
-          durationSeconds: 60,
-          isShort: true,
           viewCount: null,
           likeCount: null,
           commentCount: null,
-          categoryId: "20",
+          durationSeconds: null,
+          isShort: null,
+          categoryId: null,
+          categoryName: null,
           tags: [],
         },
       ],
