@@ -71,11 +71,21 @@ const videosResponseSchema = z.object({
     .array(
       z.object({
         id: z.string().trim().min(1),
+        snippet: z
+          .object({
+            categoryId: z.string().optional(),
+          })
+          .optional(),
         statistics: z
           .object({
             viewCount: z.string().optional(),
             likeCount: z.string().optional(),
             commentCount: z.string().optional(),
+          })
+          .optional(),
+        contentDetails: z
+          .object({
+            duration: z.string().optional(),
           })
           .optional(),
       }),
@@ -101,6 +111,23 @@ const errorResponseSchema = z.object({
 const YOUTUBE_CHANNELS_URL = "https://youtube.googleapis.com/youtube/v3/channels";
 const YOUTUBE_PLAYLIST_ITEMS_URL = "https://youtube.googleapis.com/youtube/v3/playlistItems";
 const YOUTUBE_VIDEOS_URL = "https://youtube.googleapis.com/youtube/v3/videos";
+
+const englishCategoryNameById: Record<string, string> = {
+  "1": "Film & Animation",
+  "2": "Autos & Vehicles",
+  "10": "Music",
+  "15": "Pets & Animals",
+  "17": "Sports",
+  "19": "Travel & Events",
+  "20": "Gaming",
+  "22": "People & Blogs",
+  "23": "Comedy",
+  "24": "Entertainment",
+  "25": "News & Politics",
+  "26": "Howto & Style",
+  "27": "Education",
+  "28": "Science & Technology",
+};
 
 const quotaErrorReasons = new Set([
   "quotaExceeded",
@@ -140,6 +167,9 @@ export const youtubeChannelContextSchema = z.object({
       viewCount: z.number().nullable().optional().default(null),
       likeCount: z.number().nullable().optional().default(null),
       commentCount: z.number().nullable().optional().default(null),
+      durationSeconds: z.number().int().nonnegative().nullable().optional().default(null),
+      categoryId: z.string().trim().nullable().optional().default(null),
+      categoryName: z.string().trim().nullable().optional().default(null),
     }),
   ),
   diagnostics: z
@@ -172,6 +202,9 @@ type YoutubeChannelContextDraft = {
     viewCount: number | null;
     likeCount: number | null;
     commentCount: number | null;
+    durationSeconds: number | null;
+    categoryId: string | null;
+    categoryName: string | null;
   }>;
   diagnostics: {
     warnings: string[];
@@ -226,6 +259,38 @@ function toNullableNumber(value: string | undefined): number | null {
 
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function toNullableCategoryName(value: string | undefined): string | null {
+  const trimmed = toNullableTrimmed(value);
+
+  if (!trimmed) {
+    return null;
+  }
+
+  return englishCategoryNameById[trimmed] ?? trimmed;
+}
+
+function parseDurationToSeconds(value: string | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const match = value.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/i);
+
+  if (!match) {
+    return null;
+  }
+
+  const hours = Number(match[1] ?? 0);
+  const minutes = Number(match[2] ?? 0);
+  const seconds = Number(match[3] ?? 0);
+
+  if (![hours, minutes, seconds].every(Number.isFinite)) {
+    return null;
+  }
+
+  return hours * 3600 + minutes * 60 + seconds;
 }
 
 async function parseJsonResponse(response: Response): Promise<unknown> {
@@ -341,7 +406,7 @@ function buildPlaylistItemsUrl(apiKey: string, uploadsPlaylistId: string, maxVid
 function buildVideosUrl(apiKey: string, videoIds: string[]): string {
   const params = new URLSearchParams({
     key: apiKey,
-    part: "statistics",
+    part: "snippet,statistics,contentDetails",
     id: videoIds.join(","),
     maxResults: String(videoIds.length),
   });
@@ -400,11 +465,14 @@ export async function fetchYoutubeChannelContext(
             youtubeVideoId: toNullableTrimmed(item.contentDetails?.videoId),
             title: item.snippet.title.trim(),
             description: toNullableTrimmed(item.snippet.description),
-            publishedAt: toNullableTrimmed(item.snippet.publishedAt),
-            viewCount: null,
-            likeCount: null,
-            commentCount: null,
-          }));
+          publishedAt: toNullableTrimmed(item.snippet.publishedAt),
+          viewCount: null,
+          likeCount: null,
+          commentCount: null,
+          durationSeconds: null,
+          categoryId: null,
+          categoryName: null,
+        }));
         })();
 
   const recentVideoIds = recentVideos
@@ -430,6 +498,9 @@ export async function fetchYoutubeChannelContext(
             viewCount: toNullableNumber(item.statistics?.viewCount),
             likeCount: toNullableNumber(item.statistics?.likeCount),
             commentCount: toNullableNumber(item.statistics?.commentCount),
+            durationSeconds: parseDurationToSeconds(item.contentDetails?.duration),
+            categoryId: toNullableTrimmed(item.snippet?.categoryId),
+            categoryName: toNullableCategoryName(item.snippet?.categoryId),
           },
         ]),
       );
@@ -448,6 +519,9 @@ export async function fetchYoutubeChannelContext(
         video.viewCount = stats.viewCount;
         video.likeCount = stats.likeCount;
         video.commentCount = stats.commentCount;
+        video.durationSeconds = stats.durationSeconds;
+        video.categoryId = stats.categoryId;
+        video.categoryName = stats.categoryName;
       });
     } catch (error) {
       warnings.push(`Recent video statistics unavailable: ${toWarningMessage(error)}`);

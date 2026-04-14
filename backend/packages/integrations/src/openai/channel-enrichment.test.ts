@@ -2,8 +2,25 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   OpenAiChannelEnrichmentError,
+  type EnrichChannelWithOpenAiInput,
+  extractOpenAiChannelEnrichmentProfileFromRawPayload,
   enrichChannelWithOpenAi,
 } from "./channel-enrichment";
+
+const STRUCTURED_PROFILE = {
+  primaryNiche: "gaming",
+  secondaryNiches: ["commentary_reaction"],
+  contentFormats: ["long_form", "live_stream"],
+  brandFitTags: ["gaming_hardware", "consumer_tech"],
+  language: "en",
+  geoHints: ["US"],
+  sponsorSignals: ["live-service game coverage"],
+  brandSafety: {
+    status: "low",
+    flags: [],
+    rationale: "No clear adult, gambling, or controversy signals in the provided sample.",
+  },
+} as const;
 
 const TEST_INPUT = {
   apiKey: "openai-key",
@@ -32,16 +49,37 @@ const TEST_INPUT = {
         viewCount: null,
         likeCount: null,
         commentCount: null,
+        durationSeconds: null,
+        categoryId: null,
+        categoryName: null,
       },
     ],
     diagnostics: {
       warnings: [],
     },
   },
-};
+  derivedSignals: {
+    topKeywords: ["gaming", "commentary", "launch"],
+    topicClusters: ["gaming", "reviews_comparisons"],
+    dominantYoutubeCategoryName: "Gaming",
+    contentMixHint: "long_form",
+    uploadCadenceHint: "weekly",
+  },
+} satisfies EnrichChannelWithOpenAiInput;
+
+function createStructuredResponse(overrides?: Record<string, unknown>) {
+  return {
+    summary: "Creator focused on gaming commentary.",
+    topics: ["gaming", "commentary"],
+    brandFitNotes: "Strong fit for gaming peripherals and live-service titles.",
+    confidence: 0.82,
+    structuredProfile: STRUCTURED_PROFILE,
+    ...(overrides ?? {}),
+  };
+}
 
 describe("enrichChannelWithOpenAi", () => {
-  it("sends a compact, slimmed youtube context prompt", async () => {
+  it("sends a compact, slimmed youtube context prompt with derived signals and taxonomy hints", async () => {
     const longDescription = "x".repeat(240);
     const create = vi.fn<
       (input: Record<string, unknown>) => Promise<{ choices: Array<{ message: { content: string } }> }>
@@ -49,12 +87,7 @@ describe("enrichChannelWithOpenAi", () => {
       choices: [
         {
           message: {
-            content: JSON.stringify({
-              summary: "Creator focused on gaming commentary.",
-              topics: ["gaming", "commentary"],
-              brandFitNotes: "Strong fit for gaming peripherals and live-service titles.",
-              confidence: 0.82,
-            }),
+            content: JSON.stringify(createStructuredResponse()),
           },
         },
       ],
@@ -73,6 +106,9 @@ describe("enrichChannelWithOpenAi", () => {
           viewCount: index + 100,
           likeCount: index + 10,
           commentCount: index + 1,
+          durationSeconds: 600 + index,
+          categoryId: "20",
+          categoryName: "Gaming",
         })),
         diagnostics: {
           warnings: ["some warning"],
@@ -97,9 +133,20 @@ describe("enrichChannelWithOpenAi", () => {
     expect(content).toMatch(/^\{"channel":/);
 
     const parsed = JSON.parse(content as string) as {
+      derivedSignals: typeof TEST_INPUT.derivedSignals;
+      taxonomyHints: {
+        primaryNicheValues: string[];
+        contentFormatValues: string[];
+        brandFitTagValues: string[];
+      };
       youtubeContext: {
         description?: string;
-        recentVideos: Array<{ description: string | null }>;
+        recentVideos: Array<{
+          description: string | null;
+          durationSeconds: number | null;
+          categoryId: string | null;
+          categoryName: string | null;
+        }>;
       };
     };
 
@@ -110,26 +157,25 @@ describe("enrichChannelWithOpenAi", () => {
         (video) => video.description === null || video.description.length <= 200,
       ),
     ).toBe(true);
+    expect(parsed.derivedSignals).toEqual(TEST_INPUT.derivedSignals);
+    expect(parsed.taxonomyHints.primaryNicheValues).toContain("gaming");
+    expect(parsed.taxonomyHints.contentFormatValues).toContain("long_form");
+    expect(parsed.taxonomyHints.brandFitTagValues).toContain("consumer_tech");
   });
 
   it("uses gpt-5-nano by default and omits temperature", async () => {
-    const create = vi.fn<(input: Record<string, unknown>) => Promise<{ id: string; choices: Array<{ message: { content: string } }> }>>(
-      async () => ({
-        id: "resp-default-model",
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                summary: "Creator focused on gaming commentary.",
-                topics: ["gaming", "commentary"],
-                brandFitNotes: "Strong fit for gaming peripherals and live-service titles.",
-                confidence: 0.82,
-              }),
-            },
+    const create = vi.fn<
+      (input: Record<string, unknown>) => Promise<{ id: string; choices: Array<{ message: { content: string } }> }>
+    >(async () => ({
+      id: "resp-default-model",
+      choices: [
+        {
+          message: {
+            content: JSON.stringify(createStructuredResponse()),
           },
-        ],
-      }),
-    );
+        },
+      ],
+    }));
 
     await enrichChannelWithOpenAi({
       ...TEST_INPUT,
@@ -156,22 +202,17 @@ describe("enrichChannelWithOpenAi", () => {
     const originalModel = process.env.OPENAI_MODEL;
     process.env.OPENAI_MODEL = "gpt-5";
 
-    const create = vi.fn<(input: Record<string, unknown>) => Promise<{ choices: Array<{ message: { content: string } }> }>>(
-      async () => ({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                summary: "Creator focused on gaming commentary.",
-                topics: ["gaming", "commentary"],
-                brandFitNotes: "Strong fit for gaming peripherals and live-service titles.",
-                confidence: 0.82,
-              }),
-            },
+    const create = vi.fn<
+      (input: Record<string, unknown>) => Promise<{ choices: Array<{ message: { content: string } }> }>
+    >(async () => ({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify(createStructuredResponse()),
           },
-        ],
-      }),
-    );
+        },
+      ],
+    }));
 
     try {
       await enrichChannelWithOpenAi({
@@ -203,22 +244,17 @@ describe("enrichChannelWithOpenAi", () => {
     const originalModel = process.env.OPENAI_MODEL;
     process.env.OPENAI_MODEL = "gpt-5-nano";
 
-    const create = vi.fn<(input: Record<string, unknown>) => Promise<{ choices: Array<{ message: { content: string } }> }>>(
-      async () => ({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                summary: "Creator focused on gaming commentary.",
-                topics: ["gaming", "commentary"],
-                brandFitNotes: "Strong fit for gaming peripherals and live-service titles.",
-                confidence: 0.82,
-              }),
-            },
+    const create = vi.fn<
+      (input: Record<string, unknown>) => Promise<{ choices: Array<{ message: { content: string } }> }>
+    >(async () => ({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify(createStructuredResponse()),
           },
-        ],
-      }),
-    );
+        },
+      ],
+    }));
 
     try {
       await enrichChannelWithOpenAi({
@@ -258,12 +294,7 @@ describe("enrichChannelWithOpenAi", () => {
               choices: [
                 {
                   message: {
-                    content: JSON.stringify({
-                      summary: "Creator focused on gaming commentary.",
-                      topics: ["gaming", "commentary"],
-                      brandFitNotes: "Strong fit for gaming peripherals and live-service titles.",
-                      confidence: 0.82,
-                    }),
+                    content: JSON.stringify(createStructuredResponse()),
                   },
                 },
               ],
@@ -273,16 +304,11 @@ describe("enrichChannelWithOpenAi", () => {
       },
     });
 
-    expect(result.profile).toEqual({
-      summary: "Creator focused on gaming commentary.",
-      topics: ["gaming", "commentary"],
-      brandFitNotes: "Strong fit for gaming peripherals and live-service titles.",
-      confidence: 0.82,
-    });
+    expect(result.profile).toEqual(createStructuredResponse());
     expect(result.rawPayload.id).toBe("resp-1");
   });
 
-  it("throws when the model returns output that fails schema validation", async () => {
+  it("throws when the model returns output without structuredProfile", async () => {
     await expect(
       enrichChannelWithOpenAi({
         ...TEST_INPUT,
@@ -294,10 +320,10 @@ describe("enrichChannelWithOpenAi", () => {
                   {
                     message: {
                       content: JSON.stringify({
-                        summary: "",
-                        topics: [],
-                        brandFitNotes: "",
-                        confidence: 4,
+                        summary: "Creator focused on gaming commentary.",
+                        topics: ["gaming"],
+                        brandFitNotes: "Strong fit for gaming peripherals.",
+                        confidence: 0.82,
                       }),
                     },
                   },
@@ -314,6 +340,67 @@ describe("enrichChannelWithOpenAi", () => {
         message: "OpenAI returned invalid enrichment output",
       } satisfies Partial<OpenAiChannelEnrichmentError>),
     );
+  });
+
+  it("throws when structuredProfile contains invalid enum values", async () => {
+    await expect(
+      enrichChannelWithOpenAi({
+        ...TEST_INPUT,
+        client: {
+          chat: {
+            completions: {
+              create: async () => ({
+                choices: [
+                  {
+                    message: {
+                      content: JSON.stringify(
+                        createStructuredResponse({
+                          structuredProfile: {
+                            ...STRUCTURED_PROFILE,
+                            primaryNiche: "unknown_vertical",
+                          },
+                        }),
+                      ),
+                    },
+                  },
+                ],
+              }),
+            },
+          },
+        },
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        code: "OPENAI_INVALID_RESPONSE",
+        status: 502,
+        message: "OpenAI returned invalid enrichment output",
+      } satisfies Partial<OpenAiChannelEnrichmentError>),
+    );
+  });
+
+  it("parses legacy stored payloads and fills structuredProfile with null", () => {
+    const profile = extractOpenAiChannelEnrichmentProfileFromRawPayload({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              summary: "Creator focused on gaming commentary.",
+              topics: ["gaming", "commentary"],
+              brandFitNotes: "Strong fit for gaming peripherals and live-service titles.",
+              confidence: 0.82,
+            }),
+          },
+        },
+      ],
+    });
+
+    expect(profile).toEqual({
+      summary: "Creator focused on gaming commentary.",
+      topics: ["gaming", "commentary"],
+      brandFitNotes: "Strong fit for gaming peripherals and live-service titles.",
+      confidence: 0.82,
+      structuredProfile: null,
+    });
   });
 
   it("maps auth failures", async () => {

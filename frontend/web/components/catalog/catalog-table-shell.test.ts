@@ -376,6 +376,7 @@ describe("catalog table shell view", () => {
             topics: null,
             brandFitNotes: null,
             confidence: null,
+            structuredProfile: null,
           },
         },
         {
@@ -390,6 +391,7 @@ describe("catalog table shell view", () => {
             topics: null,
             brandFitNotes: null,
             confidence: null,
+            structuredProfile: null,
           },
         },
         {
@@ -419,6 +421,7 @@ describe("catalog table shell view", () => {
           topics: null,
           brandFitNotes: null,
           confidence: null,
+          structuredProfile: null,
         },
       },
       {
@@ -433,6 +436,7 @@ describe("catalog table shell view", () => {
           topics: null,
           brandFitNotes: null,
           confidence: null,
+          structuredProfile: null,
         },
       },
     ]);

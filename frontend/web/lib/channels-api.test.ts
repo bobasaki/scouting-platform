@@ -49,6 +49,7 @@ function buildChannelDetailPayload() {
       topics: ["space", "launches"],
       brandFitNotes: "Strong fit for launch providers.",
       confidence: 0.82,
+      structuredProfile: null,
     },
     advancedReport: {
       requestId: "6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b",

@@ -20,6 +20,7 @@ import { getChannelById } from "../channels";
 import { ServiceError } from "../errors";
 import { enqueueJob } from "../queue";
 import { logProviderSpend } from "../telemetry";
+import { deriveChannelClassificationSignals } from "./classification-signals";
 import { deriveYoutubeMetrics } from "./metrics";
 import { isYoutubeContextFresh, resolveChannelEnrichmentStatus } from "./status";
 
@@ -60,7 +61,7 @@ function getCachedYoutubeContext(row: ChannelYoutubeContextCacheRow | null) {
 
 function extractProfileFromRawPayload(
   raw: Prisma.JsonValue,
-): { summary: string; topics: string[]; brandFitNotes: string; confidence: number } {
+): ReturnType<typeof extractOpenAiChannelEnrichmentProfileFromRawPayload> {
   try {
     return extractOpenAiChannelEnrichmentProfileFromRawPayload(raw);
   } catch {
@@ -505,6 +506,7 @@ export async function executeChannelLlmEnrichment(input: {
               description: executionState.channel.description,
             },
             youtubeContext: youtubeMetrics.context,
+            derivedSignals: deriveChannelClassificationSignals(youtubeMetrics.context),
           });
         } catch (error) {
           logProviderSpend({
@@ -619,6 +621,10 @@ export async function executeChannelLlmEnrichment(input: {
           topics: toJsonValue(enrichmentResult.profile.topics),
           brandFitNotes: enrichmentResult.profile.brandFitNotes,
           confidence: enrichmentResult.profile.confidence,
+          structuredProfile:
+            enrichmentResult.profile.structuredProfile === null
+              ? Prisma.DbNull
+              : toJsonValue(enrichmentResult.profile.structuredProfile),
         },
       });
     });

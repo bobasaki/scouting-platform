@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   YoutubeChannelContextProviderError,
   fetchYoutubeChannelContext,
+  youtubeChannelContextSchema,
 } from "./context";
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -80,18 +81,30 @@ describe("fetchYoutubeChannelContext", () => {
           items: [
             {
               id: "video-1",
+              snippet: {
+                categoryId: "20",
+              },
               statistics: {
                 viewCount: "100",
                 likeCount: "10",
                 commentCount: "5",
               },
+              contentDetails: {
+                duration: "PT10M5S",
+              },
             },
             {
               id: "video-2",
+              snippet: {
+                categoryId: "27",
+              },
               statistics: {
                 viewCount: "200",
                 likeCount: "20",
                 commentCount: "10",
+              },
+              contentDetails: {
+                duration: "PT2M30S",
               },
             },
           ],
@@ -124,6 +137,9 @@ describe("fetchYoutubeChannelContext", () => {
           viewCount: 100,
           likeCount: 10,
           commentCount: 5,
+          durationSeconds: 605,
+          categoryId: "20",
+          categoryName: "Gaming",
         },
         {
           youtubeVideoId: "video-2",
@@ -133,6 +149,9 @@ describe("fetchYoutubeChannelContext", () => {
           viewCount: 200,
           likeCount: 20,
           commentCount: 10,
+          durationSeconds: 150,
+          categoryId: "27",
+          categoryName: "Education",
         },
       ],
       diagnostics: {
@@ -165,6 +184,40 @@ describe("fetchYoutubeChannelContext", () => {
 
     expect(context.recentVideos).toEqual([]);
     expect(context.diagnostics.warnings).toEqual([]);
+  });
+
+  it("keeps legacy cached recent video rows compatible when new fields are absent", () => {
+    const parsed = youtubeChannelContextSchema.parse({
+      youtubeChannelId: "UC-CONTEXT-LEGACY",
+      title: "Legacy Channel",
+      handle: "@legacy-channel",
+      description: null,
+      thumbnailUrl: null,
+      publishedAt: null,
+      subscriberCount: null,
+      viewCount: null,
+      videoCount: null,
+      recentVideos: [
+        {
+          youtubeVideoId: "video-legacy",
+          title: "Legacy video",
+          description: null,
+          publishedAt: "2024-01-10T12:00:00Z",
+          viewCount: 100,
+          likeCount: 10,
+          commentCount: 5,
+        },
+      ],
+      diagnostics: {
+        warnings: [],
+      },
+    });
+
+    expect(parsed.recentVideos[0]).toMatchObject({
+      durationSeconds: null,
+      categoryId: null,
+      categoryName: null,
+    });
   });
 
   it("returns an empty recent video list when the uploads response omits items", async () => {
@@ -261,6 +314,9 @@ describe("fetchYoutubeChannelContext", () => {
         viewCount: null,
         likeCount: null,
         commentCount: null,
+        durationSeconds: null,
+        categoryId: null,
+        categoryName: null,
       },
     ]);
     expect(context.diagnostics.warnings).toEqual([

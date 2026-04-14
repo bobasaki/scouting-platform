@@ -44,6 +44,9 @@ const CACHED_CONTEXT = {
       viewCount: 100,
       likeCount: 10,
       commentCount: 5,
+      durationSeconds: 605,
+      categoryId: "20",
+      categoryName: "Gaming",
     },
     {
       youtubeVideoId: "video-2",
@@ -53,6 +56,9 @@ const CACHED_CONTEXT = {
       viewCount: 200,
       likeCount: 20,
       commentCount: 10,
+      durationSeconds: 150,
+      categoryId: "27",
+      categoryName: "Education",
     },
   ],
   diagnostics: {
@@ -66,6 +72,20 @@ const ENRICHMENT_RESULT = {
     topics: ["gaming", "commentary"],
     brandFitNotes: "Strong fit for gaming peripherals.",
     confidence: 0.82,
+    structuredProfile: {
+      primaryNiche: "gaming",
+      secondaryNiches: ["commentary_reaction"],
+      contentFormats: ["long_form", "live_stream"],
+      brandFitTags: ["gaming_hardware", "consumer_tech"],
+      language: "en",
+      geoHints: ["US"],
+      sponsorSignals: ["live-service game coverage"],
+      brandSafety: {
+        status: "low",
+        flags: [],
+        rationale: "No clear adult, gambling, or controversy signals in the provided sample.",
+      },
+    },
   },
   rawPayload: {
     id: "resp-1",
@@ -78,6 +98,22 @@ const STORED_OPENAI_RAW_PAYLOAD = {
     {
       message: {
         content: JSON.stringify(ENRICHMENT_RESULT.profile),
+      },
+    },
+  ],
+} as const;
+
+const LEGACY_STORED_OPENAI_RAW_PAYLOAD = {
+  id: "resp-stored-legacy",
+  choices: [
+    {
+      message: {
+        content: JSON.stringify({
+          summary: ENRICHMENT_RESULT.profile.summary,
+          topics: ENRICHMENT_RESULT.profile.topics,
+          brandFitNotes: ENRICHMENT_RESULT.profile.brandFitNotes,
+          confidence: ENRICHMENT_RESULT.profile.confidence,
+        }),
       },
     },
   ],
@@ -381,6 +417,7 @@ integration("week 4 core integration", () => {
     expect(enrichment.topics).toEqual(ENRICHMENT_RESULT.profile.topics);
     expect(enrichment.brandFitNotes).toBe(ENRICHMENT_RESULT.profile.brandFitNotes);
     expect(enrichment.confidence).toBe(ENRICHMENT_RESULT.profile.confidence);
+    expect(enrichment.structuredProfile).toEqual(ENRICHMENT_RESULT.profile.structuredProfile);
     expect(enrichment.lastError).toBeNull();
     expect(enrichment.rawOpenaiPayload).toMatchObject(ENRICHMENT_RESULT.rawPayload);
 
@@ -591,6 +628,45 @@ integration("week 4 core integration", () => {
     expect(enrichment.summary).toBe(ENRICHMENT_RESULT.profile.summary);
     expect(enrichment.brandFitNotes).toBe(ENRICHMENT_RESULT.profile.brandFitNotes);
     expect(enrichment.confidence).toBe(ENRICHMENT_RESULT.profile.confidence);
+    expect(enrichment.structuredProfile).toEqual(ENRICHMENT_RESULT.profile.structuredProfile);
+  });
+
+  it("completes legacy stored payload reuse with structuredProfile set to null", async () => {
+    const user = await createUser();
+    const channel = await createChannel("UC-ENRICH-REUSE-LEGACY", "Reuse Legacy Channel");
+    await assignYoutubeKey(user.id);
+
+    await prisma.channelYoutubeContext.create({
+      data: {
+        channelId: channel.id,
+        context: CACHED_CONTEXT,
+        fetchedAt: new Date(),
+      },
+    });
+    await prisma.channelEnrichment.create({
+      data: {
+        channelId: channel.id,
+        status: PrismaChannelEnrichmentStatus.FAILED,
+        requestedByUserId: user.id,
+        requestedAt: new Date(),
+        rawOpenaiPayload: LEGACY_STORED_OPENAI_RAW_PAYLOAD,
+        rawOpenaiPayloadFetchedAt: new Date(),
+      },
+    });
+
+    await getCore().executeChannelLlmEnrichment({
+      channelId: channel.id,
+      requestedByUserId: user.id,
+    });
+
+    const enrichment = await prisma.channelEnrichment.findUniqueOrThrow({
+      where: {
+        channelId: channel.id,
+      },
+    });
+    expect(enrichment.status).toBe(PrismaChannelEnrichmentStatus.COMPLETED);
+    expect(enrichment.summary).toBe(ENRICHMENT_RESULT.profile.summary);
+    expect(enrichment.structuredProfile).toBeNull();
   });
 
   it("skips YouTube fetch when youtubeFetchedAt is set", async () => {

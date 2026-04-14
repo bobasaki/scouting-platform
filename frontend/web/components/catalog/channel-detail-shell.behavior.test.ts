@@ -80,6 +80,20 @@ function createChannelDetail(overrides?: Partial<ChannelDetail>): ChannelDetail 
       topics: ["space", "launches"],
       brandFitNotes: "Strong fit for launch providers.",
       confidence: 0.82,
+      structuredProfile: {
+        primaryNiche: "tech",
+        secondaryNiches: ["education"],
+        contentFormats: ["long_form"],
+        brandFitTags: ["consumer_tech"],
+        language: "English",
+        geoHints: ["United States"],
+        sponsorSignals: ["Deep-dive analysis"],
+        brandSafety: {
+          status: "low",
+          flags: [],
+          rationale: "The stored enrichment context is educational and low risk.",
+        },
+      },
     },
     advancedReport: {
       requestId: "6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b",
@@ -316,6 +330,7 @@ describe("channel detail shell behavior", () => {
         topics: null,
         brandFitNotes: null,
         confidence: null,
+        structuredProfile: null,
       },
     });
 

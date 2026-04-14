@@ -60,6 +60,20 @@ function createChannelDetail(overrides?: Partial<ChannelDetail>): ChannelDetail 
       topics: ["space", "launches"],
       brandFitNotes: "Strong fit for launch providers.",
       confidence: 0.82,
+      structuredProfile: {
+        primaryNiche: "tech",
+        secondaryNiches: ["education"],
+        contentFormats: ["long_form", "podcast"],
+        brandFitTags: ["consumer_tech", "education_productivity"],
+        language: "English",
+        geoHints: ["United States"],
+        sponsorSignals: ["Deep-dive analysis", "Industry explainers"],
+        brandSafety: {
+          status: "low",
+          flags: [],
+          rationale: "The content is educational and technical without obvious risky themes.",
+        },
+      },
     },
     advancedReport: {
       requestId: "6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b",
@@ -162,6 +176,10 @@ function createEnrichmentScenario(status: ChannelEnrichmentStatus): ChannelDetai
       topics: status === "missing" ? null : ["space", "launches"],
       brandFitNotes: status === "missing" ? null : "Strong fit for launch providers.",
       confidence: status === "missing" ? null : 0.82,
+      structuredProfile:
+        status === "missing"
+          ? null
+          : createChannelDetail().enrichment.structuredProfile,
     },
   });
 }
@@ -222,11 +240,31 @@ describe("channel detail shell view", () => {
     expect(html).toContain("Advanced report: Completed");
     expect(html).toContain("Weekly coverage of launch systems and creator strategy.");
     expect(html).toContain("Creator focused on launches and industry analysis.");
+    expect(html).toContain("Structured classification");
+    expect(html).toContain("Primary niche");
+    expect(html).toContain("Tech");
+    expect(html).toContain("Education");
+    expect(html).toContain("Consumer Tech");
+    expect(html).toContain("Brand safety rationale");
     expect(html).toContain("Last completed report is fresh (12 days old).");
     expect(html).toContain("United States");
     expect(html).toContain("SpaceX");
     expect(html).toContain("USD 500-900");
     expect(html.match(/>Last error</g)?.length ?? 0).toBe(1);
+  });
+
+  it("renders fallback copy when structured classification is missing", () => {
+    const html = renderReadyView({
+      channel: createChannelDetail({
+        enrichment: {
+          ...createChannelDetail().enrichment,
+          structuredProfile: null,
+        },
+      }),
+    });
+
+    expect(html).toContain("Structured classification");
+    expect(html).toContain("Structured classification is not available yet.");
   });
 
   it("renders enrichment status tags for requestable states", () => {

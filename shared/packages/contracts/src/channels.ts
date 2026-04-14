@@ -18,6 +18,91 @@ export const channelEnrichmentStatusSchema = z.enum([
   "stale",
 ]);
 
+export const structuredChannelProfilePrimaryNicheSchema = z.enum([
+  "beauty",
+  "skincare",
+  "fashion",
+  "hair_nails_grwm",
+  "lifestyle",
+  "gaming",
+  "commentary_reaction",
+  "fitness",
+  "food",
+  "travel",
+  "tech",
+  "education",
+  "entertainment",
+  "news_politics",
+  "activism",
+  "sports",
+  "automotive",
+  "finance",
+  "music",
+  "parenting_family",
+  "pets",
+  "home_living",
+  "other",
+]);
+
+export const structuredChannelProfileContentFormatSchema = z.enum([
+  "long_form",
+  "shorts",
+  "mixed",
+  "live_stream",
+  "podcast",
+  "clips",
+]);
+
+export const structuredChannelProfileBrandFitTagSchema = z.enum([
+  "consumer_tech",
+  "gaming_hardware",
+  "beauty_skincare",
+  "fashion_apparel",
+  "fitness_wellness",
+  "food_drink",
+  "travel_hospitality",
+  "finance_fintech",
+  "education_productivity",
+  "automotive",
+  "family_parenting",
+  "home_living",
+  "pets",
+  "sports_outdoors",
+  "luxury",
+  "entertainment_media",
+]);
+
+export const structuredChannelProfileBrandSafetyStatusSchema = z.enum([
+  "low",
+  "medium",
+  "high",
+  "unknown",
+]);
+
+export const structuredChannelProfileBrandSafetyFlagSchema = z.enum([
+  "adult",
+  "violence",
+  "gambling",
+  "politics",
+  "profanity",
+  "controversy",
+]);
+
+export const structuredChannelProfileSchema = z.object({
+  primaryNiche: structuredChannelProfilePrimaryNicheSchema,
+  secondaryNiches: z.array(structuredChannelProfilePrimaryNicheSchema).max(3),
+  contentFormats: z.array(structuredChannelProfileContentFormatSchema).min(1).max(3),
+  brandFitTags: z.array(structuredChannelProfileBrandFitTagSchema).max(8),
+  language: z.string().trim().min(2).max(32).nullable(),
+  geoHints: z.array(z.string().trim().min(2).max(64)).max(3),
+  sponsorSignals: z.array(z.string().trim().min(1).max(120)).max(5),
+  brandSafety: z.object({
+    status: structuredChannelProfileBrandSafetyStatusSchema,
+    flags: z.array(structuredChannelProfileBrandSafetyFlagSchema).max(5),
+    rationale: z.string().trim().min(1).max(280),
+  }),
+});
+
 export const channelEnrichmentSummarySchema = z.object({
   status: channelEnrichmentStatusSchema,
   updatedAt: isoDatetimeSchema.nullable(),
@@ -36,6 +121,7 @@ export const channelEnrichmentDetailSchema = channelEnrichmentSummarySchema.exte
   topics: z.array(z.string()).nullable(),
   brandFitNotes: z.string().nullable(),
   confidence: z.number().min(0).max(1).nullable(),
+  structuredProfile: structuredChannelProfileSchema.nullable(),
 });
 
 export const listChannelsQuerySchema = catalogChannelFiltersSchema.extend({
@@ -147,6 +233,7 @@ export type ListChannelsResponse = z.infer<typeof listChannelsResponseSchema>;
 export type ChannelEnrichmentStatus = z.infer<typeof channelEnrichmentStatusSchema>;
 export type ChannelEnrichmentSummary = z.infer<typeof channelEnrichmentSummarySchema>;
 export type ChannelEnrichmentDetail = z.infer<typeof channelEnrichmentDetailSchema>;
+export type StructuredChannelProfile = z.infer<typeof structuredChannelProfileSchema>;
 export type ChannelManualOverrideField = z.infer<typeof channelManualOverrideFieldSchema>;
 export type ChannelManualOverrideOperation = z.infer<typeof channelManualOverrideOperationSchema>;
 export type PatchChannelManualOverridesRequest = z.infer<

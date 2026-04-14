@@ -27,6 +27,7 @@ describe("week 5 contracts", () => {
         topics: null,
         brandFitNotes: null,
         confidence: null,
+        structuredProfile: null,
       },
       advancedReport: {
         requestId: "6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b",

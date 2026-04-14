@@ -30,6 +30,9 @@ describe("youtube enrichment metrics helpers", () => {
           viewCount: 100,
           likeCount: 10,
           commentCount: 5,
+          durationSeconds: null,
+          categoryId: null,
+          categoryName: null,
         },
         {
           youtubeVideoId: "video-2",
@@ -39,6 +42,9 @@ describe("youtube enrichment metrics helpers", () => {
           viewCount: 200,
           likeCount: 20,
           commentCount: 10,
+          durationSeconds: null,
+          categoryId: null,
+          categoryName: null,
         },
       ],
       diagnostics: {
@@ -73,6 +79,9 @@ describe("youtube enrichment metrics helpers", () => {
           viewCount: null,
           likeCount: null,
           commentCount: null,
+          durationSeconds: null,
+          categoryId: null,
+          categoryName: null,
         },
         {
           youtubeVideoId: "video-2",
@@ -82,6 +91,9 @@ describe("youtube enrichment metrics helpers", () => {
           viewCount: 0,
           likeCount: 10,
           commentCount: 5,
+          durationSeconds: null,
+          categoryId: null,
+          categoryName: null,
         },
       ],
       diagnostics: {
@@ -117,6 +129,9 @@ describe("youtube enrichment metrics helpers", () => {
           viewCount: 100,
           likeCount: 8,
           commentCount: 2,
+          durationSeconds: null,
+          categoryId: null,
+          categoryName: null,
         },
         {
           youtubeVideoId: "video-2",
@@ -126,6 +141,9 @@ describe("youtube enrichment metrics helpers", () => {
           viewCount: null,
           likeCount: null,
           commentCount: null,
+          durationSeconds: null,
+          categoryId: null,
+          categoryName: null,
         },
       ],
       diagnostics: {
