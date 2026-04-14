@@ -50,6 +50,7 @@ const TEST_INPUT = {
     description: "Channel description",
     thumbnailUrl: null,
     publishedAt: null,
+    defaultLanguage: null,
     subscriberCount: 1000,
     viewCount: 100000,
     videoCount: 42,

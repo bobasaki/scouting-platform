@@ -19,6 +19,7 @@ import {
 import { getUserYoutubeApiKey } from "../auth";
 import { getChannelById } from "../channels";
 import { ServiceError } from "../errors";
+import { mapYoutubeLanguageToHubspot } from "../hubspot/language-mapping";
 import { enqueueJob } from "../queue";
 import { logProviderSpend } from "../telemetry";
 import { deriveYoutubeMetrics, isYoutubeShortVideo, normalizeYoutubeContext } from "./metrics";
@@ -582,6 +583,7 @@ export async function executeChannelLlmEnrichment(input: {
           youtubeUrl: youtubeMetrics.canonicalUrl,
           description: executionState.channel.description ?? youtubeMetrics.context.description,
           thumbnailUrl: youtubeMetrics.context.thumbnailUrl,
+          contentLanguage: mapYoutubeLanguageToHubspot(youtubeMetrics.context.defaultLanguage) || null,
         },
       });
 

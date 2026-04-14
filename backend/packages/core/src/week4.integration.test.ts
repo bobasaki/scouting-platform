@@ -32,6 +32,7 @@ const CACHED_CONTEXT = {
   description: "Channel description",
   thumbnailUrl: "https://img.example.com/channel.jpg",
   publishedAt: "2021-01-01T00:00:00Z",
+  defaultLanguage: "en",
   subscriberCount: 1200,
   viewCount: 45000,
   videoCount: 87,
@@ -399,10 +400,12 @@ integration("week 4 core integration", () => {
       select: {
         handle: true,
         youtubeUrl: true,
+        contentLanguage: true,
       },
     });
     expect(persistedChannel.handle).toBe("@channel-name");
     expect(persistedChannel.youtubeUrl).toBe("https://www.youtube.com/@channel-name");
+    expect(persistedChannel.contentLanguage).toBe("English (US)");
 
     const metrics = await prisma.channelMetric.findUniqueOrThrow({
       where: {
@@ -526,10 +529,12 @@ integration("week 4 core integration", () => {
       select: {
         handle: true,
         youtubeUrl: true,
+        contentLanguage: true,
       },
     });
     expect(persistedChannel.handle).toBe("@channel-best-effort");
     expect(persistedChannel.youtubeUrl).toBe("https://www.youtube.com/@channel-best-effort");
+    expect(persistedChannel.contentLanguage).toBe("English (US)");
 
     const metrics = await prisma.channelMetric.findUniqueOrThrow({
       where: {

@@ -37,6 +37,7 @@ const channelResponseSchema = z.object({
           description: z.string().optional(),
           customUrl: z.string().optional(),
           publishedAt: z.string().optional(),
+          defaultLanguage: z.string().optional(),
           thumbnails: z
             .object({
               high: z.object({ url: z.string().optional() }).optional(),
@@ -161,6 +162,7 @@ export const youtubeChannelContextSchema = z.object({
   description: z.string().trim().nullable(),
   thumbnailUrl: z.string().trim().nullable(),
   publishedAt: z.string().trim().nullable(),
+  defaultLanguage: z.string().trim().nullable(),
   subscriberCount: z.number().nullable(),
   viewCount: z.number().nullable(),
   videoCount: z.number().nullable(),
@@ -198,6 +200,7 @@ type YoutubeChannelContextDraft = {
   description: string | null;
   thumbnailUrl: string | null;
   publishedAt: string | null;
+  defaultLanguage: string | null;
   subscriberCount: number | null;
   viewCount: number | null;
   videoCount: number | null;
@@ -607,6 +610,7 @@ export async function fetchYoutubeChannelContext(
     description: toNullableTrimmed(channel.snippet.description),
     thumbnailUrl: pickThumbnailUrl(channel.snippet.thumbnails),
     publishedAt: toNullableTrimmed(channel.snippet.publishedAt),
+    defaultLanguage: toNullableTrimmed(channel.snippet.defaultLanguage),
     subscriberCount: toNullableNumber(channel.statistics?.subscriberCount),
     viewCount: toNullableNumber(channel.statistics?.viewCount),
     videoCount: toNullableNumber(channel.statistics?.videoCount),

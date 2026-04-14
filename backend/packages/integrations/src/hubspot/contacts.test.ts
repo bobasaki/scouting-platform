@@ -12,7 +12,7 @@ describe("upsertHubspotContact", () => {
       upsertHubspotContact({
         email: "creator@example.com",
         properties: {
-          creator_title: "Creator",
+          youtube_url: "https://youtube.com/@creator",
         },
       }),
     ).rejects.toMatchObject({
@@ -37,7 +37,7 @@ describe("upsertHubspotContact", () => {
       apiKey: "hubspot-key",
       email: "creator@example.com",
       properties: {
-        creator_title: "Creator",
+        youtube_url: "https://youtube.com/@creator",
       },
       fetchFn,
     });
@@ -54,7 +54,7 @@ describe("upsertHubspotContact", () => {
         apiKey: "hubspot-key",
         email: "creator@example.com",
         properties: {
-          creator_title: "Creator",
+          youtube_url: "https://youtube.com/@creator",
         },
         fetchFn,
       }),
