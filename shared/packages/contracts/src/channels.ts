@@ -103,6 +103,9 @@ export const structuredChannelProfileSchema = z.object({
   }),
 });
 
+// Compatibility aliases for newer backend code that imported the original names.
+export const channelStructuredProfileSchema = structuredChannelProfileSchema;
+
 export const channelEnrichmentSummarySchema = z.object({
   status: channelEnrichmentStatusSchema,
   updatedAt: isoDatetimeSchema.nullable(),
@@ -234,6 +237,7 @@ export type ChannelEnrichmentStatus = z.infer<typeof channelEnrichmentStatusSche
 export type ChannelEnrichmentSummary = z.infer<typeof channelEnrichmentSummarySchema>;
 export type ChannelEnrichmentDetail = z.infer<typeof channelEnrichmentDetailSchema>;
 export type StructuredChannelProfile = z.infer<typeof structuredChannelProfileSchema>;
+export type ChannelStructuredProfile = StructuredChannelProfile;
 export type ChannelManualOverrideField = z.infer<typeof channelManualOverrideFieldSchema>;
 export type ChannelManualOverrideOperation = z.infer<typeof channelManualOverrideOperationSchema>;
 export type PatchChannelManualOverridesRequest = z.infer<

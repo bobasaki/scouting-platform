@@ -66,9 +66,13 @@ const capacityHardeningCatalogIndexesMigrationPath = path.resolve(
   currentDir,
   "../prisma/migrations/20260403153000_capacity_hardening_catalog_indexes/migration.sql",
 );
-const structuredCreatorClassificationEnrichmentMigrationPath = path.resolve(
+const enrichmentStructuredProfileMigrationPath = path.resolve(
   currentDir,
-  "../prisma/migrations/20260414100000_structured_creator_classification_enrichment/migration.sql",
+  "../prisma/migrations/20260413110000_batch1_enrichment_structured_profile/migration.sql",
+);
+const channelContentLanguageMigrationPath = path.resolve(
+  currentDir,
+  "../prisma/migrations/20260414120000_channel_content_language/migration.sql",
 );
 
 describe("pg-boss migration", () => {
@@ -282,15 +286,21 @@ describe("capacity hardening catalog indexes migration", () => {
   });
 });
 
-describe("structured creator classification enrichment migration", () => {
-  it("adds structured_profile to channel enrichments", () => {
-    const migrationSql = readFileSync(
-      structuredCreatorClassificationEnrichmentMigrationPath,
-      "utf-8",
-    );
+describe("batch 1 enrichment structured profile migration", () => {
+  it("adds a nullable structured_profile column to channel enrichments", () => {
+    const migrationSql = readFileSync(enrichmentStructuredProfileMigrationPath, "utf-8");
 
     expect(migrationSql).toContain('ALTER TABLE "channel_enrichments"');
     expect(migrationSql).toContain('"structured_profile" JSONB');
+  });
+});
+
+describe("channel content language migration", () => {
+  it("adds a nullable content_language column to channels", () => {
+    const migrationSql = readFileSync(channelContentLanguageMigrationPath, "utf-8");
+
+    expect(migrationSql).toContain('ALTER TABLE "channels"');
+    expect(migrationSql).toContain('"content_language" TEXT');
   });
 });
 

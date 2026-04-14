@@ -146,6 +146,7 @@ type OpenAiStructuredProfile = z.infer<typeof structuredProfileSchema>;
 export type OpenAiChannelEnrichment = z.infer<typeof legacyOutputSchema> & {
   structuredProfile: OpenAiStructuredProfile | null;
 };
+export type StoredOpenAiChannelEnrichment = OpenAiChannelEnrichment;
 export type EnrichChannelWithOpenAiInput = z.input<typeof inputSchema>;
 export type EnrichChannelWithOpenAiResult = {
   profile: OpenAiChannelEnrichment;
@@ -198,6 +199,7 @@ function slimYoutubeContext(ctx: z.output<typeof inputSchema>["youtubeContext"])
   handle: string | null;
   thumbnailUrl: string | null;
   publishedAt: string | null;
+  defaultLanguage: string | null;
   subscriberCount: number | null;
   viewCount: number | null;
   videoCount: number | null;
@@ -210,8 +212,10 @@ function slimYoutubeContext(ctx: z.output<typeof inputSchema>["youtubeContext"])
     likeCount: number | null;
     commentCount: number | null;
     durationSeconds: number | null;
+    isShort: boolean | null;
     categoryId: string | null;
     categoryName: string | null;
+    tags: string[];
   }[];
 } {
   return {
@@ -220,6 +224,7 @@ function slimYoutubeContext(ctx: z.output<typeof inputSchema>["youtubeContext"])
     handle: ctx.handle,
     thumbnailUrl: ctx.thumbnailUrl,
     publishedAt: ctx.publishedAt,
+    defaultLanguage: ctx.defaultLanguage,
     subscriberCount: ctx.subscriberCount,
     viewCount: ctx.viewCount,
     videoCount: ctx.videoCount,
@@ -232,8 +237,10 @@ function slimYoutubeContext(ctx: z.output<typeof inputSchema>["youtubeContext"])
       likeCount: video.likeCount ?? null,
       commentCount: video.commentCount ?? null,
       durationSeconds: video.durationSeconds ?? null,
+      isShort: video.isShort ?? null,
       categoryId: video.categoryId ?? null,
       categoryName: video.categoryName ?? null,
+      tags: video.tags.slice(0, 12),
     })),
   };
 }
@@ -361,6 +368,12 @@ function extractOpenAiChannelEnrichmentProfileFromRawPayloadInternal(
 export function extractOpenAiChannelEnrichmentProfileFromRawPayload(
   rawPayload: unknown,
 ): OpenAiChannelEnrichment {
+  return extractOpenAiChannelEnrichmentProfileFromRawPayloadInternal(rawPayload, true);
+}
+
+export function extractStoredOpenAiChannelEnrichmentProfileFromRawPayload(
+  rawPayload: unknown,
+): StoredOpenAiChannelEnrichment {
   return extractOpenAiChannelEnrichmentProfileFromRawPayloadInternal(rawPayload, true);
 }
 

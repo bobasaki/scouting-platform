@@ -9,10 +9,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
 
-import { getCsvExportBatchResultHref, getHubspotPushBatchResultHref } from "../../lib/navigation";
+import { getCsvExportBatchResultHref, getHubspotPreviewHref } from "../../lib/navigation";
 import {
   createCsvExportBatchFromRun,
-  createHubspotPushBatchFromRun,
   RunBatchActionError,
 } from "../../lib/run-batch-actions";
 import {
@@ -48,7 +47,7 @@ type RunDetailRequestState =
   | { status: "ready"; data: RunStatusResponse; error: null };
 
 type RunBatchActionState = {
-  action: "csv" | "hubspot" | null;
+  action: "csv" | "googleSheets" | null;
   runId: string | null;
   status: "idle" | "submitting" | "error";
   message: string;
@@ -89,7 +88,7 @@ function getRunDetailErrorMessage(error: unknown): string {
   return "Unable to load the selected run. Please try again.";
 }
 
-function getRunBatchActionErrorMessage(action: "csv" | "hubspot", error: unknown): string {
+function getRunBatchActionErrorMessage(action: "csv" | "googleSheets", error: unknown): string {
   if (error instanceof RunBatchActionError) {
     return error.message;
   }
@@ -100,7 +99,7 @@ function getRunBatchActionErrorMessage(action: "csv" | "hubspot", error: unknown
 
   return action === "csv"
     ? "Unable to create the CSV export for this run."
-    : "Unable to create the HubSpot import batch for this run.";
+    : "Unable to open the Google Sheets export workspace for this run.";
 }
 
 function getResultIdentityFallback(result: RunResultItem): string {
@@ -280,7 +279,7 @@ export function DatabaseRunsTab({
     };
   }, [detailReloadToken, selectedRunId]);
 
-  async function handleCreateBatchAction(runId: string, action: "csv" | "hubspot") {
+  async function handleCreateBatchAction(runId: string, action: "csv" | "googleSheets") {
     setActionState({
       action,
       runId,
@@ -288,7 +287,7 @@ export function DatabaseRunsTab({
       message:
         action === "csv"
           ? "Creating CSV export from this run."
-          : "Creating HubSpot import batch from this run.",
+          : "Opening Google Sheets export preparation for this run.",
     });
 
     try {
@@ -298,8 +297,7 @@ export function DatabaseRunsTab({
         return;
       }
 
-      const batch = await createHubspotPushBatchFromRun(runId);
-      router.push(getHubspotPushBatchResultHref(batch.id));
+      router.push(getHubspotPreviewHref(runId));
     } catch (error) {
       setActionState({
         action,
@@ -318,8 +316,8 @@ export function DatabaseRunsTab({
             <p className="workspace-eyebrow">Run snapshots</p>
             <h2>Runs</h2>
             <p className="workspace-copy">
-              Select a run to review the stored snapshot, then export or generate a HubSpot
-              import batch from that result set without leaving Database.
+              Select a run to review the stored snapshot, then export CSV or open the Google
+              Sheets handoff workspace from that result set without leaving Database.
             </p>
           </div>
 
@@ -339,11 +337,11 @@ export function DatabaseRunsTab({
                 className="workspace-button workspace-button--small workspace-button--secondary"
                 disabled={actionState.status === "submitting"}
                 onClick={() => {
-                  void handleCreateBatchAction(selectedRunId, "hubspot");
+                  void handleCreateBatchAction(selectedRunId, "googleSheets");
                 }}
                 type="button"
               >
-                Import to HubSpot
+                Google Sheets
               </button>
             </div>
           ) : null}
@@ -430,11 +428,11 @@ export function DatabaseRunsTab({
                               className="workspace-button workspace-button--small workspace-button--secondary"
                               disabled={isBusy}
                               onClick={() => {
-                                void handleCreateBatchAction(run.id, "hubspot");
+                                void handleCreateBatchAction(run.id, "googleSheets");
                               }}
                               type="button"
                             >
-                              HubSpot
+                              Google Sheets
                             </button>
                           </div>
                         </td>

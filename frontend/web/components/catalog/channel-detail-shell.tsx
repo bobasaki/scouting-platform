@@ -1158,6 +1158,7 @@ export function ChannelDetailShell({
         : INITIAL_REQUEST_STATE,
   );
   const [reloadToken, setReloadToken] = useState(0);
+  const reloadOriginChannelIdRef = useRef<string | null>(null);
   const [enrichmentActionState, setEnrichmentActionState] = useState<ChannelEnrichmentActionState>(
     IDLE_ENRICHMENT_ACTION_STATE,
   );
@@ -1171,7 +1172,9 @@ export function ChannelDetailShell({
     const canReuseInitialData = reloadToken === 0 && !!initialData;
 
     async function loadChannel(polling = false) {
-      const isBackgroundRefresh = polling || reloadToken > 0;
+      const isBackgroundRefresh =
+        polling || (reloadToken > 0 && reloadOriginChannelIdRef.current === channelId);
+
       if (!isBackgroundRefresh && !canReuseInitialData) {
         setRequestState(INITIAL_REQUEST_STATE);
       }
@@ -1278,6 +1281,7 @@ export function ChannelDetailShell({
           hadVisibleEnrichment || hasVisibleEnrichmentResult(response.enrichment),
         ),
       });
+      reloadOriginChannelIdRef.current = channelId;
       setReloadToken((currentValue) => currentValue + 1);
     } catch (error) {
       setEnrichmentActionState({
@@ -1324,6 +1328,7 @@ export function ChannelDetailShell({
           hadVisibleInsights,
         ),
       });
+      reloadOriginChannelIdRef.current = channelId;
       setReloadToken((currentValue) => currentValue + 1);
     } catch (error) {
       setAdvancedReportActionState({
@@ -1355,6 +1360,7 @@ export function ChannelDetailShell({
       onRequestAdvancedReport={handleRequestAdvancedReport}
       onRequestEnrichment={handleRequestEnrichment}
       onRetry={() => {
+        reloadOriginChannelIdRef.current = channelId;
         setReloadToken((currentValue) => currentValue + 1);
       }}
       requestState={requestState}

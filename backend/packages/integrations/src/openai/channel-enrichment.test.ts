@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   OpenAiChannelEnrichmentError,
   type EnrichChannelWithOpenAiInput,
-  extractOpenAiChannelEnrichmentProfileFromRawPayload,
+  extractStoredOpenAiChannelEnrichmentProfileFromRawPayload,
   enrichChannelWithOpenAi,
 } from "./channel-enrichment";
 
@@ -37,6 +37,7 @@ const TEST_INPUT = {
     description: "Channel description",
     thumbnailUrl: null,
     publishedAt: null,
+    defaultLanguage: "en-US",
     subscriberCount: 1000,
     viewCount: 100000,
     videoCount: 42,
@@ -50,8 +51,10 @@ const TEST_INPUT = {
         likeCount: null,
         commentCount: null,
         durationSeconds: null,
+        isShort: null,
         categoryId: null,
         categoryName: null,
+        tags: [],
       },
     ],
     diagnostics: {
@@ -107,8 +110,10 @@ describe("enrichChannelWithOpenAi", () => {
           likeCount: index + 10,
           commentCount: index + 1,
           durationSeconds: 600 + index,
+          isShort: false,
           categoryId: "20",
           categoryName: "Gaming",
+          tags: [`tag-${index + 1}`],
         })),
         diagnostics: {
           warnings: ["some warning"],
@@ -140,23 +145,29 @@ describe("enrichChannelWithOpenAi", () => {
         brandFitTagValues: string[];
       };
       youtubeContext: {
+        defaultLanguage: string | null;
         description?: string;
         recentVideos: Array<{
           description: string | null;
           durationSeconds: number | null;
+          isShort: boolean | null;
           categoryId: string | null;
           categoryName: string | null;
+          tags: string[];
         }>;
       };
     };
 
     expect(parsed.youtubeContext).not.toHaveProperty("description");
+    expect(parsed.youtubeContext.defaultLanguage).toBe("en-US");
     expect(parsed.youtubeContext.recentVideos).toHaveLength(5);
     expect(
       parsed.youtubeContext.recentVideos.every(
         (video) => video.description === null || video.description.length <= 200,
       ),
     ).toBe(true);
+    expect(parsed.youtubeContext.recentVideos[0]?.isShort).toBe(false);
+    expect(parsed.youtubeContext.recentVideos[0]?.tags).toEqual(["tag-1"]);
     expect(parsed.derivedSignals).toEqual(TEST_INPUT.derivedSignals);
     expect(parsed.taxonomyHints.primaryNicheValues).toContain("gaming");
     expect(parsed.taxonomyHints.contentFormatValues).toContain("long_form");
@@ -379,7 +390,7 @@ describe("enrichChannelWithOpenAi", () => {
   });
 
   it("parses legacy stored payloads and fills structuredProfile with null", () => {
-    const profile = extractOpenAiChannelEnrichmentProfileFromRawPayload({
+    const profile = extractStoredOpenAiChannelEnrichmentProfileFromRawPayload({
       choices: [
         {
           message: {

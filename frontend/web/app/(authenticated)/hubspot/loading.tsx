@@ -9,7 +9,7 @@ export default function HubspotLoading() {
   return (
     <PageSection
       title="HubSpot"
-      description="Review Week 7 import-ready CSV batches, inspect missing-field failures, and keep legacy Week 6 push history readable without leaving the authenticated workspace."
+      description="Review legacy import-ready CSV batches, inspect missing-field failures, and keep older HubSpot push history readable while Google Sheets remains the primary handoff path."
     >
       <SkeletonPageBody>
         <SkeletonTable columns={5} rows={4} />

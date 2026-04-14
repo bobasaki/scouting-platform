@@ -32,6 +32,7 @@ const CACHED_CONTEXT = {
   description: "Channel description",
   thumbnailUrl: "https://img.example.com/channel.jpg",
   publishedAt: "2021-01-01T00:00:00Z",
+  defaultLanguage: "en-US",
   subscriberCount: 1200,
   viewCount: 45000,
   videoCount: 87,
@@ -45,8 +46,10 @@ const CACHED_CONTEXT = {
       likeCount: 10,
       commentCount: 5,
       durationSeconds: 605,
+      isShort: false,
       categoryId: "20",
       categoryName: "Gaming",
+      tags: ["gaming", "commentary"],
     },
     {
       youtubeVideoId: "video-2",
@@ -57,8 +60,10 @@ const CACHED_CONTEXT = {
       likeCount: 20,
       commentCount: 10,
       durationSeconds: 150,
+      isShort: true,
       categoryId: "27",
       categoryName: "Education",
+      tags: ["education"],
     },
   ],
   diagnostics: {
@@ -349,7 +354,11 @@ integration("week 4 core integration", () => {
     expect(fetchYoutubeChannelContextMock).not.toHaveBeenCalled();
     expect(enrichChannelWithOpenAiMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        youtubeContext: CACHED_CONTEXT,
+        youtubeContext: expect.objectContaining(CACHED_CONTEXT),
+        derivedSignals: expect.objectContaining({
+          topKeywords: expect.any(Array),
+          topicClusters: expect.any(Array),
+        }),
       }),
     );
   });
@@ -485,9 +494,14 @@ integration("week 4 core integration", () => {
           title: "Latest video",
           description: null,
           publishedAt: "2024-01-10T12:00:00Z",
+          durationSeconds: null,
+          isShort: null,
           viewCount: null,
           likeCount: null,
           commentCount: null,
+          categoryId: null,
+          categoryName: null,
+          tags: [],
         },
       ],
       diagnostics: {

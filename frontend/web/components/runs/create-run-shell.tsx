@@ -118,7 +118,7 @@ export function CreateRunShellView({
           <h2 id="run-create-heading">Start a scouting run</h2>
           <p>
             This legacy shell now forwards to the Week 7 New Scouting workspace, where campaign
-            metadata, Dashboard filters, and HubSpot import readiness are stored together.
+            metadata, Dashboard filters, and Google Sheets handoff readiness are stored together.
           </p>
         </header>
 
@@ -133,7 +133,7 @@ export function CreateRunShellView({
           </div>
           <div>
             <dt>Output</dt>
-            <dd>Dashboard-ready runs plus HubSpot import-ready metadata.</dd>
+            <dd>Dashboard-ready runs plus Google Sheets export-ready HubSpot metadata.</dd>
           </div>
         </dl>
       </section>

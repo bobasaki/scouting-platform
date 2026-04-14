@@ -6,10 +6,11 @@ import {
 import type { RequestChannelEnrichmentResponse } from "@scouting-platform/contracts";
 import { prisma, withDbTransaction } from "@scouting-platform/db";
 import {
-  extractOpenAiChannelEnrichmentProfileFromRawPayload,
+  extractStoredOpenAiChannelEnrichmentProfileFromRawPayload,
   enrichChannelWithOpenAi,
   fetchYoutubeChannelContext,
   isOpenAiChannelEnrichmentError,
+  type StoredOpenAiChannelEnrichment,
   type YoutubeChannelContext,
   isYoutubeChannelContextProviderError,
   youtubeChannelContextSchema,
@@ -18,10 +19,11 @@ import {
 import { getUserYoutubeApiKey } from "../auth";
 import { getChannelById } from "../channels";
 import { ServiceError } from "../errors";
+import { mapYoutubeLanguageToHubspot } from "../hubspot/language-mapping";
 import { enqueueJob } from "../queue";
 import { logProviderSpend } from "../telemetry";
 import { deriveChannelClassificationSignals } from "./classification-signals";
-import { deriveYoutubeMetrics } from "./metrics";
+import { deriveYoutubeMetrics, isYoutubeShortVideo, normalizeYoutubeContext } from "./metrics";
 import { isYoutubeContextFresh, resolveChannelEnrichmentStatus } from "./status";
 
 type ChannelYoutubeContextCacheRow = {
@@ -61,9 +63,9 @@ function getCachedYoutubeContext(row: ChannelYoutubeContextCacheRow | null) {
 
 function extractProfileFromRawPayload(
   raw: Prisma.JsonValue,
-): ReturnType<typeof extractOpenAiChannelEnrichmentProfileFromRawPayload> {
+): StoredOpenAiChannelEnrichment {
   try {
-    return extractOpenAiChannelEnrichmentProfileFromRawPayload(raw);
+    return extractStoredOpenAiChannelEnrichmentProfileFromRawPayload(raw);
   } catch {
     throw new ServiceError(
       "OPENAI_INVALID_STORED_PAYLOAD",
@@ -120,11 +122,13 @@ async function refreshYoutubeContext(input: {
   }
 
   try {
-    const context = await fetchYoutubeChannelContext({
+    const context = normalizeYoutubeContext(await fetchYoutubeChannelContext({
       apiKey: input.youtubeApiKey,
       channelId: input.youtubeChannelId,
-      maxVideos: 10,
-    });
+      maxVideos: 50,
+      minLongFormVideos: 12,
+      classifyIsShort: isYoutubeShortVideo,
+    }));
     const fetchedAt = new Date();
 
     await prisma.channelYoutubeContext.upsert({
@@ -581,6 +585,7 @@ export async function executeChannelLlmEnrichment(input: {
           youtubeUrl: youtubeMetrics.canonicalUrl,
           description: executionState.channel.description ?? youtubeMetrics.context.description,
           thumbnailUrl: youtubeMetrics.context.thumbnailUrl,
+          contentLanguage: mapYoutubeLanguageToHubspot(youtubeMetrics.context.defaultLanguage) || null,
         },
       });
 

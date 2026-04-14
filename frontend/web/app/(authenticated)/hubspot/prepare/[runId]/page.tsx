@@ -41,8 +41,8 @@ export default async function HubspotPreparePage({ params }: HubspotPreparePageP
 
   return (
     <PageSection
-      title="HubSpot Preparation"
-      description="Review all HubSpot columns, fill required gaps, and export a ready-to-import file."
+      title="Google Sheets Export"
+      description="Review the HubSpot-ready columns, fill required gaps, and export them into Google Sheets for manual HubSpot import."
     >
       <Suspense fallback={<HubspotPrepareFallback />}>
         <HubspotPrepareData runId={runId} />
