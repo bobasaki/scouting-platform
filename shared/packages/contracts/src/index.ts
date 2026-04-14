@@ -7,6 +7,7 @@ export * from "./csv-exports";
 export * from "./csv-imports";
 export * from "./dropdown-values";
 export * from "./export-previews";
+export * from "./google-sheets-exports";
 export * from "./hubspot-imports";
 export * from "./hubspot-pushes";
 export * from "./jobs";

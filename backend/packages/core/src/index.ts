@@ -9,6 +9,7 @@ export * from "./enrichment";
 export * from "./errors";
 export * from "./export-previews";
 export * from "./exports";
+export * from "./google-sheets-export";
 export * from "./hubspot";
 export * from "./imports";
 export * from "./runs";
