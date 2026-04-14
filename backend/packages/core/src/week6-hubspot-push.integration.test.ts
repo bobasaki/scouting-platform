@@ -263,6 +263,17 @@ integration("week 6 hubspot push core integration", () => {
     expect(rows[0]?.hubspotObjectId).toBe("hubspot-contact-1");
     expect(rows[1]?.errorMessage).toBe("Channel has no contact email");
     expect(rows[2]?.errorMessage).toBe("HubSpot request failed");
+    expect(upsertHubspotContactMock).toHaveBeenCalledWith(expect.objectContaining({
+      email: "success@example.com",
+      properties: expect.objectContaining({
+        contact_type: "Influencer",
+        platforms: "YouTube",
+        youtube_followers: "5000",
+        influencer_size: "Micro (5K - 20K)",
+        influencer_vertical: "Lifestyle",
+      }),
+    }));
+    expect(upsertHubspotContactMock.mock.calls[0]?.[0]?.properties).not.toHaveProperty("creator_title");
 
     const completedAudit = await prisma.auditEvent.findFirst({
       where: {

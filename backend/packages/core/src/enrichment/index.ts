@@ -19,8 +19,10 @@ import {
 import { getUserYoutubeApiKey } from "../auth";
 import { getChannelById } from "../channels";
 import { ServiceError } from "../errors";
+import { mapYoutubeLanguageToHubspot } from "../hubspot/language-mapping";
 import { enqueueJob } from "../queue";
 import { logProviderSpend } from "../telemetry";
+import { deriveChannelClassificationSignals } from "./classification-signals";
 import { deriveYoutubeMetrics, isYoutubeShortVideo, normalizeYoutubeContext } from "./metrics";
 import { isYoutubeContextFresh, resolveChannelEnrichmentStatus } from "./status";
 
@@ -508,6 +510,7 @@ export async function executeChannelLlmEnrichment(input: {
               description: executionState.channel.description,
             },
             youtubeContext: youtubeMetrics.context,
+            derivedSignals: deriveChannelClassificationSignals(youtubeMetrics.context),
           });
         } catch (error) {
           logProviderSpend({
@@ -582,6 +585,7 @@ export async function executeChannelLlmEnrichment(input: {
           youtubeUrl: youtubeMetrics.canonicalUrl,
           description: executionState.channel.description ?? youtubeMetrics.context.description,
           thumbnailUrl: youtubeMetrics.context.thumbnailUrl,
+          contentLanguage: mapYoutubeLanguageToHubspot(youtubeMetrics.context.defaultLanguage) || null,
         },
       });
 

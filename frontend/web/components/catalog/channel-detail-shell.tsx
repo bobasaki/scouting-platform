@@ -245,14 +245,15 @@ function shouldPollChannelDetailStatus(
 function hasVisibleEnrichmentResult(
   enrichment: Pick<
     ChannelEnrichmentDetail,
-    "summary" | "topics" | "brandFitNotes" | "confidence"
+    "summary" | "topics" | "brandFitNotes" | "confidence" | "structuredProfile"
   >,
 ): boolean {
   return (
     (enrichment.summary?.trim().length ?? 0) > 0 ||
     (enrichment.topics?.length ?? 0) > 0 ||
     (enrichment.brandFitNotes?.trim().length ?? 0) > 0 ||
-    enrichment.confidence !== null
+    enrichment.confidence !== null ||
+    enrichment.structuredProfile !== null
   );
 }
 
@@ -315,13 +316,13 @@ export function getAdvancedReportActionLabel(status: ChannelAdvancedReportStatus
 export function getEnrichmentStatusMessage(
   enrichment: Pick<
     ChannelEnrichmentDetail,
-    "status" | "lastError" | "summary" | "topics" | "brandFitNotes" | "confidence"
+    "status" | "lastError" | "summary" | "topics" | "brandFitNotes" | "confidence" | "structuredProfile"
   >,
 ): string {
   const hasRetainedResult = hasVisibleEnrichmentResult(enrichment);
 
   if (enrichment.status === "missing") {
-    return "No enrichment has been requested yet. Queue one when you want a generated summary, topics, and brand fit notes.";
+    return "No enrichment has been requested yet. Queue one when you want a generated summary, topics, structured classification, and brand fit notes.";
   }
 
   if (enrichment.status === "queued") {
@@ -526,6 +527,106 @@ function getAdvancedReportRequestSuccessMessage(
     : "Advanced report request recorded. This page refreshes automatically while approval and worker status change.";
 }
 
+function formatStructuredProfileValue(value: string): string {
+  return titleCase(value);
+}
+
+function renderTagList(
+  values: readonly string[] | null | undefined,
+  fallback: string,
+  formatter: (value: string) => string = (value) => value,
+) {
+  if (!values?.length) {
+    return <p className="channel-detail-shell__body-copy">{fallback}</p>;
+  }
+
+  return (
+    <ul className="channel-detail-shell__tag-list">
+      {values.map((value) => (
+        <li key={value}>{formatter(value)}</li>
+      ))}
+    </ul>
+  );
+}
+
+function renderStructuredProfile(
+  structuredProfile: ChannelEnrichmentDetail["structuredProfile"],
+) {
+  if (!structuredProfile) {
+    return (
+      <p className="channel-detail-shell__body-copy">
+        Structured classification is not available yet.
+      </p>
+    );
+  }
+
+  return (
+    <div className="channel-detail-shell__stack">
+      <dl className="channel-detail-shell__details">
+        <div>
+          <dt>Primary niche</dt>
+          <dd>{formatStructuredProfileValue(structuredProfile.primaryNiche)}</dd>
+        </div>
+        <div>
+          <dt>Language</dt>
+          <dd>{structuredProfile.language ?? EMPTY_VALUE}</dd>
+        </div>
+        <div>
+          <dt>Brand safety</dt>
+          <dd>{formatStructuredProfileValue(structuredProfile.brandSafety.status)}</dd>
+        </div>
+      </dl>
+
+      <div>
+        <h4 className="channel-detail-shell__subheading">Secondary niches</h4>
+        {renderTagList(
+          structuredProfile.secondaryNiches,
+          "No secondary niches are available yet.",
+          formatStructuredProfileValue,
+        )}
+      </div>
+      <div>
+        <h4 className="channel-detail-shell__subheading">Content formats</h4>
+        {renderTagList(
+          structuredProfile.contentFormats,
+          "No content formats are available yet.",
+          formatStructuredProfileValue,
+        )}
+      </div>
+      <div>
+        <h4 className="channel-detail-shell__subheading">Brand fit tags</h4>
+        {renderTagList(
+          structuredProfile.brandFitTags,
+          "No brand fit tags are available yet.",
+          formatStructuredProfileValue,
+        )}
+      </div>
+      <div>
+        <h4 className="channel-detail-shell__subheading">Geo hints</h4>
+        {renderTagList(structuredProfile.geoHints, "No geo hints are available yet.")}
+      </div>
+      <div>
+        <h4 className="channel-detail-shell__subheading">Sponsor signals</h4>
+        {renderTagList(structuredProfile.sponsorSignals, "No sponsor signals are available yet.")}
+      </div>
+      <div>
+        <h4 className="channel-detail-shell__subheading">Brand safety flags</h4>
+        {renderTagList(
+          structuredProfile.brandSafety.flags,
+          "No brand safety flags are available yet.",
+          formatStructuredProfileValue,
+        )}
+      </div>
+      <div>
+        <h4 className="channel-detail-shell__subheading">Brand safety rationale</h4>
+        <p className="channel-detail-shell__body-copy">
+          {structuredProfile.brandSafety.rationale || "No brand safety rationale is available yet."}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function mergeChannelEnrichment(
   channel: ChannelDetail,
   enrichment: ChannelEnrichmentDetail,
@@ -538,6 +639,7 @@ export function mergeChannelEnrichment(
       topics: enrichment.topics ?? channel.enrichment.topics,
       brandFitNotes: enrichment.brandFitNotes ?? channel.enrichment.brandFitNotes,
       confidence: enrichment.confidence ?? channel.enrichment.confidence,
+      structuredProfile: enrichment.structuredProfile ?? channel.enrichment.structuredProfile,
     },
   };
 }
@@ -834,6 +936,10 @@ function renderReadyState(
                     No enrichment topics are available yet.
                   </p>
                 )}
+              </div>
+              <div>
+                <h4 className="channel-detail-shell__subheading">Structured classification</h4>
+                {renderStructuredProfile(channel.enrichment.structuredProfile)}
               </div>
             </div>
           </div>

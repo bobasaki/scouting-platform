@@ -9,17 +9,17 @@ import {
   channelAudienceGenderAgeSchema,
   channelAudienceInterestSchema,
   channelBrandMentionSchema,
+  structuredChannelProfileSchema,
   type ChannelAdvancedReportDetail as ContractChannelAdvancedReportDetail,
   type ChannelAdvancedReportStatus,
   type ChannelAdvancedReportSummary as ContractChannelAdvancedReportSummary,
   type ChannelEnrichmentStatus as ContractChannelEnrichmentStatus,
   type ChannelInsights as ContractChannelInsights,
   type ChannelManualOverrideField,
-  type ChannelStructuredProfile as ContractChannelStructuredProfile,
   type ChannelManualOverrideOperation,
   type LatestCompletedAdvancedReport,
   type PatchChannelManualOverridesResponse,
-  channelStructuredProfileSchema,
+  type StructuredChannelProfile,
 } from "@scouting-platform/contracts";
 import { prisma, withDbTransaction } from "@scouting-platform/db";
 
@@ -53,7 +53,7 @@ export type ChannelEnrichmentDetail = ChannelEnrichmentSummary & {
   topics: string[] | null;
   brandFitNotes: string | null;
   confidence: number | null;
-  structuredProfile: ContractChannelStructuredProfile | null;
+  structuredProfile: StructuredChannelProfile | null;
 };
 
 export type ChannelAdvancedReportSummary = ContractChannelAdvancedReportSummary;
@@ -390,6 +390,11 @@ function toTopics(topics: Prisma.JsonValue | null): string[] | null {
   return normalized;
 }
 
+function toStructuredChannelProfile(value: Prisma.JsonValue | null): StructuredChannelProfile | null {
+  const parsed = structuredChannelProfileSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
 function toChannelEnrichmentSummary(
   channelUpdatedAt: Date,
   enrichment: {
@@ -432,15 +437,8 @@ function toChannelEnrichmentDetail(
     topics: enrichment ? toTopics(enrichment.topics) : null,
     brandFitNotes: enrichment?.brandFitNotes ?? null,
     confidence: enrichment?.confidence ?? null,
-    structuredProfile: enrichment ? toStructuredProfile(enrichment.structuredProfile) : null,
+    structuredProfile: enrichment ? toStructuredChannelProfile(enrichment.structuredProfile) : null,
   };
-}
-
-function toStructuredProfile(
-  value: Prisma.JsonValue | null,
-): ContractChannelStructuredProfile | null {
-  const parsed = channelStructuredProfileSchema.safeParse(value);
-  return parsed.success ? parsed.data : null;
 }
 
 function toAudienceCountries(value: Prisma.JsonValue | null) {

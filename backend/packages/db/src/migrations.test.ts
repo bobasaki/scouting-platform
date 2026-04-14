@@ -70,6 +70,10 @@ const enrichmentStructuredProfileMigrationPath = path.resolve(
   currentDir,
   "../prisma/migrations/20260413110000_batch1_enrichment_structured_profile/migration.sql",
 );
+const channelContentLanguageMigrationPath = path.resolve(
+  currentDir,
+  "../prisma/migrations/20260414120000_channel_content_language/migration.sql",
+);
 
 describe("pg-boss migration", () => {
   it("installs the pgboss schema and version table", () => {
@@ -288,6 +292,15 @@ describe("batch 1 enrichment structured profile migration", () => {
 
     expect(migrationSql).toContain('ALTER TABLE "channel_enrichments"');
     expect(migrationSql).toContain('"structured_profile" JSONB');
+  });
+});
+
+describe("channel content language migration", () => {
+  it("adds a nullable content_language column to channels", () => {
+    const migrationSql = readFileSync(channelContentLanguageMigrationPath, "utf-8");
+
+    expect(migrationSql).toContain('ALTER TABLE "channels"');
+    expect(migrationSql).toContain('"content_language" TEXT');
   });
 });
 

@@ -4,6 +4,7 @@ import type {
   CsvExportPreview,
   ExportPreviewColumn,
   ExportPreviewRow,
+  ExportRunToGoogleSheetsRequest,
   HubspotPrepClearField,
   HubspotPrepUpdateDefaults,
   HubspotPrepRowOverrideValues,
@@ -13,6 +14,7 @@ import type {
 import React, { useMemo, useState } from "react";
 
 import { updateHubspotExportPreview } from "../../lib/export-previews-api";
+import { exportRunToGoogleSheets } from "../../lib/google-sheets-export-api";
 import { SearchableSelect, type SearchableSelectOption } from "../ui/searchable-select";
 
 type ExportPreparationWorkspaceProps = Readonly<{
@@ -80,6 +82,13 @@ function createEmptyDrafts(): HubspotDrafts {
     touchedDefaults: new Set(),
     rowValues: {},
     touchedRowFields: {},
+  };
+}
+
+function createEmptyGoogleSheetsRequest(): ExportRunToGoogleSheetsRequest {
+  return {
+    spreadsheetIdOrUrl: "",
+    sheetName: "",
   };
 }
 
@@ -163,6 +172,13 @@ export function ExportPreparationWorkspace({
   );
   const [requestState, setRequestState] = useState<"idle" | "saving" | "error">("idle");
   const [requestMessage, setRequestMessage] = useState("");
+  const [googleSheetsRequest, setGoogleSheetsRequest] = useState<ExportRunToGoogleSheetsRequest>(
+    createEmptyGoogleSheetsRequest(),
+  );
+  const [googleSheetsState, setGoogleSheetsState] = useState<
+    "idle" | "saving" | "success" | "error"
+  >("idle");
+  const [googleSheetsMessage, setGoogleSheetsMessage] = useState("");
   const fileName = useMemo(() => {
     const suffix = mode === "hubspot" ? "hubspot-prep" : "csv-export";
     return `${currentPreview.run.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${suffix}.csv`;
@@ -172,6 +188,12 @@ export function ExportPreparationWorkspace({
     isHubspotPreview(currentPreview) &&
     (Object.values(drafts.touchedRowFields).some((fields) => fields.size > 0) ||
       drafts.touchedDefaults.size > 0);
+  const canExportToGoogleSheets =
+    googleSheetsRequest.spreadsheetIdOrUrl.trim().length > 0 &&
+    googleSheetsRequest.sheetName.trim().length > 0 &&
+    googleSheetsState !== "saving" &&
+    requestState !== "saving" &&
+    !hasPendingChanges;
 
   function updateDefault(field: keyof HubspotPrepUpdateDefaults, value: string) {
     setDrafts((current) => ({
@@ -289,6 +311,33 @@ export function ExportPreparationWorkspace({
     }
   }
 
+  async function handleGoogleSheetsExport() {
+    if (!isHubspotPreview(currentPreview)) {
+      return;
+    }
+
+    setGoogleSheetsState("saving");
+    setGoogleSheetsMessage("Exporting prepared rows to Google Sheets...");
+
+    try {
+      const result = await exportRunToGoogleSheets(currentPreview.run.id, googleSheetsRequest);
+      const unmatchedMessage =
+        result.unmatchedHeaders.length > 0
+          ? ` ${result.unmatchedHeaders.length} sheet columns were left blank.`
+          : "";
+
+      setGoogleSheetsState("success");
+      setGoogleSheetsMessage(
+        `Appended ${result.appendedRowCount} rows to ${result.sheetName}. Matched ${result.matchedHeaderCount} columns.${unmatchedMessage}`,
+      );
+    } catch (error) {
+      setGoogleSheetsState("error");
+      setGoogleSheetsMessage(
+        error instanceof Error ? error.message : "Unable to export this run to Google Sheets.",
+      );
+    }
+  }
+
   return (
     <div className="export-prep">
       {isHubspotPreview(currentPreview) ? (
@@ -366,6 +415,75 @@ export function ExportPreparationWorkspace({
         <section className="workspace-callout workspace-callout--error">
           <h3>Missing required values</h3>
           <p>{validationIssues.length} fields still need manual input before export.</p>
+        </section>
+      ) : null}
+
+      {isHubspotPreview(currentPreview) ? (
+        <section className="export-prep__defaults">
+          <div className="database-records__header export-prep__defaults-header">
+            <div>
+              <h2>Google Sheets export</h2>
+              <p className="workspace-copy">
+                Append these prepared HubSpot rows to an existing sheet tab using its first-row
+                headers. Save any row edits first so the export uses the latest prepared values.
+              </p>
+            </div>
+            <button
+              className="workspace-button export-prep__defaults-save"
+              disabled={!canExportToGoogleSheets}
+              onClick={() => void handleGoogleSheetsExport()}
+              type="button"
+            >
+              {googleSheetsState === "saving" ? "Exporting..." : "Export to Google Sheets"}
+            </button>
+          </div>
+
+          <div className="export-prep__defaults-grid">
+            <label className="new-scouting__field export-prep__default-field">
+              <span>Spreadsheet URL or ID</span>
+              <input
+                disabled={googleSheetsState === "saving"}
+                onChange={(event) => {
+                  setGoogleSheetsRequest((current) => ({
+                    ...current,
+                    spreadsheetIdOrUrl: event.currentTarget.value,
+                  }));
+                  setGoogleSheetsState("idle");
+                  setGoogleSheetsMessage("");
+                }}
+                placeholder="https://docs.google.com/spreadsheets/d/... or spreadsheet id"
+                value={googleSheetsRequest.spreadsheetIdOrUrl}
+              />
+            </label>
+
+            <label className="new-scouting__field export-prep__default-field">
+              <span>Sheet name</span>
+              <input
+                disabled={googleSheetsState === "saving"}
+                onChange={(event) => {
+                  setGoogleSheetsRequest((current) => ({
+                    ...current,
+                    sheetName: event.currentTarget.value,
+                  }));
+                  setGoogleSheetsState("idle");
+                  setGoogleSheetsMessage("");
+                }}
+                placeholder="Sheet1"
+                value={googleSheetsRequest.sheetName}
+              />
+            </label>
+          </div>
+
+          {googleSheetsMessage ? (
+            <p
+              className={`new-scouting__status new-scouting__status--${
+                googleSheetsState === "success" ? "idle" : googleSheetsState
+              }`}
+              role={googleSheetsState === "error" ? "alert" : "status"}
+            >
+              {googleSheetsMessage}
+            </p>
+          ) : null}
         </section>
       ) : null}
 

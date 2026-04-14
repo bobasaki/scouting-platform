@@ -120,6 +120,7 @@ export function normalizeYoutubeContext(context: YoutubeChannelContext): Youtube
         durationSeconds,
         isShort: isYoutubeShortVideo(durationSeconds),
         categoryId: normalizeNullableTrimmed(video.categoryId),
+        categoryName: normalizeNullableTrimmed(video.categoryName),
         tags: normalizeStringList(video.tags),
       };
     }),

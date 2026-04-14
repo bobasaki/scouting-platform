@@ -169,7 +169,7 @@ export function AdminWorkspace() {
         >
           <div className="admin-workspace__placeholder">
             <h2>HubSpot</h2>
-            <p>Inspect import history, row-level results, and failure details in the dedicated HubSpot workspace.</p>
+            <p>Inspect legacy import history, row-level results, and failure details in the dedicated HubSpot workspace.</p>
             <Link className="admin-workspace__link" href="/hubspot">
               Open HubSpot workspace
             </Link>

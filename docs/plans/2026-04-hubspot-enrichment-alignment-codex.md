@@ -1,6 +1,6 @@
 # Codex Implementation Guide: HubSpot Push Alignment
 
-- Status: Not Started
+- Status: Completed
 - Date: 2026-04-14
 - Owner: Ivan
 
@@ -40,17 +40,21 @@ expanded to classify creators into HubSpot's dropdown taxonomies because:
   options change, the prompt constants break.
 
 Instead, this plan derives what can be derived deterministically (size tier from subscriber count,
-language from YouTube API, best-effort vertical from enrichment topics) and leaves the rest to
+language from YouTube API, best-effort influencer verticals from existing enrichment + insight
+signals) and leaves the rest to
 the human classification step that already exists.
 
 ### HubSpot Properties (Reference)
 
 **Enumeration dropdowns (searchable/filterable):**
 
-- `influencer_vertical` — 70+ values: Abandoned Places, Adventure, Animals, Animations, Anime,
-  Art, ASMR, Astrology, Aviation, Books, Budgeting, Cars, Chess, Commentary, Conspiracy,
-  Construction, Cosplay, Crimes, Cybersecurity, Cycling, Dance, DIY, Documentary, Editing,
-  Education, Engineering, Entertainment, Environment, Family, Fashion, Finance, Fishing, Fitness,
+- `influencer_vertical` — multi-select enumeration. In HubSpot API writes, multiple values are
+  sent as a semicolon-delimited string of option labels. Current values include: Abandoned Places,
+  Adventure, Animals, Animations, Anime,
+  Art, ASMR, Astrology, Aviation, Beauty, Books, Budgeting, Cars, Chess, Commentary,
+  Conspiracy, Construction, Cosplay, Crimes, Cybersecurity, Cycling, Dance, DIY, Documentary,
+  Editing, Education, Engineering, Entertainment, Environment, Family, Fashion, Finance,
+  Fishing, Fitness,
   Food, Football, Gaming, Guitars, Health, History, Home Decor, Home Renovation, Humor, Hunting,
   Infotainment, Interview, Journalism, Just Chatting, Kids, Lego, Lifestyle, Minecraft,
   Motivation, Movies, Music, Mystery, News, Outdoor, Painting, Parenting, Pets, Photography,
@@ -98,7 +102,7 @@ Four sessions, executed in order. Each is self-contained and testable.
 | 1 | Fix property mapping + push metrics | No |
 | 2 | Influencer size tier utility | No |
 | 3 | Extract language from YouTube API, store on channel, push | Yes — one column |
-| 4 | Best-effort topic→vertical mapping at push time | No |
+| 4 | Best-effort multi-vertical inference at push time | No |
 
 ---
 
@@ -520,139 +524,219 @@ pnpm --filter @scouting-platform/core exec vitest run src/hubspot
 
 ---
 
-## Session 4 — Best-Effort Topic-to-Vertical Mapping
+## Session 4 — Best-Effort Multi-Vertical Inference
 
-**Scope:** Create a lightweight dictionary that maps common enrichment topic words to HubSpot
-`influencer_vertical` enum values. Applied at push time — no storage, no LLM changes. This is
-best-effort: it reduces manual classification work for common verticals but does not replace the
-HubSpot preparation workflow for precision.
+**Scope:** Infer zero-to-many HubSpot `influencer_vertical` values at push time using existing
+stored signals. Do not store inferred verticals in the database. Do not change the OpenAI prompt
+or schema. Do not redesign the HubSpot preparation workflow in this session. This remains
+best-effort: it should reduce manual tagging work for common creator niches, but the final
+campaign-specific choice still belongs in HubSpot preparation.
 
-### 4A. Create the mapping
+Because `influencer_vertical` is a multi-select HubSpot property, the push should emit multiple
+values when there is strong evidence for more than one vertical. The push payload should serialize
+them as a semicolon-delimited string, for example `"Gaming;Tech"`.
 
-File: `backend/packages/core/src/hubspot/vertical-mapping.ts` (new file)
-
-```typescript
-const TOPIC_TO_VERTICAL: ReadonlyArray<{
-  keywords: readonly string[];
-  vertical: string;
-}> = [
-  { keywords: ["gaming", "games", "game", "playstation", "xbox", "nintendo", "steam", "esports", "twitch", "fortnite", "valorant", "league of legends"], vertical: "Gaming" },
-  { keywords: ["minecraft"], vertical: "Minecraft" },
-  { keywords: ["tech", "technology", "gadgets", "software", "hardware", "programming", "coding"], vertical: "Tech" },
-  { keywords: ["beauty", "makeup", "skincare", "cosmetics", "hair"], vertical: "Beauty" },
-  { keywords: ["fashion", "style", "clothing", "outfits"], vertical: "Fashion" },
-  { keywords: ["fitness", "gym", "workout", "exercise", "bodybuilding"], vertical: "Fitness" },
-  { keywords: ["food", "cooking", "recipe", "baking", "cuisine", "restaurant"], vertical: "Food" },
-  { keywords: ["travel", "traveling", "destination", "backpacking", "tourism"], vertical: "Travel" },
-  { keywords: ["music", "musician", "guitar", "singing", "producer", "beats"], vertical: "Music" },
-  { keywords: ["education", "learning", "tutorial", "study", "lecture"], vertical: "Education" },
-  { keywords: ["science", "physics", "chemistry", "biology", "space", "astronomy"], vertical: "Science" },
-  { keywords: ["comedy", "humor", "funny", "sketch", "standup"], vertical: "Humor" },
-  { keywords: ["news", "journalism", "current events", "breaking"], vertical: "News" },
-  { keywords: ["politics", "political", "government", "election"], vertical: "Politics" },
-  { keywords: ["sports", "sport", "football", "basketball", "soccer", "tennis", "athletics"], vertical: "Sport" },
-  { keywords: ["art", "drawing", "illustration", "digital art", "painting"], vertical: "Art" },
-  { keywords: ["photography", "photo", "camera", "lens"], vertical: "Photography" },
-  { keywords: ["film", "cinema", "movie", "movies", "film review"], vertical: "Movies" },
-  { keywords: ["anime", "manga", "otaku"], vertical: "Anime" },
-  { keywords: ["diy", "crafts", "handmade", "maker"], vertical: "DIY" },
-  { keywords: ["pets", "dog", "cat", "animals", "animal"], vertical: "Pets" },
-  { keywords: ["vlog", "vlogging", "daily vlog", "day in my life"], vertical: "Vlog" },
-  { keywords: ["podcast", "podcasting", "interview"], vertical: "Podcast" },
-  { keywords: ["finance", "investing", "stocks", "crypto", "money", "trading"], vertical: "Finance" },
-  { keywords: ["health", "wellness", "mental health", "nutrition", "diet"], vertical: "Health" },
-  { keywords: ["lifestyle"], vertical: "Lifestyle" },
-  { keywords: ["history", "historical", "ancient"], vertical: "History" },
-  { keywords: ["cars", "automotive", "car review", "vehicle"], vertical: "Cars" },
-  { keywords: ["asmr"], vertical: "ASMR" },
-  { keywords: ["outdoor", "hiking", "camping", "nature", "wilderness"], vertical: "Outdoor" },
-  { keywords: ["mystery", "true crime", "crime", "unsolved"], vertical: "Mystery" },
-  { keywords: ["kids", "children", "family friendly"], vertical: "Kids" },
-  { keywords: ["commentary", "opinion", "reaction", "rant"], vertical: "Commentary" },
-  { keywords: ["reviews", "review", "unboxing", "product review"], vertical: "Reviews" },
-  { keywords: ["entertainment"], vertical: "Entertainment" },
-  { keywords: ["motivation", "self improvement", "productivity", "mindset"], vertical: "Motivation" },
-  { keywords: ["fishing"], vertical: "Fishing" },
-  { keywords: ["hunting"], vertical: "Hunting" },
-  { keywords: ["yoga", "meditation"], vertical: "Yoga" },
-  { keywords: ["lego", "legos"], vertical: "Lego" },
-  { keywords: ["chess"], vertical: "Chess" },
-  { keywords: ["cycling", "bike", "biking"], vertical: "Cycling" },
-  { keywords: ["dance", "dancing", "choreography"], vertical: "Dance" },
-  { keywords: ["documentary"], vertical: "Documentary" },
-  { keywords: ["engineering", "engineer"], vertical: "Engineering" },
-  { keywords: ["construction", "building"], vertical: "Construction" },
-  { keywords: ["guitar", "guitars", "bass guitar"], vertical: "Guitars" },
-  { keywords: ["plants", "gardening", "garden"], vertical: "Plants" },
-  { keywords: ["parenting", "parent", "mom", "dad"], vertical: "Parenting" },
-  { keywords: ["cosplay"], vertical: "Cosplay" },
-  { keywords: ["astrology", "horoscope", "zodiac"], vertical: "Astrology" },
-  { keywords: ["conspiracy", "conspiracies"], vertical: "Conspiracy" },
-];
-
-export function inferVerticalFromTopics(
-  topics: unknown,
-): string {
-  if (!Array.isArray(topics)) return "";
-
-  const normalized = topics
-    .filter((topic): topic is string => typeof topic === "string")
-    .map((topic) => topic.toLowerCase().trim());
-
-  if (normalized.length === 0) return "";
-
-  for (const mapping of TOPIC_TO_VERTICAL) {
-    for (const keyword of mapping.keywords) {
-      if (normalized.some((topic) => topic === keyword || topic.includes(keyword))) {
-        return mapping.vertical;
-      }
-    }
-  }
-
-  return "";
-}
-```
-
-The array is ordered by rough frequency / likelihood. The first match wins. This is intentional:
-a creator with topics `["gaming", "tech"]` maps to Gaming, which is the more specific vertical.
-
-### 4B. Wire into HubSpot push
+### 4A. Expand the push-time source data
 
 File: `backend/packages/core/src/hubspot/index.ts`
 
-Import the mapping:
-```typescript
-import { inferVerticalFromTopics } from "./vertical-mapping";
-```
-
-Add to `buildHubspotContactProperties` return object:
+Expand `channelPushSelect` to include richer stored signals that already exist on the channel:
 
 ```typescript
-influencer_vertical: inferVerticalFromTopics(channel.enrichment?.topics),
+const channelPushSelect = {
+  id: true,
+  youtubeChannelId: true,
+  title: true,
+  handle: true,
+  youtubeUrl: true,
+  contacts: {
+    orderBy: {
+      email: "asc",
+    },
+    select: {
+      email: true,
+    },
+  },
+  metrics: {
+    select: {
+      subscriberCount: true,
+      viewCount: true,
+      videoCount: true,
+      youtubeAverageViews: true,
+      youtubeEngagementRate: true,
+      youtubeFollowers: true,
+    },
+  },
+  enrichment: {
+    select: {
+      summary: true,
+      topics: true,
+      brandFitNotes: true,
+      structuredProfile: true,
+    },
+  },
+  insights: {
+    select: {
+      audienceInterests: true,
+    },
+  },
+} as const;
 ```
 
-### 4C. Tests
+Rationale:
+- `structuredProfile.niche.primary` is a stronger vertical signal than raw topic tags
+- `structuredProfile.niche.secondary` captures legitimate secondary verticals
+- `topics` are still useful as supporting evidence
+- HypeAuditor `audienceInterests` can reinforce a borderline match without adding LLM coupling
 
-File: `backend/packages/core/src/hubspot/vertical-mapping.test.ts` (new file)
+### 4B. Create a signal-based multi-label inference utility
 
-1. **Maps common topics** — `["gaming", "pc"]` → `"Gaming"`,
-   `["beauty", "skincare"]` → `"Beauty"`, `["tech", "reviews"]` → `"Tech"`
-2. **Case insensitive** — `["GAMING"]` → `"Gaming"`, `["Beauty"]` → `"Beauty"`
-3. **Partial match** — `["pc gaming"]` → `"Gaming"` (contains "gaming")
-4. **First match wins** — `["gaming", "tech"]` → `"Gaming"` (gaming rule is first)
-5. **Returns empty for no match** — `["obscure niche"]` → `""`
-6. **Returns empty for null/empty/non-array** — `null`, `[]`, `"not an array"` → `""`
-7. **Minecraft maps to Minecraft, not Gaming** — `["minecraft"]` → `"Minecraft"`
+File: `backend/packages/core/src/hubspot/vertical-inference.ts` (new file)
+
+Create a utility that scores candidate HubSpot verticals from multiple sources instead of picking
+the first topic match.
+
+```typescript
+type VerticalSignalSource =
+  | "nichePrimary"
+  | "nicheSecondary"
+  | "topic"
+  | "audienceInterest";
+
+type VerticalCandidate = {
+  vertical: string;
+  score: number;
+  evidence: string[];
+};
+
+const SIGNAL_WEIGHTS: Record<VerticalSignalSource, number> = {
+  nichePrimary: 4,
+  nicheSecondary: 2,
+  topic: 2,
+  audienceInterest: 1,
+};
+
+const MIN_VERTICAL_SCORE = 3;
+const MAX_VERTICALS = 5;
+
+const VERTICAL_SIGNAL_MAP: ReadonlyArray<{
+  vertical: string;
+  aliases: readonly string[];
+  suppresses?: readonly string[];
+}> = [
+  { vertical: "Minecraft", aliases: ["minecraft"], suppresses: ["Gaming"] },
+  { vertical: "Gaming", aliases: ["gaming", "games", "game", "esports", "twitch", "fortnite", "valorant", "league of legends"] },
+  { vertical: "Tech", aliases: ["tech", "technology", "gadgets", "software", "hardware", "programming", "coding", "pc builds"] },
+  { vertical: "Beauty", aliases: ["beauty", "makeup", "skincare", "cosmetics", "hair"] },
+  { vertical: "Fashion", aliases: ["fashion", "style", "clothing", "outfits"] },
+  { vertical: "Fitness", aliases: ["fitness", "gym", "workout", "exercise", "bodybuilding"] },
+  { vertical: "Food", aliases: ["food", "cooking", "recipe", "baking", "cuisine", "restaurant"] },
+  { vertical: "Travel", aliases: ["travel", "traveling", "destination", "backpacking", "tourism"] },
+  { vertical: "Music", aliases: ["music", "musician", "producer", "beats", "guitar", "singing"] },
+  { vertical: "Education", aliases: ["education", "learning", "tutorial", "study", "lecture"] },
+  { vertical: "Science", aliases: ["science", "physics", "chemistry", "biology", "space", "astronomy"] },
+  { vertical: "Humor", aliases: ["comedy", "humor", "funny", "sketch", "standup"] },
+  { vertical: "News", aliases: ["news", "journalism", "current events", "breaking"] },
+  { vertical: "Politics", aliases: ["politics", "political", "government", "election"] },
+  { vertical: "Sport", aliases: ["sports", "sport", "athletics"] },
+  { vertical: "Football", aliases: ["football", "soccer"], suppresses: ["Sport"] },
+  { vertical: "Podcast", aliases: ["podcast", "podcasting"] },
+  { vertical: "Interview", aliases: ["interview"] },
+  { vertical: "Reviews", aliases: ["reviews", "review", "unboxing", "product review"] },
+  { vertical: "Commentary", aliases: ["commentary", "opinion", "reaction", "rant"] },
+  { vertical: "Lifestyle", aliases: ["lifestyle"] },
+];
+
+export function inferVerticalsForHubspot(input: {
+  structuredProfile: unknown;
+  topics: unknown;
+  audienceInterests: unknown;
+}): string[] {
+  // 1. Normalize niche primary / secondary, topics, and audience-interest labels to lowercase.
+  // 2. Add weighted evidence for every matching alias.
+  // 3. Allow multiple verticals to survive if each clears MIN_VERTICAL_SCORE.
+  // 4. Apply suppression rules so specific values like Minecraft beat broad parents like Gaming
+  //    when the only evidence is the child niche itself.
+  // 5. Sort by score desc, then alphabetically for determinism.
+  // 6. Return at most MAX_VERTICALS values.
+}
+
+export function serializeHubspotMultiSelect(values: readonly string[]): string {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))].join(";");
+}
+```
+
+Rules:
+1. **No first-match-wins behavior.** A creator can legitimately map to multiple verticals.
+2. **Only emit valid HubSpot option labels.** The mapping file is the allow-list.
+3. **Prefer stronger signals.** `niche.primary` should outweigh `topics`; `topics` should outweigh
+   `audienceInterests`.
+4. **Suppress parent labels when a child label is the only evidence.** `["minecraft"]` should
+   produce `["Minecraft"]`, not `["Minecraft", "Gaming"]`.
+5. **Keep the output small and deterministic.** Cap at 5 verticals and sort stably.
+
+### 4C. Wire the inferred verticals into the push payload
+
+File: `backend/packages/core/src/hubspot/index.ts`
+
+Import the new utility:
+
+```typescript
+import {
+  inferVerticalsForHubspot,
+  serializeHubspotMultiSelect,
+} from "./vertical-inference";
+```
+
+Build the property from the richer signals:
+
+```typescript
+const inferredVerticals = inferVerticalsForHubspot({
+  structuredProfile: channel.enrichment?.structuredProfile,
+  topics: channel.enrichment?.topics,
+  audienceInterests: channel.insights?.audienceInterests,
+});
+
+return {
+  // ...
+  influencer_vertical: serializeHubspotMultiSelect(inferredVerticals),
+};
+```
+
+If no candidate clears the threshold, `influencer_vertical` must be `""`.
+
+### 4D. Tests
+
+File: `backend/packages/core/src/hubspot/vertical-inference.test.ts` (new file)
+
+1. **Returns multiple independent verticals** —
+   `niche.primary = "gaming"`, `niche.secondary = ["tech"]`, `topics = ["pc builds"]`
+   → `["Gaming", "Tech"]`
+2. **Uses stronger signals first** —
+   `niche.primary = "beauty"`, `topics = ["fashion"]`
+   → includes `"Beauty"` even if `"Fashion"` is also present
+3. **Uses audience interests as supporting evidence** —
+   weak `topics = ["reviews"]` plus `audienceInterests = [{ label: "Tech", score: 0.88 }]`
+   → includes `"Tech"`
+4. **Suppresses broad parents when only the child is supported** —
+   `topics = ["minecraft"]` → `["Minecraft"]`, not `["Gaming", "Minecraft"]`
+5. **Case insensitive and partial matching** —
+   `["GAMING", "pc gaming"]` → includes `"Gaming"`
+6. **Returns empty for null/empty/unmatched input** —
+   `null`, `[]`, `"not an array"`, or `["obscure niche"]` → `[]`
+7. **Serializes for HubSpot correctly** —
+   `["Gaming", "Tech", "Gaming"]` → `"Gaming;Tech"`
 
 File: `backend/packages/core/src/hubspot/index.test.ts`
 
-Add test case:
-- **Pushes inferred vertical from topics** — channel with `enrichment.topics: ["gaming", "fps"]`
-  → output has `influencer_vertical: "Gaming"`
-- **Empty vertical when topics don't match** — `enrichment.topics: ["something random"]`
-  → `influencer_vertical: ""`
-- **Empty vertical when no enrichment** — `enrichment: null`
-  → `influencer_vertical: ""`
+Add push-focused cases:
+- **Pushes multi-select influencer verticals** —
+  `structuredProfile.niche.primary = "gaming"`, `secondary = ["tech"]`
+  → output has `influencer_vertical: "Gaming;Tech"`
+- **Pushes empty string when nothing is confident enough** —
+  no matching niche/topics/interests → `influencer_vertical: ""`
+- **Keeps specific child vertical without redundant parent** —
+  `topics = ["minecraft"]` → `influencer_vertical: "Minecraft"`
 
 ### Session 4 verification
 
@@ -695,8 +779,9 @@ Explicitly out of scope:
   The enrichment is doing the right job as a human evaluation tool.
 - **HubSpot `influencer_type` auto-classification** — Requires visual/content analysis the LLM
   cannot reliably do from text. Set manually during HubSpot preparation.
-- **HubSpot CSV import alignment** — The import batch path uses platform dropdown values set
-  during preparation. This is the right approach and is unchanged.
+- **HubSpot preparation/import multi-select support** — The preparation defaults, row overrides,
+  shared contracts, and CSV import path still model `influencerVertical` as a single string.
+  This session does not redesign those flows; it only improves direct HubSpot push inference.
 - **Platform dropdown taxonomy sync** — The platform's `influencerVertical` (5 values) and
   HubSpot's (70+) serve different purposes. Platform dropdowns are for the preparation workflow.
   HubSpot properties are populated by the push. No alignment needed now.

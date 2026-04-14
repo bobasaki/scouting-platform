@@ -18,6 +18,11 @@ import { upsertHubspotContact } from "@scouting-platform/integrations";
 
 import { recordAuditEvent } from "../audit";
 import { ServiceError } from "../errors";
+import { computeInfluencerSizeTier } from "./influencer-size";
+import {
+  inferVerticalsForHubspot,
+  serializeHubspotMultiSelect,
+} from "./vertical-inference";
 import { enqueueHubspotPushJob } from "./queue";
 
 export { stopHubspotPushQueue } from "./queue";
@@ -70,6 +75,8 @@ const channelPushSelect = {
   youtubeChannelId: true,
   title: true,
   handle: true,
+  youtubeUrl: true,
+  contentLanguage: true,
   contacts: {
     orderBy: {
       email: "asc",
@@ -83,6 +90,9 @@ const channelPushSelect = {
       subscriberCount: true,
       viewCount: true,
       videoCount: true,
+      youtubeAverageViews: true,
+      youtubeEngagementRate: true,
+      youtubeFollowers: true,
     },
   },
   enrichment: {
@@ -90,6 +100,12 @@ const channelPushSelect = {
       summary: true,
       topics: true,
       brandFitNotes: true,
+      structuredProfile: true,
+    },
+  },
+  insights: {
+    select: {
+      audienceInterests: true,
     },
   },
 } as const;
@@ -248,23 +264,31 @@ async function validateSelectedChannelIds(channelIds: string[]): Promise<void> {
 }
 
 export function buildHubspotContactProperties(channel: PushChannelRecord): Record<string, string> {
+  const subscriberCount = channel.metrics?.subscriberCount;
+  const youtubeUrl = channel.youtubeUrl
+    ?? `https://www.youtube.com/channel/${channel.youtubeChannelId}`;
+  const inferredVerticals = inferVerticalsForHubspot({
+    structuredProfile: channel.enrichment?.structuredProfile,
+    topics: channel.enrichment?.topics,
+    audienceInterests: channel.insights?.audienceInterests,
+  });
+
   return {
     email: channel.contacts[0]?.email ?? "",
-    channel_id: channel.id,
-    youtube_channel_id: channel.youtubeChannelId,
-    youtube_channel_url: `https://www.youtube.com/channel/${channel.youtubeChannelId}`,
-    creator_title: channel.title,
-    creator_handle: channel.handle ?? "",
-    subscriber_count: channel.metrics?.subscriberCount?.toString() ?? "",
-    view_count: channel.metrics?.viewCount?.toString() ?? "",
-    video_count: channel.metrics?.videoCount?.toString() ?? "",
-    enrichment_summary: channel.enrichment?.summary ?? "",
-    enrichment_topics: Array.isArray(channel.enrichment?.topics)
-      ? channel.enrichment.topics
-          .filter((topic): topic is string => typeof topic === "string" && topic.trim().length > 0)
-          .join(";")
-      : "",
-    brand_fit_notes: channel.enrichment?.brandFitNotes ?? "",
+    contact_type: "Influencer",
+    platforms: "YouTube",
+    youtube_url: youtubeUrl,
+    youtube_handle: channel.handle ?? "",
+    influencer_url: youtubeUrl,
+    youtube_followers:
+      channel.metrics?.youtubeFollowers?.toString()
+      ?? subscriberCount?.toString()
+      ?? "",
+    youtube_video_average_views: channel.metrics?.youtubeAverageViews?.toString() ?? "",
+    youtube_engagement_rate: channel.metrics?.youtubeEngagementRate?.toString() ?? "",
+    influencer_size: computeInfluencerSizeTier(subscriberCount),
+    language: channel.contentLanguage ?? "",
+    influencer_vertical: serializeHubspotMultiSelect(inferredVerticals),
   };
 }
 

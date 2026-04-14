@@ -13,6 +13,7 @@ const {
   fetchHubspotPushBatchDetailMock,
   requestChannelEnrichmentBatchMock,
   replaceMock,
+  useDocumentVisibilityMock,
   useEffectMock,
   usePathnameMock,
   useRouterMock,
@@ -29,6 +30,7 @@ const {
   fetchHubspotPushBatchDetailMock: vi.fn(),
   requestChannelEnrichmentBatchMock: vi.fn(),
   replaceMock: vi.fn(),
+  useDocumentVisibilityMock: vi.fn(),
   useEffectMock: vi.fn(),
   usePathnameMock: vi.fn(),
   useRouterMock: vi.fn(),
@@ -72,6 +74,10 @@ vi.mock("../../lib/segments-api", () => ({
   createSavedSegment: createSavedSegmentMock,
   deleteSavedSegment: deleteSavedSegmentMock,
   fetchSavedSegments: fetchSavedSegmentsMock,
+}));
+
+vi.mock("../../lib/document-visibility", () => ({
+  useDocumentVisibility: useDocumentVisibilityMock,
 }));
 
 import {
@@ -343,6 +349,7 @@ function renderShell(options?: {
   latestCsvExportBatchReloadToken?: number;
   latestHubspotPushBatch?: CatalogHubspotPushBatchState;
   latestHubspotPushBatchReloadToken?: number;
+  isDocumentVisible?: boolean;
 }) {
   const setDraftFilters = vi.fn();
   const setRequestState = vi.fn();
@@ -359,6 +366,7 @@ function renderShell(options?: {
   const setLatestCsvExportBatchReloadToken = vi.fn();
   const setLatestHubspotPushBatch = vi.fn();
   const setLatestHubspotPushBatchReloadToken = vi.fn();
+  const setIsDocumentVisible = vi.fn();
   const cleanups: Array<() => void> = [];
 
   useStateMock.mockReset();
@@ -445,6 +453,10 @@ function renderShell(options?: {
     .mockReturnValueOnce([
       options?.latestHubspotPushBatchReloadToken ?? 0,
       setLatestHubspotPushBatchReloadToken,
+    ])
+    .mockReturnValueOnce([
+      options?.isDocumentVisible ?? true,
+      setIsDocumentVisible,
     ]);
 
   useEffectMock.mockImplementation((effect: () => void | (() => void)) => {
@@ -481,6 +493,7 @@ function renderShell(options?: {
 describe("catalog table shell behavior", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useDocumentVisibilityMock.mockReturnValue(true);
     fetchChannelsMock.mockResolvedValue({
       items: [],
       total: 0,
@@ -1028,6 +1041,7 @@ describe("catalog table shell behavior", () => {
           topics: null,
           brandFitNotes: null,
           confidence: null,
+          structuredProfile: null,
         },
       },
       {
@@ -1042,6 +1056,7 @@ describe("catalog table shell behavior", () => {
           topics: null,
           brandFitNotes: null,
           confidence: null,
+          structuredProfile: null,
         },
       },
     ]);
@@ -1133,6 +1148,7 @@ describe("catalog table shell behavior", () => {
           topics: null,
           brandFitNotes: null,
           confidence: null,
+          structuredProfile: null,
         },
       },
       {

@@ -37,6 +37,7 @@ const channelResponseSchema = z.object({
           description: z.string().optional(),
           customUrl: z.string().optional(),
           publishedAt: z.string().optional(),
+          defaultLanguage: z.string().optional(),
           thumbnails: z
             .object({
               high: z.object({ url: z.string().optional() }).optional(),
@@ -135,6 +136,23 @@ const YOUTUBE_CHANNELS_URL = "https://youtube.googleapis.com/youtube/v3/channels
 const YOUTUBE_PLAYLIST_ITEMS_URL = "https://youtube.googleapis.com/youtube/v3/playlistItems";
 const YOUTUBE_VIDEOS_URL = "https://youtube.googleapis.com/youtube/v3/videos";
 
+const youtubeCategoryNameById: Record<string, string> = {
+  "1": "Film & Animation",
+  "2": "Autos & Vehicles",
+  "10": "Music",
+  "15": "Pets & Animals",
+  "17": "Sports",
+  "19": "Travel & Events",
+  "20": "Gaming",
+  "22": "People & Blogs",
+  "23": "Comedy",
+  "24": "Entertainment",
+  "25": "News & Politics",
+  "26": "Howto & Style",
+  "27": "Education",
+  "28": "Science & Technology",
+};
+
 const quotaErrorReasons = new Set([
   "quotaExceeded",
   "dailyLimitExceeded",
@@ -161,6 +179,7 @@ export const youtubeChannelContextSchema = z.object({
   description: z.string().trim().nullable(),
   thumbnailUrl: z.string().trim().nullable(),
   publishedAt: z.string().trim().nullable(),
+  defaultLanguage: z.string().trim().nullable(),
   subscriberCount: z.number().nullable(),
   viewCount: z.number().nullable(),
   videoCount: z.number().nullable(),
@@ -176,6 +195,7 @@ export const youtubeChannelContextSchema = z.object({
       likeCount: z.number().nullable().optional().default(null),
       commentCount: z.number().nullable().optional().default(null),
       categoryId: z.string().trim().nullable().optional().default(null),
+      categoryName: z.string().trim().nullable().optional().default(null),
       tags: z.array(z.string().trim().min(1)).optional().default([]),
     }),
   ),
@@ -198,6 +218,7 @@ type YoutubeChannelContextDraft = {
   description: string | null;
   thumbnailUrl: string | null;
   publishedAt: string | null;
+  defaultLanguage: string | null;
   subscriberCount: number | null;
   viewCount: number | null;
   videoCount: number | null;
@@ -212,6 +233,7 @@ type YoutubeChannelContextDraft = {
     likeCount: number | null;
     commentCount: number | null;
     categoryId: string | null;
+    categoryName: string | null;
     tags: string[];
   }>;
   diagnostics: {
@@ -286,6 +308,14 @@ function toTrimmedStringArray(values: string[] | undefined): string[] {
   );
 }
 
+function getEnglishCategoryName(categoryId: string | null): string | null {
+  if (!categoryId) {
+    return null;
+  }
+
+  return youtubeCategoryNameById[categoryId] ?? null;
+}
+
 function parseDurationToSeconds(value: string | undefined): number | null {
   const trimmed = value?.trim();
 
@@ -302,10 +332,16 @@ function parseDurationToSeconds(value: string | undefined): number | null {
     return null;
   }
 
-  const days = Number(match.groups.days ?? 0);
-  const hours = Number(match.groups.hours ?? 0);
-  const minutes = Number(match.groups.minutes ?? 0);
-  const seconds = Number(match.groups.seconds ?? 0);
+  const { days: rawDays, hours: rawHours, minutes: rawMinutes, seconds: rawSeconds } = match.groups;
+
+  if (!rawDays && !rawHours && !rawMinutes && !rawSeconds) {
+    return null;
+  }
+
+  const days = Number(rawDays ?? 0);
+  const hours = Number(rawHours ?? 0);
+  const minutes = Number(rawMinutes ?? 0);
+  const seconds = Number(rawSeconds ?? 0);
 
   if (![days, hours, minutes, seconds].every(Number.isFinite)) {
     return null;
@@ -519,6 +555,7 @@ export async function fetchYoutubeChannelContext(
         likeCount: null,
         commentCount: null,
         categoryId: null,
+        categoryName: null,
         tags: [],
       }));
 
@@ -551,6 +588,7 @@ export async function fetchYoutubeChannelContext(
                 likeCount: toNullableNumber(item.statistics?.likeCount),
                 commentCount: toNullableNumber(item.statistics?.commentCount),
                 categoryId: toNullableTrimmed(item.snippet?.categoryId),
+                categoryName: getEnglishCategoryName(toNullableTrimmed(item.snippet?.categoryId)),
                 tags: toTrimmedStringArray(item.snippet?.tags),
               },
             ];
@@ -574,6 +612,7 @@ export async function fetchYoutubeChannelContext(
           video.likeCount = stats.likeCount;
           video.commentCount = stats.commentCount;
           video.categoryId = stats.categoryId;
+          video.categoryName = stats.categoryName;
           video.tags = stats.tags;
         });
       } catch (error) {
@@ -607,6 +646,7 @@ export async function fetchYoutubeChannelContext(
     description: toNullableTrimmed(channel.snippet.description),
     thumbnailUrl: pickThumbnailUrl(channel.snippet.thumbnails),
     publishedAt: toNullableTrimmed(channel.snippet.publishedAt),
+    defaultLanguage: toNullableTrimmed(channel.snippet.defaultLanguage),
     subscriberCount: toNullableNumber(channel.statistics?.subscriberCount),
     viewCount: toNullableNumber(channel.statistics?.viewCount),
     videoCount: toNullableNumber(channel.statistics?.videoCount),
