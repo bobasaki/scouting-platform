@@ -253,8 +253,16 @@ export async function requestRunAssessment(input: {
           },
           data: {
             status: PrismaRunChannelAssessmentStatus.QUEUED,
+            model: null,
+            fitScore: null,
+            fitReasons: Prisma.DbNull,
+            fitConcerns: Prisma.DbNull,
+            recommendedAngles: Prisma.DbNull,
+            avoidTopics: Prisma.DbNull,
             startedAt: null,
             assessedAt: null,
+            rawOpenaiPayload: Prisma.DbNull,
+            rawOpenaiPayloadFetchedAt: null,
             lastError: null,
           },
         });
