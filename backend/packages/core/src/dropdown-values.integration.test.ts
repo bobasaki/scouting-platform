@@ -102,6 +102,30 @@ integration("dropdown values core integration", () => {
     expect(updatedCurrencies).toEqual(["EUR", "USD"]);
   });
 
+  it("rejects manual replacement for hubspot-synced dropdown fields", async () => {
+    const dropdownValues = await loadDropdownValues();
+    const admin = await createAdminUser();
+
+    await expect(
+      dropdownValues.replaceDropdownValues({
+        actorUserId: admin.id,
+        fieldKey: "language",
+        values: ["German"],
+      }),
+    ).rejects.toMatchObject({
+      code: "DROPDOWN_VALUE_FIELD_READ_ONLY",
+      status: 400,
+    });
+
+    const audit = await prisma.auditEvent.findFirst({
+      where: {
+        action: "dropdown_value.replaced",
+        entityId: "language",
+      },
+    });
+    expect(audit).toBeNull();
+  });
+
   it("syncs hubspot-backed dropdown values from HubSpot and replaces prior saved values", async () => {
     const dropdownValues = await loadDropdownValues();
     const admin = await createAdminUser();

@@ -418,24 +418,6 @@ function toParsedCsvImportRow(
   };
 }
 
-function assertHubspotDropdownConfiguration(
-  dropdownOptions: Record<(typeof HUBSPOT_SYNCED_DROPDOWN_FIELD_KEYS)[number], string[]>,
-): void {
-  const missingFields = HUBSPOT_SYNCED_DROPDOWN_FIELD_KEYS.filter(
-    (fieldKey) => dropdownOptions[fieldKey].length === 0,
-  );
-
-  if (missingFields.length === 0) {
-    return;
-  }
-
-  throw new ServiceError(
-    "CSV_IMPORT_HUBSPOT_DROPDOWNS_MISSING",
-    400,
-    "HubSpot dropdown values are not configured. Sync dropdown values from HubSpot before importing CSV.",
-  );
-}
-
 async function buildParsedRows(csvText: string): Promise<ParsedCsvImportRow[]> {
   const records = parseCsvRows(csvText);
   const [headerRow, ...dataRows] = records;
@@ -460,7 +442,6 @@ async function buildParsedRows(csvText: string): Promise<ParsedCsvImportRow[]> {
     countryRegion: dropdownOptions.countryRegion,
     language: dropdownOptions.language,
   };
-  assertHubspotDropdownConfiguration(hubspotDropdownOptions);
 
   return dataRows.map((row, index) => toParsedCsvImportRow(index + 2, row, hubspotDropdownOptions));
 }

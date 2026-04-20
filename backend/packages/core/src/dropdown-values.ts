@@ -13,6 +13,8 @@ import {
 import { prisma, withDbTransaction } from "@scouting-platform/db";
 import { fetchHubspotPropertyDefinition } from "@scouting-platform/integrations";
 
+import { ServiceError } from "./errors";
+
 const DEFAULT_DROPDOWN_VALUES: Record<DropdownValueFieldKey, readonly string[]> = {
   currency: ["EUR", "USD", "GBP"],
   dealType: ["Influencer", "Paid", "Affiliate"],
@@ -41,6 +43,8 @@ const HUBSPOT_PROPERTY_BY_FIELD: Record<HubspotSyncedDropdownFieldKey, string> =
   countryRegion: "country",
   language: "language",
 };
+
+const HUBSPOT_SYNCED_DROPDOWN_FIELD_SET = new Set<string>(HUBSPOT_SYNCED_DROPDOWN_FIELD_KEYS);
 
 function fromPrismaFieldKey(fieldKey: PrismaDropdownValueFieldKey): DropdownValueFieldKey {
   switch (fieldKey) {
@@ -145,6 +149,15 @@ export async function replaceDropdownValues(input: UpdateDropdownValuesRequest &
   actorUserId: string;
 }): Promise<ListDropdownValuesResponse> {
   const payload = updateDropdownValuesRequestSchema.parse(input);
+
+  if (HUBSPOT_SYNCED_DROPDOWN_FIELD_SET.has(payload.fieldKey)) {
+    throw new ServiceError(
+      "DROPDOWN_VALUE_FIELD_READ_ONLY",
+      400,
+      "HubSpot-synced dropdown values can only be updated by syncing from HubSpot.",
+    );
+  }
+
   const values = normalizeDropdownValues(payload.values);
 
   await withDbTransaction(async (tx) => {

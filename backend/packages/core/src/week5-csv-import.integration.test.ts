@@ -114,6 +114,16 @@ integration("week 5 csv import core integration", () => {
     });
   }
 
+  async function seedSyncedDropdownValuesWithoutLanguage(): Promise<void> {
+    await prisma.dropdownValue.createMany({
+      data: [
+        { fieldKey: "INFLUENCER_TYPE", value: "Male" },
+        { fieldKey: "INFLUENCER_VERTICAL", value: "Gaming" },
+        { fieldKey: "COUNTRY_REGION", value: "Croatia" },
+      ],
+    });
+  }
+
   it("creates a queued batch, stores row-level validation errors, and exposes list/detail responses", async () => {
     const imports = await loadImports();
     const admin = await createUser("admin@example.com");
@@ -198,6 +208,58 @@ integration("week 5 csv import core integration", () => {
       },
     });
     expect(completedAudit).not.toBeNull();
+  });
+
+  it("allows blank synced fields when a HubSpot-backed dropdown has no saved options", async () => {
+    const imports = await loadImports();
+    const admin = await createUser("admin@example.com");
+    await seedSyncedDropdownValuesWithoutLanguage();
+
+    const batch = await imports.createCsvImportBatch({
+      requestedByUserId: admin.id,
+      fileName: "blank-language.csv",
+      fileSize: 512,
+      csvText: makeCsv([
+        "UC-CSV-1,Creator One,creator@example.com,,,1000,20000,50,,ops,Male,Gaming,Croatia,",
+      ]),
+    });
+
+    expect(batch.status).toBe("queued");
+    expect(batch.failedRowCount).toBe(0);
+
+    const detail = await imports.getCsvImportBatchById({
+      importBatchId: batch.id,
+      page: 1,
+      pageSize: 100,
+    });
+    expect(detail.rows[0]?.status).toBe("pending");
+    expect(detail.rows[0]?.errorMessage).toBeNull();
+  });
+
+  it("records a row-level validation error when a value uses an unsynced HubSpot dropdown field", async () => {
+    const imports = await loadImports();
+    const admin = await createUser("admin@example.com");
+    await seedSyncedDropdownValuesWithoutLanguage();
+
+    const batch = await imports.createCsvImportBatch({
+      requestedByUserId: admin.id,
+      fileName: "invalid-language.csv",
+      fileSize: 512,
+      csvText: makeCsv([
+        "UC-CSV-1,Creator One,creator@example.com,,,1000,20000,50,,ops,Male,Gaming,Croatia,German",
+      ]),
+    });
+
+    expect(batch.status).toBe("completed");
+    expect(batch.failedRowCount).toBe(1);
+
+    const detail = await imports.getCsvImportBatchById({
+      importBatchId: batch.id,
+      page: 1,
+      pageSize: 100,
+    });
+    expect(detail.rows[0]?.status).toBe("failed");
+    expect(detail.rows[0]?.errorMessage).toContain("language must use a saved HubSpot dropdown value");
   });
 
   it("imports pending rows, dedupes contacts, preserves existing metric values on blank cells, and is retry-safe", async () => {
