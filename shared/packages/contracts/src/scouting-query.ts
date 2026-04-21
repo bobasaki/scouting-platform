@@ -24,9 +24,125 @@ export const EMPTY_CATALOG_SCOUTING_CRITERIA: CatalogScoutingCriteria = {
   niche: "",
 };
 
+const CATALOG_SCOUTING_ESCAPE_CHARACTER = "\\";
+
 const CATALOG_SCOUTING_LABEL_TO_FIELD = new Map(
   CATALOG_SCOUTING_FIELDS.map((field) => [field.label.toLowerCase(), field.key]),
 );
+
+function escapeCatalogScoutingValue(value: string): string {
+  return value
+    .replaceAll(CATALOG_SCOUTING_ESCAPE_CHARACTER, `${CATALOG_SCOUTING_ESCAPE_CHARACTER}${CATALOG_SCOUTING_ESCAPE_CHARACTER}`)
+    .replaceAll("|", `${CATALOG_SCOUTING_ESCAPE_CHARACTER}|`);
+}
+
+function unescapeCatalogScoutingValue(value: string): string | null {
+  let parsed = "";
+
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+
+    if (character !== CATALOG_SCOUTING_ESCAPE_CHARACTER) {
+      parsed += character;
+      continue;
+    }
+
+    const escapedCharacter = value[index + 1];
+
+    if (
+      escapedCharacter !== CATALOG_SCOUTING_ESCAPE_CHARACTER &&
+      escapedCharacter !== "|"
+    ) {
+      return null;
+    }
+
+    parsed += escapedCharacter;
+    index += 1;
+  }
+
+  return parsed;
+}
+
+function splitCatalogScoutingSegments(query: string): string[] | null {
+  const segments: string[] = [];
+  let currentSegment = "";
+  let isEscaped = false;
+
+  for (const character of query) {
+    if (isEscaped) {
+      currentSegment += character;
+      isEscaped = false;
+      continue;
+    }
+
+    if (character === CATALOG_SCOUTING_ESCAPE_CHARACTER) {
+      currentSegment += character;
+      isEscaped = true;
+      continue;
+    }
+
+    if (character === "|") {
+      segments.push(currentSegment.trim());
+      currentSegment = "";
+      continue;
+    }
+
+    currentSegment += character;
+  }
+
+  if (isEscaped) {
+    return null;
+  }
+
+  segments.push(currentSegment.trim());
+  return segments.filter((segment) => segment.length > 0);
+}
+
+function parseCatalogScoutingQuerySegments(
+  query: string,
+): CatalogScoutingCriteria | null {
+  const segments = splitCatalogScoutingSegments(query.trim());
+
+  if (!segments || segments[0] !== CATALOG_SCOUTING_QUERY_PREFIX) {
+    return null;
+  }
+
+  const criteriaSegments = segments.slice(1);
+
+  if (criteriaSegments.length !== CATALOG_SCOUTING_FIELDS.length) {
+    return null;
+  }
+
+  const parsed = { ...EMPTY_CATALOG_SCOUTING_CRITERIA };
+  const parsedFields = new Set<CatalogScoutingCriteriaField>();
+
+  for (const segment of criteriaSegments) {
+    const separatorIndex = segment.indexOf(":");
+
+    if (separatorIndex < 0) {
+      return null;
+    }
+
+    const label = segment.slice(0, separatorIndex).trim().toLowerCase();
+    const rawValue = segment.slice(separatorIndex + 1).trim();
+    const field = CATALOG_SCOUTING_LABEL_TO_FIELD.get(label);
+
+    if (!field || parsedFields.has(field)) {
+      return null;
+    }
+
+    const value = unescapeCatalogScoutingValue(rawValue);
+
+    if (value === null) {
+      return null;
+    }
+
+    parsed[field] = value === "Any" ? "" : value;
+    parsedFields.add(field);
+  }
+
+  return parsedFields.size === CATALOG_SCOUTING_FIELDS.length ? parsed : null;
+}
 
 export function normalizeCatalogScoutingCriteria(
   criteria: Partial<CatalogScoutingCriteria>,
@@ -55,7 +171,9 @@ export function buildCatalogScoutingQuery(
 ): string {
   const normalized = normalizeCatalogScoutingCriteria(criteria);
   const segments = CATALOG_SCOUTING_FIELDS.map((field) => {
-    const value = normalized[field.key] || "Any";
+    const value = normalized[field.key]
+      ? escapeCatalogScoutingValue(normalized[field.key])
+      : "Any";
     return `${field.label}: ${value}`;
   });
 
@@ -63,39 +181,11 @@ export function buildCatalogScoutingQuery(
 }
 
 export function isCatalogScoutingQuery(query: string): boolean {
-  return query.trim().startsWith(CATALOG_SCOUTING_QUERY_PREFIX);
+  return parseCatalogScoutingQuerySegments(query) !== null;
 }
 
 export function parseCatalogScoutingQuery(
   query: string,
 ): CatalogScoutingCriteria | null {
-  if (!isCatalogScoutingQuery(query)) {
-    return null;
-  }
-
-  const parsed = { ...EMPTY_CATALOG_SCOUTING_CRITERIA };
-  const [, ...segments] = query
-    .split("|")
-    .map((segment) => segment.trim())
-    .filter((segment) => segment.length > 0);
-
-  for (const segment of segments) {
-    const separatorIndex = segment.indexOf(":");
-
-    if (separatorIndex < 0) {
-      continue;
-    }
-
-    const label = segment.slice(0, separatorIndex).trim().toLowerCase();
-    const value = segment.slice(separatorIndex + 1).trim();
-    const field = CATALOG_SCOUTING_LABEL_TO_FIELD.get(label);
-
-    if (!field) {
-      continue;
-    }
-
-    parsed[field] = value === "Any" ? "" : value;
-  }
-
-  return parsed;
+  return parseCatalogScoutingQuerySegments(query);
 }

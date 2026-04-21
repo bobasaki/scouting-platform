@@ -50,4 +50,32 @@ describe("scouting query helpers", () => {
       niche: "Strategy",
     });
   });
+
+  it("requires the full structured payload before treating a query as catalog-only", () => {
+    expect(isCatalogScoutingQuery("Catalog scouting criteria")).toBe(false);
+    expect(
+      isCatalogScoutingQuery("Catalog scouting criteria for German gaming channels"),
+    ).toBe(false);
+    expect(
+      parseCatalogScoutingQuery("Catalog scouting criteria | Location: Germany"),
+    ).toBeNull();
+  });
+
+  it("round-trips escaped delimiters in criteria values", () => {
+    const query = buildCatalogScoutingQuery({
+      location: "Germany | Austria",
+      niche: String.raw`FPS \ Strategy`,
+    });
+
+    expect(isCatalogScoutingQuery(query)).toBe(true);
+    expect(parseCatalogScoutingQuery(query)).toEqual({
+      subscribers: "",
+      views: "",
+      location: "Germany | Austria",
+      language: "",
+      lastPostDaysSince: "",
+      category: "",
+      niche: String.raw`FPS \ Strategy`,
+    });
+  });
 });
