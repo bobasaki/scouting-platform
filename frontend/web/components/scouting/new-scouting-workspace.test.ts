@@ -82,7 +82,13 @@ describe("new scouting workspace", () => {
     expect(html).toContain("Campaign");
     expect(html).toContain("Campaign Manager");
     expect(html).toContain("Target");
-    expect(html).toContain("Prompt");
+    expect(html).toContain("Subscribers");
+    expect(html).toContain("Views");
+    expect(html).toContain("Location");
+    expect(html).toContain("Language");
+    expect(html).toContain("Last post day since");
+    expect(html).toContain("Category");
+    expect(html).toContain("Niche");
     expect(html).toContain("Legacy route");
     expect(html).toContain('href="/database?tab=campaigns"');
     expect(html).toContain("Start scouting");
@@ -129,12 +135,8 @@ describe("new scouting workspace", () => {
     const inputs = findElementsByType(rendered, "input") as Array<
       ReactElement<{ disabled?: boolean }>
     >;
-    const textareas = findElementsByType(rendered, "textarea") as Array<
-      ReactElement<{ disabled?: boolean }>
-    >;
 
     expect(searchableTriggers.every((element) => element.props.disabled !== true)).toBe(true);
     expect(inputs.every((element) => element.props.disabled !== true)).toBe(true);
-    expect(textareas[0]?.props.disabled).not.toBe(true);
   });
 });

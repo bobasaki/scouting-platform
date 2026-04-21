@@ -1,6 +1,6 @@
 "use client";
 
-import type { ListRecentRunsResponse, RecentRunItem } from "@scouting-platform/contracts";
+import { isCatalogScoutingQuery, type ListRecentRunsResponse, type RecentRunItem } from "@scouting-platform/contracts";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
 
@@ -94,7 +94,9 @@ function renderRunCard(run: RecentRunItem) {
         <div>
           <p className="recent-runs__eyebrow">Run snapshot</p>
           <h3>{run.name}</h3>
-          <p className="recent-runs__query">Query: {run.query}</p>
+          <p className="recent-runs__query">
+            {isCatalogScoutingQuery(run.query) ? "Criteria" : "Query"}: {run.query}
+          </p>
         </div>
 
         <span className={`recent-runs__status recent-runs__status--${run.status}`}>

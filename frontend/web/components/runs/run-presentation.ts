@@ -67,11 +67,11 @@ export function getRunFailureMessage(run: RunFailureInfo): string {
   }
 
   if (run.lastError.includes("quota exceeded")) {
-    return "YouTube API quota was exhausted before discovery completed. Retry later or ask an admin to rotate the assigned key.";
+    return "YouTube API quota was exhausted before the scouting run completed. Retry later or ask an admin to rotate the assigned key.";
   }
 
   if (run.lastError.includes("YouTube API key")) {
-    return "This account needs an assigned YouTube API key before the worker can run discovery.";
+    return "This account needs an assigned YouTube API key before the worker can use YouTube discovery.";
   }
 
   return run.lastError;
@@ -79,11 +79,11 @@ export function getRunFailureMessage(run: RunFailureInfo): string {
 
 export function getRunStatusSummary(run: RunPresentationInfo): string {
   if (run.status === "queued") {
-    return "Waiting for the discovery worker.";
+    return "Waiting for the scouting worker.";
   }
 
   if (run.status === "running") {
-    return "Discovery worker is processing this run.";
+    return "Scouting worker is processing this run.";
   }
 
   if (run.status === "completed") {
@@ -104,7 +104,7 @@ export function getRunJobFeedback(run: RunPresentationInfo): RunJobFeedback {
       nextStep: "No results are expected yet. Leave this view open or check back shortly.",
       summary:
         "The worker has not claimed this run yet. Status refreshes automatically while it remains in the queue.",
-      title: "Discovery job queued",
+      title: "Scouting job queued",
       tone: "info",
     };
   }
@@ -114,9 +114,8 @@ export function getRunJobFeedback(run: RunPresentationInfo): RunJobFeedback {
       autoRefresh: true,
       nextStep:
         "This view refreshes automatically. An empty results list is normal until ranked snapshot rows are written.",
-      summary:
-        "The worker is searching catalog matches and YouTube discoveries with the assigned API key.",
-      title: "Discovery job running",
+      summary: "The worker is assembling and ranking this scouting snapshot.",
+      title: "Scouting job running",
       tone: "info",
     };
   }
@@ -125,9 +124,9 @@ export function getRunJobFeedback(run: RunPresentationInfo): RunJobFeedback {
     if (run.resultCount === 0) {
       return {
         autoRefresh: false,
-        nextStep: "Try a broader query or rerun later if you expect fresh discoveries.",
+        nextStep: "Try broader scouting criteria or rerun later when more catalog data is available.",
         summary: "The worker finished and stored an empty snapshot for this query.",
-        title: "Discovery job completed",
+        title: "Scouting job completed",
         tone: "success",
       };
     }
@@ -138,7 +137,7 @@ export function getRunJobFeedback(run: RunPresentationInfo): RunJobFeedback {
         "Open any catalog detail to review that channel's enrichment status or request a fresh enrichment run.",
       summary:
         "The worker finished and locked this snapshot so it stays reproducible during review.",
-      title: "Discovery job completed",
+      title: "Scouting job completed",
       tone: "success",
     };
   }
@@ -148,14 +147,14 @@ export function getRunJobFeedback(run: RunPresentationInfo): RunJobFeedback {
     nextStep:
       "Fix the underlying issue, then start a new run. Refresh once more only if you expect a late worker update.",
     summary: getRunFailureMessage(run),
-    title: "Discovery job failed",
+    title: "Scouting job failed",
     tone: "error",
   };
 }
 
 export function getRunResultsEmptyMessage(run: RunPresentationInfo): string {
   if (run.status === "queued") {
-    return "No snapshot rows have been stored yet. That is expected while the discovery job is still queued.";
+    return "No snapshot rows have been stored yet. That is expected while the scouting job is still queued.";
   }
 
   if (run.status === "running") {
@@ -163,8 +162,8 @@ export function getRunResultsEmptyMessage(run: RunPresentationInfo): string {
   }
 
   if (run.status === "completed") {
-    return "Discovery completed without saving matching channels in the snapshot.";
+    return "Scouting completed without saving matching channels in the snapshot.";
   }
 
-  return "No snapshot results were stored because the discovery job failed.";
+  return "No snapshot results were stored because the scouting job failed.";
 }

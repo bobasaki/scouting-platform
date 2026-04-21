@@ -77,6 +77,19 @@ function normalizeText(value: string | null | undefined): string {
   return value?.trim() ?? "";
 }
 
+export function resolveHubspotInfluencerTypeFallback(input: {
+  channelInfluencerType: string | null | undefined;
+  runHubspotInfluencerType: string | null | undefined;
+}): string {
+  const channelInfluencerType = normalizeText(input.channelInfluencerType);
+
+  if (channelInfluencerType) {
+    return channelInfluencerType;
+  }
+
+  return normalizeText(input.runHubspotInfluencerType);
+}
+
 export function buildHubspotRowKey(input: {
   resultId: string;
   contactEmail: string;

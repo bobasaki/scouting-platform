@@ -14,4 +14,5 @@ export * from "./jobs";
 export * from "./reference-data";
 export * from "./runs-assessment";
 export * from "./runs";
+export * from "./scouting-query";
 export * from "./segments";

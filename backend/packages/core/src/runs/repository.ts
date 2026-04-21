@@ -11,16 +11,19 @@ import {
   RunResultSource as PrismaRunResultSource,
   UserType,
 } from "@prisma/client";
-import type {
-  CreateRunResponse,
-  ListRecentRunsResponse,
-  RunChannelAssessmentItem,
-  RunFilterOptions,
-  RunMetadataInput,
-  RunMetadataResponse,
-  RunMonth,
-  RunRequestStatus,
-  RunStatusResponse,
+import {
+  isCatalogScoutingQuery,
+  parseCatalogScoutingQuery,
+  type CatalogScoutingCriteria,
+  type CreateRunResponse,
+  type ListRecentRunsResponse,
+  type RunChannelAssessmentItem,
+  type RunFilterOptions,
+  type RunMetadataInput,
+  type RunMetadataResponse,
+  type RunMonth,
+  type RunRequestStatus,
+  type RunStatusResponse,
 } from "@scouting-platform/contracts";
 import { prisma } from "@scouting-platform/db";
 import {
@@ -381,6 +384,12 @@ async function loadRunCreationMetadata(input: {
 }
 
 async function getCatalogCandidatesForQuery(query: string): Promise<CatalogCandidate[]> {
+  const catalogScoutingCriteria = parseCatalogScoutingQuery(query);
+
+  if (catalogScoutingCriteria) {
+    return getCatalogCandidatesForCriteria(catalogScoutingCriteria);
+  }
+
   const normalizedQuery = query.trim();
 
   if (!normalizedQuery) {
@@ -420,6 +429,195 @@ async function getCatalogCandidatesForQuery(query: string): Promise<CatalogCandi
       id: true,
     },
   });
+}
+
+function escapeLikePattern(value: string): string {
+  return value.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_");
+}
+
+function toLikePattern(value: string): string {
+  return `%${escapeLikePattern(value)}%`;
+}
+
+function parseMetricBound(rawValue: string): bigint | null {
+  const normalized = rawValue.trim().toLowerCase();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const match = normalized.match(/^(\d+(?:\.\d+)?)([kmb])?$/);
+
+  if (!match) {
+    return null;
+  }
+
+  const numericPart = match[1];
+
+  if (!numericPart) {
+    return null;
+  }
+
+  const numeric = Number.parseFloat(numericPart);
+
+  if (!Number.isFinite(numeric) || numeric < 0) {
+    return null;
+  }
+
+  const multiplier =
+    match[2] === "k" ? 1_000 : match[2] === "m" ? 1_000_000 : match[2] === "b" ? 1_000_000_000 : 1;
+
+  return BigInt(Math.round(numeric * multiplier));
+}
+
+function parseMetricRange(value: string): { min?: bigint; max?: bigint } | null {
+  const normalized = value.trim().toLowerCase().replaceAll(",", "").replace(/\s+/g, "");
+
+  if (!normalized) {
+    return null;
+  }
+
+  const plusMatch = normalized.match(/^(.+)\+$/);
+
+  if (plusMatch) {
+    const minimum = plusMatch[1] ? parseMetricBound(plusMatch[1]) : null;
+    return minimum === null ? null : { min: minimum };
+  }
+
+  const rangeMatch = normalized.match(/^([0-9]+(?:\.\d+)?[kmb]?)(?:-|to)([0-9]+(?:\.\d+)?[kmb]?)$/);
+
+  if (rangeMatch) {
+    const minimum = rangeMatch[1] ? parseMetricBound(rangeMatch[1]) : null;
+    const maximum = rangeMatch[2] ? parseMetricBound(rangeMatch[2]) : null;
+
+    if (minimum === null || maximum === null) {
+      return null;
+    }
+
+    return minimum <= maximum ? { min: minimum, max: maximum } : { min: maximum, max: minimum };
+  }
+
+  const minimum = parseMetricBound(normalized);
+  return minimum === null ? null : { min: minimum };
+}
+
+function parseDaysSince(value: string): number | null {
+  const normalized = value.trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(normalized, 10);
+
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    return null;
+  }
+
+  return parsed;
+}
+
+async function getCatalogCandidatesForCriteria(
+  criteria: CatalogScoutingCriteria,
+): Promise<CatalogCandidate[]> {
+  const whereClauses: Prisma.Sql[] = [];
+  const subscriberRange = parseMetricRange(criteria.subscribers);
+  const viewsRange = parseMetricRange(criteria.views);
+  const location = criteria.location.trim();
+  const language = criteria.language.trim();
+  const category = criteria.category.trim();
+  const niche = criteria.niche.trim();
+  const lastPostDaysSince = parseDaysSince(criteria.lastPostDaysSince);
+
+  if (subscriberRange?.min !== undefined) {
+    whereClauses.push(
+      Prisma.sql`COALESCE(cm.youtube_followers, cm.subscriber_count) >= ${subscriberRange.min}`,
+    );
+  }
+
+  if (subscriberRange?.max !== undefined) {
+    whereClauses.push(
+      Prisma.sql`COALESCE(cm.youtube_followers, cm.subscriber_count) <= ${subscriberRange.max}`,
+    );
+  }
+
+  if (viewsRange?.min !== undefined) {
+    whereClauses.push(
+      Prisma.sql`COALESCE(cm.youtube_average_views, cm.view_count) >= ${viewsRange.min}`,
+    );
+  }
+
+  if (viewsRange?.max !== undefined) {
+    whereClauses.push(
+      Prisma.sql`COALESCE(cm.youtube_average_views, cm.view_count) <= ${viewsRange.max}`,
+    );
+  }
+
+  if (location) {
+    const pattern = toLikePattern(location);
+
+    whereClauses.push(Prisma.sql`
+      (
+        c.country_region ILIKE ${pattern} ESCAPE '\\'
+        OR ci.audience_countries::text ILIKE ${pattern} ESCAPE '\\'
+      )
+    `);
+  }
+
+  if (language) {
+    const pattern = toLikePattern(language);
+
+    whereClauses.push(Prisma.sql`
+      (
+        c.content_language ILIKE ${pattern} ESCAPE '\\'
+        OR ce.structured_profile::text ILIKE ${pattern} ESCAPE '\\'
+      )
+    `);
+  }
+
+  if (lastPostDaysSince !== null) {
+    const threshold = new Date(Date.now() - lastPostDaysSince * 24 * 60 * 60 * 1000);
+
+    whereClauses.push(Prisma.sql`
+      NULLIF(cyc.context #>> '{recentVideos,0,publishedAt}', '') IS NOT NULL
+      AND (cyc.context #>> '{recentVideos,0,publishedAt}')::timestamptz >= ${threshold}
+    `);
+  }
+
+  if (category) {
+    const pattern = toLikePattern(category);
+
+    whereClauses.push(
+      Prisma.sql`cyc.context::text ILIKE ${pattern} ESCAPE '\\'`,
+    );
+  }
+
+  if (niche) {
+    const pattern = toLikePattern(niche);
+
+    whereClauses.push(Prisma.sql`
+      (
+        c.influencer_vertical ILIKE ${pattern} ESCAPE '\\'
+        OR ce.structured_profile::text ILIKE ${pattern} ESCAPE '\\'
+      )
+    `);
+  }
+
+  if (whereClauses.length === 0) {
+    return [];
+  }
+
+  return prisma.$queryRaw<CatalogCandidate[]>(Prisma.sql`
+    SELECT c.id
+    FROM channels c
+    LEFT JOIN channel_metrics cm ON cm.channel_id = c.id
+    LEFT JOIN channel_enrichments ce ON ce.channel_id = c.id
+    LEFT JOIN channel_youtube_contexts cyc ON cyc.channel_id = c.id
+    LEFT JOIN channel_insights ci ON ci.channel_id = c.id
+    WHERE ${Prisma.join(whereClauses, " AND ")}
+    ORDER BY COALESCE(cm.youtube_followers, cm.subscriber_count) DESC NULLS LAST, c.updated_at DESC
+    LIMIT 100
+  `);
 }
 
 function buildRunScopeWhere(input: {
@@ -560,24 +758,26 @@ export async function createRunRequest(input: {
   target: number;
   metadata: RunMetadataInput;
 }): Promise<CreateRunResponse> {
-  const hasYoutubeKey = await prisma.userProviderCredential.findUnique({
-    where: {
-      userId_provider: {
-        userId: input.userId,
-        provider: CredentialProvider.YOUTUBE_DATA_API,
+  if (!isCatalogScoutingQuery(input.query)) {
+    const hasYoutubeKey = await prisma.userProviderCredential.findUnique({
+      where: {
+        userId_provider: {
+          userId: input.userId,
+          provider: CredentialProvider.YOUTUBE_DATA_API,
+        },
       },
-    },
-    select: {
-      id: true,
-    },
-  });
+      select: {
+        id: true,
+      },
+    });
 
-  if (!hasYoutubeKey) {
-    throw new ServiceError(
-      "YOUTUBE_KEY_REQUIRED",
-      400,
-      "Assigned YouTube API key is required before creating a run",
-    );
+    if (!hasYoutubeKey) {
+      throw new ServiceError(
+        "YOUTUBE_KEY_REQUIRED",
+        400,
+        "Assigned YouTube API key is required before creating a run",
+      );
+    }
   }
 
   const runMetadata = await loadRunCreationMetadata({
@@ -652,7 +852,7 @@ export async function createRunRequest(input: {
     throw new ServiceError(
       "RUN_ENQUEUE_FAILED",
       500,
-      "Failed to enqueue run discovery job",
+      "Failed to enqueue run processing job",
     );
   }
 
@@ -832,6 +1032,7 @@ export async function executeRunDiscover(input: {
       requestedByUserId: true,
       status: true,
       query: true,
+      target: true,
     },
   });
 
@@ -880,165 +1081,173 @@ export async function executeRunDiscover(input: {
   }
 
   try {
-    const youtubeKey = await getUserYoutubeApiKey(input.requestedByUserId);
-
-    if (!youtubeKey) {
-      throw new ServiceError(
-        "YOUTUBE_KEY_REQUIRED",
-        400,
-        "Assigned YouTube API key is required for discovery",
-      );
-    }
-
     const catalogCandidates = await getCatalogCandidatesForQuery(runRequest.query);
-    const catalogCandidateIds = new Set(catalogCandidates.map((candidate) => candidate.id));
+    const rankedResults = isCatalogScoutingQuery(runRequest.query)
+      ? catalogCandidates
+          .slice(0, runRequest.target ?? catalogCandidates.length)
+          .map((channel) => ({
+            channelId: channel.id,
+            source: PrismaRunResultSource.CATALOG,
+          }))
+      : await (async () => {
+          const youtubeKey = await getUserYoutubeApiKey(input.requestedByUserId);
 
-    const MAX_RESULTS = 50;
-    const now = new Date();
-    const cacheKey = buildDiscoveryCacheKey(
-      runRequest.query,
-      input.requestedByUserId,
-      MAX_RESULTS,
-    );
-    const cacheHit = await prisma.youtubeDiscoveryCache.findUnique({
-      where: {
-        cacheKey,
-      },
-      select: {
-        payload: true,
-        expiresAt: true,
-      },
-    });
+          if (!youtubeKey) {
+            throw new ServiceError(
+              "YOUTUBE_KEY_REQUIRED",
+              400,
+              "Assigned YouTube API key is required for discovery",
+            );
+          }
 
-    let discovered: YoutubeDiscoveredChannel[];
+          const catalogCandidateIds = new Set(catalogCandidates.map((candidate) => candidate.id));
+          const MAX_RESULTS = 50;
+          const now = new Date();
+          const cacheKey = buildDiscoveryCacheKey(
+            runRequest.query,
+            input.requestedByUserId,
+            MAX_RESULTS,
+          );
+          const cacheHit = await prisma.youtubeDiscoveryCache.findUnique({
+            where: {
+              cacheKey,
+            },
+            select: {
+              payload: true,
+              expiresAt: true,
+            },
+          });
 
-    if (cacheHit && cacheHit.expiresAt > now) {
-      discovered = cacheHit.payload as YoutubeDiscoveredChannel[];
-      logProviderSpend({
-        provider: "youtube_discovery",
-        operation: "discover_channels",
-        outcome: "cache_hit",
-        retryAttempt: false,
-        durationMs: 0,
-      });
-    } else {
-      const providerCallStartedAt = Date.now();
+          let discovered: YoutubeDiscoveredChannel[];
 
-      try {
-        const rawDiscovered = await discoverYoutubeChannels({
-          apiKey: youtubeKey,
-          query: runRequest.query,
-          maxResults: MAX_RESULTS,
-        });
+          if (cacheHit && cacheHit.expiresAt > now) {
+            discovered = cacheHit.payload as YoutubeDiscoveredChannel[];
+            logProviderSpend({
+              provider: "youtube_discovery",
+              operation: "discover_channels",
+              outcome: "cache_hit",
+              retryAttempt: false,
+              durationMs: 0,
+            });
+          } else {
+            const providerCallStartedAt = Date.now();
 
-        discovered = rawDiscovered;
+            try {
+              const rawDiscovered = await discoverYoutubeChannels({
+                apiKey: youtubeKey,
+                query: runRequest.query,
+                maxResults: MAX_RESULTS,
+              });
 
-        logProviderSpend({
-          provider: "youtube_discovery",
-          operation: "discover_channels",
-          outcome: "fresh_call",
-          retryAttempt: false,
-          durationMs: Date.now() - providerCallStartedAt,
-        });
+              discovered = rawDiscovered;
 
-        const expiresAt = new Date(
-          Date.now() + YOUTUBE_DISCOVERY_CACHE_TTL_MINUTES * 60 * 1000,
-        );
+              logProviderSpend({
+                provider: "youtube_discovery",
+                operation: "discover_channels",
+                outcome: "fresh_call",
+                retryAttempt: false,
+                durationMs: Date.now() - providerCallStartedAt,
+              });
 
-        await prisma.youtubeDiscoveryCache.upsert({
-          where: {
-            cacheKey,
-          },
-          create: {
-            cacheKey,
-            userId: input.requestedByUserId,
-            query: runRequest.query,
-            maxResults: MAX_RESULTS,
-            payload: toJsonValue(rawDiscovered),
-            fetchedAt: now,
-            expiresAt,
-          },
-          update: {
-            payload: toJsonValue(rawDiscovered),
-            fetchedAt: now,
-            expiresAt,
-          },
-        });
-      } catch (error) {
-        logProviderSpend({
-          provider: "youtube_discovery",
-          operation: "discover_channels",
-          outcome: "error",
-          retryAttempt: false,
-          durationMs: Date.now() - providerCallStartedAt,
-        });
+              const expiresAt = new Date(
+                Date.now() + YOUTUBE_DISCOVERY_CACHE_TTL_MINUTES * 60 * 1000,
+              );
 
-        if (isYoutubeDiscoveryProviderError(error)) {
-          throw new ServiceError(error.code, error.status, error.message);
-        }
+              await prisma.youtubeDiscoveryCache.upsert({
+                where: {
+                  cacheKey,
+                },
+                create: {
+                  cacheKey,
+                  userId: input.requestedByUserId,
+                  query: runRequest.query,
+                  maxResults: MAX_RESULTS,
+                  payload: toJsonValue(rawDiscovered),
+                  fetchedAt: now,
+                  expiresAt,
+                },
+                update: {
+                  payload: toJsonValue(rawDiscovered),
+                  fetchedAt: now,
+                  expiresAt,
+                },
+              });
+            } catch (error) {
+              logProviderSpend({
+                provider: "youtube_discovery",
+                operation: "discover_channels",
+                outcome: "error",
+                retryAttempt: false,
+                durationMs: Date.now() - providerCallStartedAt,
+              });
 
-        throw error;
-      }
-    }
+              if (isYoutubeDiscoveryProviderError(error)) {
+                throw new ServiceError(error.code, error.status, error.message);
+              }
 
-    const existingDiscoveredChannels = await prisma.channel.findMany({
-      where: {
-        youtubeChannelId: {
-          in: discovered.map((channel) => channel.youtubeChannelId),
-        },
-      },
-      select: {
-        id: true,
-        youtubeChannelId: true,
-      },
-    });
-    const existingDiscoveredChannelIds = new Set(
-      existingDiscoveredChannels.map((channel) => channel.id),
-    );
-    const additionalCatalogChannelIds: string[] = [];
-    const addedAdditionalCatalog = new Set<string>();
-    const discoveryOnlyChannelIds: string[] = [];
-    const addedDiscoveryOnly = new Set<string>();
+              throw error;
+            }
+          }
 
-    for (const channel of discovered) {
-      const upserted = await upsertChannelSkeleton(channel);
+          const existingDiscoveredChannels = await prisma.channel.findMany({
+            where: {
+              youtubeChannelId: {
+                in: discovered.map((channel) => channel.youtubeChannelId),
+              },
+            },
+            select: {
+              id: true,
+              youtubeChannelId: true,
+            },
+          });
+          const existingDiscoveredChannelIds = new Set(
+            existingDiscoveredChannels.map((channel) => channel.id),
+          );
+          const additionalCatalogChannelIds: string[] = [];
+          const addedAdditionalCatalog = new Set<string>();
+          const discoveryOnlyChannelIds: string[] = [];
+          const addedDiscoveryOnly = new Set<string>();
 
-      if (catalogCandidateIds.has(upserted.id)) {
-        continue;
-      }
+          for (const channel of discovered) {
+            const upserted = await upsertChannelSkeleton(channel);
 
-      if (existingDiscoveredChannelIds.has(upserted.id)) {
-        if (addedAdditionalCatalog.has(upserted.id)) {
-          continue;
-        }
+            if (catalogCandidateIds.has(upserted.id)) {
+              continue;
+            }
 
-        addedAdditionalCatalog.add(upserted.id);
-        additionalCatalogChannelIds.push(upserted.id);
-        continue;
-      }
+            if (existingDiscoveredChannelIds.has(upserted.id)) {
+              if (addedAdditionalCatalog.has(upserted.id)) {
+                continue;
+              }
 
-      if (addedDiscoveryOnly.has(upserted.id)) {
-        continue;
-      }
+              addedAdditionalCatalog.add(upserted.id);
+              additionalCatalogChannelIds.push(upserted.id);
+              continue;
+            }
 
-      addedDiscoveryOnly.add(upserted.id);
-      discoveryOnlyChannelIds.push(upserted.id);
-    }
+            if (addedDiscoveryOnly.has(upserted.id)) {
+              continue;
+            }
 
-    const rankedResults = [
-      ...catalogCandidates.map((channelId) => ({
-        channelId: channelId.id,
-        source: PrismaRunResultSource.CATALOG,
-      })),
-      ...additionalCatalogChannelIds.map((channelId) => ({
-        channelId,
-        source: PrismaRunResultSource.CATALOG,
-      })),
-      ...discoveryOnlyChannelIds.map((channelId) => ({
-        channelId,
-        source: PrismaRunResultSource.DISCOVERY,
-      })),
-    ];
+            addedDiscoveryOnly.add(upserted.id);
+            discoveryOnlyChannelIds.push(upserted.id);
+          }
+
+          return [
+            ...catalogCandidates.map((channelId) => ({
+              channelId: channelId.id,
+              source: PrismaRunResultSource.CATALOG,
+            })),
+            ...additionalCatalogChannelIds.map((channelId) => ({
+              channelId,
+              source: PrismaRunResultSource.CATALOG,
+            })),
+            ...discoveryOnlyChannelIds.map((channelId) => ({
+              channelId,
+              source: PrismaRunResultSource.DISCOVERY,
+            })),
+          ];
+        })();
 
     await prisma.$transaction(async (tx) => {
       await tx.runResult.deleteMany({

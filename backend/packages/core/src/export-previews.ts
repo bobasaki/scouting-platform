@@ -14,6 +14,7 @@ import {
   applyHubspotPreparationRows,
   buildHubspotRowKey,
   normalizeHubspotPrepDefaults,
+  resolveHubspotInfluencerTypeFallback,
 } from "./hubspot/preparation";
 
 const runPreviewSelect = {
@@ -313,7 +314,10 @@ function buildHubspotRows(run: RunPreviewRecord): ExportPreviewRow[] {
           firstName: contact.firstName ?? "",
           lastName: contact.lastName ?? "",
           email: contact.email,
-          influencerType: channel.influencerType ?? run.hubspotInfluencerType ?? "YouTube Creator",
+          influencerType: resolveHubspotInfluencerTypeFallback({
+            channelInfluencerType: channel.influencerType,
+            runHubspotInfluencerType: run.hubspotInfluencerType,
+          }),
           influencerVertical: channel.influencerVertical ?? getTopTopic(channel.enrichment?.topics ?? null),
           countryRegion: channel.countryRegion ?? getTopCountry(channel.insights?.audienceCountries ?? null),
           language: channel.contentLanguage ?? run.hubspotLanguage ?? "",

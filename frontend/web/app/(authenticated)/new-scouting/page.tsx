@@ -53,7 +53,7 @@ export default function NewScoutingPage() {
   return (
     <PageSection
       title="New scouting"
-      description="Start a scouting run from an active campaign with the minimum required input and preserve campaign data as a run snapshot."
+      description="Start a scouting run from an active campaign, use catalog criteria instead of a freeform prompt, and preserve campaign data as a run snapshot."
     >
       <Suspense fallback={<NewScoutingFallback />}>
         <NewScoutingData />

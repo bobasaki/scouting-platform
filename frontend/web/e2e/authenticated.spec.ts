@@ -39,7 +39,9 @@ test.describe("authenticated launch-readiness flows", () => {
     await selectSearchableOption(page, "Campaign", seedData.campaign.name);
     await selectSearchableOption(page, "Campaign Manager", "Week 8 E2E Manager");
     await page.getByLabel("Target").fill("15");
-    await page.getByLabel("Prompt").fill("Launch-ready gaming creators in Germany");
+    await page.getByLabel("Subscribers").fill("100K+");
+    await page.getByLabel("Location").fill("Germany");
+    await page.getByLabel("Category").fill("Gaming");
     await page.getByRole("button", { name: "Start scouting" }).click();
 
     await expect(page).toHaveURL(/\/runs\/.+$/);
