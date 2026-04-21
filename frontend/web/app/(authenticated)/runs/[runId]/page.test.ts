@@ -52,7 +52,7 @@ describe("run detail page", () => {
     });
     expect(html).toContain("<h1>Run Detail</h1>");
     expect(html).toContain(
-      "Track discovery status, inspect stored snapshot results, and surface queue failures without leaving the runs surface.",
+      "Track scouting status, inspect stored snapshot results, and surface queue failures without leaving the runs surface.",
     );
     expect(html).toContain("run-detail-shell:run-123:with-data");
   });

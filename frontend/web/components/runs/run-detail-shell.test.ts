@@ -2,6 +2,8 @@ import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+import { buildCatalogScoutingQuery } from "@scouting-platform/contracts";
+
 vi.mock("next/link", async () => {
   const react = await vi.importActual<typeof import("react")>("react");
 
@@ -95,7 +97,15 @@ function buildRunStatusPayload(
     id: "53adac17-f39d-4731-a61f-194150fbc431",
     requestedByUserId: "6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b",
     name: "Gaming Run",
-    query: "gaming creators",
+    query: buildCatalogScoutingQuery({
+      subscribers: "100K+",
+      views: "25K-250K",
+      location: "Germany",
+      language: "German",
+      lastPostDaysSince: "30",
+      category: "Gaming",
+      niche: "Strategy",
+    }),
     target: 20,
     status,
     lastError: overrides?.lastError ?? null,
@@ -155,7 +165,7 @@ describe("run detail shell", () => {
         lastError: "YouTube API quota exceeded",
       }),
     ).toBe(
-      "YouTube API quota was exhausted before discovery completed. Retry later or ask an admin to rotate the assigned key.",
+      "YouTube API quota was exhausted before the scouting run completed. Retry later or ask an admin to rotate the assigned key.",
     );
   });
 
@@ -183,8 +193,9 @@ describe("run detail shell", () => {
     });
 
     expect(html).toContain("Gaming Run");
+    expect(html).toContain("Criteria:");
     expect(html).toContain("Snapshot complete and ready for review.");
-    expect(html).toContain("Discovery job completed");
+    expect(html).toContain("Scouting job completed");
     expect(html).toContain("The worker finished and locked this snapshot so it stays reproducible during review.");
     expect(html).toContain("Open any catalog detail to review");
     expect(html).toContain("Snapshot results");
@@ -205,10 +216,10 @@ describe("run detail shell", () => {
     });
 
     expect(html).toContain("Run needs attention before you try again.");
-    expect(html).toContain("Discovery job failed");
-    expect(html).toContain("This account needs an assigned YouTube API key before the worker can run discovery.");
+    expect(html).toContain("Scouting job failed");
+    expect(html).toContain("This account needs an assigned YouTube API key before the worker can use YouTube discovery.");
     expect(html).toContain("Fix the underlying issue, then start a new run.");
-    expect(html).toContain("No snapshot results were stored because the discovery job failed.");
+    expect(html).toContain("No snapshot results were stored because the scouting job failed.");
     expect(html).toContain("Retry status check");
   });
 });

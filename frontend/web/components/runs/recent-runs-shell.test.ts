@@ -2,6 +2,8 @@ import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+import { buildCatalogScoutingQuery } from "@scouting-platform/contracts";
+
 vi.mock("next/link", async () => {
   const react = await vi.importActual<typeof import("react")>("react");
 
@@ -59,7 +61,17 @@ function buildRun(
   return {
     id: overrides?.id ?? `53adac17-f39d-4731-a61f-194150fbc43${status.length}`,
     name: overrides?.name ?? `${status} run`,
-    query: overrides?.query ?? `${status} creators`,
+    query:
+      overrides?.query ??
+      buildCatalogScoutingQuery({
+        subscribers: "100K+",
+        views: "25K-250K",
+        location: "Germany",
+        language: "German",
+        lastPostDaysSince: "30",
+        category: "Gaming",
+        niche: "Strategy",
+      }),
     target: null,
     status,
     lastError: overrides?.lastError ?? null,
@@ -153,10 +165,11 @@ describe("recent runs shell", () => {
     expect(readyHtml).toContain("Running Run");
     expect(readyHtml).toContain("Completed Run");
     expect(readyHtml).toContain("Failed Run");
-    expect(readyHtml).toContain("Discovery job running");
+    expect(readyHtml).toContain("Criteria:");
+    expect(readyHtml).toContain("Scouting job running");
     expect(readyHtml).toContain("Auto-refresh is active while this job is queued or running.");
-    expect(readyHtml).toContain("Discovery job failed");
-    expect(readyHtml).toContain("This account needs an assigned YouTube API key before the worker can run discovery.");
+    expect(readyHtml).toContain("Scouting job failed");
+    expect(readyHtml).toContain("This account needs an assigned YouTube API key before the worker can use YouTube discovery.");
     expect(readyHtml).toContain("Updated");
     expect(readyHtml).toContain('href="/runs/run-completed"');
   });

@@ -55,7 +55,7 @@ export default async function RunDetailPage({ params }: RunDetailPageProps) {
   return (
     <PageSection
       title="Run Detail"
-      description="Track discovery status, inspect stored snapshot results, and surface queue failures without leaving the runs surface."
+      description="Track scouting status, inspect stored snapshot results, and surface queue failures without leaving the runs surface."
     >
       <Suspense fallback={<RunDetailFallback />}>
         <RunDetailData runId={runId} />

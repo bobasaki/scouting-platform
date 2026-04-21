@@ -1,6 +1,8 @@
 import type { ReactElement, ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { buildCatalogScoutingQuery } from "@scouting-platform/contracts";
+
 const { createRunMock, pushMock, useRouterMock, useStateMock } = vi.hoisted(() => ({
   createRunMock: vi.fn(),
   pushMock: vi.fn(),
@@ -55,13 +57,20 @@ const CAMPAIGN_OPTION = {
 
 const DEFAULT_TEST_DRAFT = {
   name: "Gaming run",
-  prompt: "gaming creators",
   target: "20",
   campaignId: CAMPAIGN_OPTION.id,
   campaignManagerUserId: CAMPAIGN_MANAGER_OPTION.id,
+  subscribers: "100K+",
+  views: "25K-250K",
+  location: "Germany",
+  language: "German",
+  lastPostDaysSince: "30",
+  category: "Gaming",
+  niche: "Strategy",
 };
 
-const IDLE_MESSAGE = "Pick an active campaign and start a scouting list with the minimum required input.";
+const IDLE_MESSAGE =
+  "Pick an active campaign and add at least one catalog criterion to build this scouting list.";
 
 function findElementsByType(node: ReactNode, type: string): Array<ReactElement<Record<string, unknown>>> {
   if (Array.isArray(node)) {
@@ -131,8 +140,9 @@ describe("new scouting workspace behavior", () => {
       draft: {
         ...DEFAULT_TEST_DRAFT,
         name: "  Spring gaming outreach  ",
-        prompt: "  gaming creators for DACH  ",
         target: " 25 ",
+        location: "  Germany  ",
+        niche: "  Strategy  ",
       },
     });
 
@@ -147,7 +157,15 @@ describe("new scouting workspace behavior", () => {
 
     expect(createRunMock).toHaveBeenCalledWith({
       name: "Spring gaming outreach",
-      query: "gaming creators for DACH",
+      query: buildCatalogScoutingQuery({
+        subscribers: "100K+",
+        views: "25K-250K",
+        location: "  Germany  ",
+        language: "German",
+        lastPostDaysSince: "30",
+        category: "Gaming",
+        niche: "  Strategy  ",
+      }),
       target: 25,
       metadata: {
         campaignId: CAMPAIGN_OPTION.id,
@@ -161,13 +179,13 @@ describe("new scouting workspace behavior", () => {
     expect(pushMock).toHaveBeenCalledWith("/runs/53adac17-f39d-4731-a61f-194150fbc431");
   });
 
-  it("updates the prompt draft when the prompt field changes", () => {
+  it("updates the subscribers draft when the subscribers field changes", () => {
     const { element, setDraft } = renderWorkspace();
-    const textareas = findElementsByType(element, "textarea") as Array<
+    const inputs = findElementsByType(element, "input") as Array<
       ReactElement<{ onChange: (event: { currentTarget: { value: string } }) => void }>
     >;
 
-    textareas[0]?.props.onChange({ currentTarget: { value: "updated prompt" } });
+    inputs[2]?.props.onChange({ currentTarget: { value: "250K+" } });
 
     const updateDraft = setDraft.mock.calls[0]?.[0] as
       | ((draft: typeof DEFAULT_TEST_DRAFT) => typeof DEFAULT_TEST_DRAFT)
@@ -175,7 +193,7 @@ describe("new scouting workspace behavior", () => {
 
     expect(updateDraft?.(DEFAULT_TEST_DRAFT)).toEqual({
       ...DEFAULT_TEST_DRAFT,
-      prompt: "updated prompt",
+      subscribers: "250K+",
     });
   });
 
@@ -212,6 +230,24 @@ describe("new scouting workspace behavior", () => {
     expect(updateDraft?.(DEFAULT_TEST_DRAFT)).toEqual({
       ...DEFAULT_TEST_DRAFT,
       target: "35",
+    });
+  });
+
+  it("updates the niche draft when the niche field changes", () => {
+    const { element, setDraft } = renderWorkspace();
+    const inputs = findElementsByType(element, "input") as Array<
+      ReactElement<{ onChange: (event: { currentTarget: { value: string } }) => void }>
+    >;
+
+    inputs[8]?.props.onChange({ currentTarget: { value: "Walkthroughs" } });
+
+    const updateDraft = setDraft.mock.calls[0]?.[0] as
+      | ((draft: typeof DEFAULT_TEST_DRAFT) => typeof DEFAULT_TEST_DRAFT)
+      | undefined;
+
+    expect(updateDraft?.(DEFAULT_TEST_DRAFT)).toEqual({
+      ...DEFAULT_TEST_DRAFT,
+      niche: "Walkthroughs",
     });
   });
 });

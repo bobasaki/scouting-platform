@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { PrismaClient, Role, RunRequestStatus, RunResultSource } from "@prisma/client";
+import { buildCatalogScoutingQuery } from "@scouting-platform/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const discoverYoutubeChannelsMock = vi.fn();
@@ -184,6 +185,101 @@ integration("week 3 core integration", () => {
       WHERE name = 'runs.discover'
     `;
     expect(jobs[0]?.count ?? 0).toBeGreaterThan(0);
+  });
+
+  it("creates and completes catalog-only scouting runs without a youtube key", async () => {
+    const user = await prisma.user.create({
+      data: {
+        email: "catalog-only@example.com",
+        name: "Catalog Only",
+        role: Role.USER,
+        passwordHash: "hash",
+        isActive: true,
+      },
+    });
+
+    const matchingChannel = await prisma.channel.create({
+      data: {
+        youtubeChannelId: "UC-CATALOG-ONLY-1",
+        title: "Catalog Only Creator",
+        countryRegion: "Germany",
+        contentLanguage: "German",
+        influencerVertical: "Strategy",
+        metrics: {
+          create: {
+            subscriberCount: 150_000n,
+            viewCount: 1_000_000n,
+            youtubeAverageViews: 90_000n,
+            youtubeFollowers: 150_000n,
+          },
+        },
+        youtubeContext: {
+          create: {
+            context: {
+              recentVideos: [
+                {
+                  publishedAt: new Date().toISOString(),
+                  categoryName: "Gaming",
+                },
+              ],
+            },
+          },
+        },
+      },
+    });
+
+    await prisma.channel.create({
+      data: {
+        youtubeChannelId: "UC-CATALOG-ONLY-2",
+        title: "Filtered Out Creator",
+        countryRegion: "France",
+      },
+    });
+
+    const created = await getCore().createRunRequest({
+      userId: user.id,
+      name: "Catalog Only Run",
+      query: buildCatalogScoutingQuery({
+        subscribers: "100K+",
+        views: "50K+",
+        location: "Germany",
+        language: "German",
+        lastPostDaysSince: "30",
+        category: "Gaming",
+        niche: "Strategy",
+      }),
+      target: 10,
+      metadata: await buildRunMetadata(user.id),
+    });
+
+    await getCore().executeRunDiscover({
+      runRequestId: created.runId,
+      requestedByUserId: user.id,
+    });
+
+    const runRequest = await prisma.runRequest.findUniqueOrThrow({
+      where: {
+        id: created.runId,
+      },
+    });
+    expect(runRequest.status).toBe(RunRequestStatus.COMPLETED);
+    expect(runRequest.lastError).toBeNull();
+
+    const results = await prisma.runResult.findMany({
+      where: {
+        runRequestId: created.runId,
+      },
+      orderBy: {
+        rank: "asc",
+      },
+    });
+    expect(results).toEqual([
+      expect.objectContaining({
+        channelId: matchingChannel.id,
+        source: RunResultSource.CATALOG,
+      }),
+    ]);
+    expect(discoverYoutubeChannelsMock).not.toHaveBeenCalled();
   });
 
   it("fails run creation when user has no assigned youtube key", async () => {

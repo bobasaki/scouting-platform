@@ -11,7 +11,7 @@ export default function RunDetailLoading() {
   return (
     <PageSection
       title="Run Detail"
-      description="Track discovery status, inspect stored snapshot results, and surface queue failures without leaving the runs surface."
+      description="Track scouting status, inspect stored snapshot results, and surface queue failures without leaving the runs surface."
     >
       <SkeletonPageBody>
         <div style={{ display: "flex", gap: "1.5rem", alignItems: "center" }}>

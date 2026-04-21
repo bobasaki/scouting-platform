@@ -1,12 +1,19 @@
 "use client";
 
-import type { CampaignManagerOption, CampaignSummary } from "@scouting-platform/contracts";
+import {
+  buildCatalogScoutingQuery,
+  EMPTY_CATALOG_SCOUTING_CRITERIA,
+  hasCatalogScoutingCriteria,
+  type CampaignManagerOption,
+  type CampaignSummary,
+  type CatalogScoutingCriteria,
+} from "@scouting-platform/contracts";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { startTransition, useState } from "react";
 
 import { createRun } from "../../lib/runs-api";
-import { getCreateRunErrorMessage, normalizeRunDraft, normalizeRunTarget } from "../runs/create-run-shell";
+import { getCreateRunErrorMessage, normalizeRunTarget } from "../runs/create-run-shell";
 import { SearchableSelect, type SearchableSelectOption } from "../ui/searchable-select";
 
 type NewScoutingWorkspaceProps = Readonly<{
@@ -17,11 +24,10 @@ type NewScoutingWorkspaceProps = Readonly<{
 
 type NewScoutingDraft = {
   name: string;
-  prompt: string;
   target: string;
   campaignId: string;
   campaignManagerUserId: string;
-};
+} & CatalogScoutingCriteria;
 
 type NewScoutingRequestState = {
   status: "idle" | "submitting" | "error";
@@ -30,7 +36,7 @@ type NewScoutingRequestState = {
 
 const DEFAULT_REQUEST_STATE: NewScoutingRequestState = {
   status: "idle",
-  message: "Pick an active campaign and start a scouting list with the minimum required input.",
+  message: "Pick an active campaign and add at least one catalog criterion to build this scouting list.",
 };
 
 export function NewScoutingWorkspace({
@@ -41,10 +47,10 @@ export function NewScoutingWorkspace({
   const router = useRouter();
   const [draft, setDraft] = useState<NewScoutingDraft>({
     name: "",
-    prompt: "",
     target: "",
     campaignId: "",
     campaignManagerUserId: "",
+    ...EMPTY_CATALOG_SCOUTING_CRITERIA,
   });
   const [requestState, setRequestState] = useState<NewScoutingRequestState>(DEFAULT_REQUEST_STATE);
   const isBusy = requestState.status === "submitting";
@@ -85,15 +91,12 @@ export function NewScoutingWorkspace({
     });
 
     try {
-      const normalizedDraft = normalizeRunDraft({
-        name: draft.name,
-        query: draft.prompt,
-        target: draft.target,
-      });
+      const normalizedName = draft.name.trim();
       const normalizedTarget = normalizeRunTarget(draft.target);
+      const hasCriteria = hasCatalogScoutingCriteria(draft);
 
-      if (!normalizedDraft.name || !normalizedDraft.query || normalizedTarget === null) {
-        throw new Error("Influencer List, target, and prompt are required.");
+      if (!normalizedName || !hasCriteria || normalizedTarget === null) {
+        throw new Error("Influencer List, target, and at least one catalog criterion are required.");
       }
 
       if (!draft.campaignId) {
@@ -105,8 +108,8 @@ export function NewScoutingWorkspace({
       }
 
       const response = await createRun({
-        name: normalizedDraft.name,
-        query: normalizedDraft.query,
+        name: normalizedName,
+        query: buildCatalogScoutingQuery(draft),
         target: normalizedTarget,
         metadata: {
           campaignId: draft.campaignId,
@@ -194,16 +197,95 @@ export function NewScoutingWorkspace({
           </label>
         </div>
 
+        <div className="new-scouting__grid new-scouting__grid--two">
+          <label className="new-scouting__field">
+            <span>Subscribers</span>
+            <input
+              autoComplete="off"
+              disabled={isBusy}
+              maxLength={50}
+              onChange={(event) => updateDraftField("subscribers", event.currentTarget.value)}
+              placeholder="100K+"
+              value={draft.subscribers}
+            />
+          </label>
+
+          <label className="new-scouting__field">
+            <span>Views</span>
+            <input
+              autoComplete="off"
+              disabled={isBusy}
+              maxLength={50}
+              onChange={(event) => updateDraftField("views", event.currentTarget.value)}
+              placeholder="25K-250K"
+              value={draft.views}
+            />
+          </label>
+        </div>
+
+        <div className="new-scouting__grid new-scouting__grid--two">
+          <label className="new-scouting__field">
+            <span>Location</span>
+            <input
+              autoComplete="off"
+              disabled={isBusy}
+              maxLength={50}
+              onChange={(event) => updateDraftField("location", event.currentTarget.value)}
+              placeholder="Germany"
+              value={draft.location}
+            />
+          </label>
+
+          <label className="new-scouting__field">
+            <span>Language</span>
+            <input
+              autoComplete="off"
+              disabled={isBusy}
+              maxLength={50}
+              onChange={(event) => updateDraftField("language", event.currentTarget.value)}
+              placeholder="German"
+              value={draft.language}
+            />
+          </label>
+        </div>
+
+        <div className="new-scouting__grid new-scouting__grid--two">
+          <label className="new-scouting__field">
+            <span>Last post day since</span>
+            <input
+              autoComplete="off"
+              disabled={isBusy}
+              inputMode="numeric"
+              maxLength={10}
+              onChange={(event) => updateDraftField("lastPostDaysSince", event.currentTarget.value)}
+              placeholder="30"
+              value={draft.lastPostDaysSince}
+            />
+            <small>Use days, for example `30` to keep channels active within the last month.</small>
+          </label>
+
+          <label className="new-scouting__field">
+            <span>Category</span>
+            <input
+              autoComplete="off"
+              disabled={isBusy}
+              maxLength={50}
+              onChange={(event) => updateDraftField("category", event.currentTarget.value)}
+              placeholder="Gaming"
+              value={draft.category}
+            />
+          </label>
+        </div>
+
         <label className="new-scouting__field">
-          <span>Prompt</span>
-          <textarea
+          <span>Niche</span>
+          <input
+            autoComplete="off"
             disabled={isBusy}
-            maxLength={500}
-            onChange={(event) => updateDraftField("prompt", event.currentTarget.value)}
-            placeholder="Gaming creators with strong strategy content and DACH audience relevance"
-            required
-            rows={7}
-            value={draft.prompt}
+            maxLength={50}
+            onChange={(event) => updateDraftField("niche", event.currentTarget.value)}
+            placeholder="Strategy"
+            value={draft.niche}
           />
         </label>
 

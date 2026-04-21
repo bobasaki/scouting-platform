@@ -42,7 +42,7 @@ describe("new scouting page", () => {
 
     expect(html).toContain("New scouting");
     expect(html).toContain(
-      "Start a scouting run from an active campaign with the minimum required input and preserve campaign data as a run snapshot.",
+      "Start a scouting run from an active campaign, use catalog criteria instead of a freeform prompt, and preserve campaign data as a run snapshot.",
     );
     expect(newScoutingWorkspaceMock).toHaveBeenCalledTimes(1);
     expect(html).toContain("new-scouting-workspace");

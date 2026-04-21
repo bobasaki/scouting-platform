@@ -1,6 +1,6 @@
 "use client";
 
-import type { RunResultItem, RunStatusResponse } from "@scouting-platform/contracts";
+import { isCatalogScoutingQuery, type RunResultItem, type RunStatusResponse } from "@scouting-platform/contracts";
 import Image from "next/image";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
@@ -141,6 +141,10 @@ function renderResultCard(result: RunResultItem) {
   );
 }
 
+function getRunQueryLabel(query: string): string {
+  return isCatalogScoutingQuery(query) ? "Criteria" : "Query";
+}
+
 function renderReadyState(run: RunStatusResponse, onRetry: () => void) {
   const jobFeedback = getRunJobFeedback({
     status: run.status,
@@ -154,7 +158,9 @@ function renderReadyState(run: RunStatusResponse, onRetry: () => void) {
         <div className="run-detail__hero-copy">
           <p className="run-detail__eyebrow">Run snapshot</p>
           <h2 id="run-detail-heading">{run.name}</h2>
-          <p className="run-detail__query">Query: {run.query}</p>
+          <p className="run-detail__query">
+            {getRunQueryLabel(run.query)}: {run.query}
+          </p>
           <div className="run-detail__status-row">
             <span className={`run-detail__status run-detail__status--${run.status}`}>
               {formatRunStatusLabel(run.status)}
@@ -204,7 +210,7 @@ function renderReadyState(run: RunStatusResponse, onRetry: () => void) {
           <p>{jobFeedback.nextStep}</p>
           {jobFeedback.autoRefresh ? (
             <p className="run-detail__job-feedback-note">
-              Auto-refresh is active while this discovery job is still queued or running.
+              Auto-refresh is active while this scouting job is still queued or running.
             </p>
           ) : null}
         </div>
