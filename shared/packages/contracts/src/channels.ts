@@ -196,6 +196,7 @@ export const channelSummarySchema = z.object({
   email: z.string().nullable().optional(),
   influencerVertical: z.string().nullable().optional(),
   influencerType: z.string().nullable().optional(),
+  contentLanguage: z.string().nullable().optional(),
   youtubeEngagementRate: z.number().nullable().optional(),
   youtubeFollowers: z.string().nullable().optional(),
   youtubeVideoMedianViews: z.string().nullable().optional(),

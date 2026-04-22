@@ -81,6 +81,7 @@ export type ChannelSummary = {
   email: string | null;
   influencerVertical: string | null;
   influencerType: string | null;
+  contentLanguage: string | null;
   youtubeEngagementRate: number | null;
   youtubeFollowers: string | null;
   youtubeVideoMedianViews: string | null;
@@ -188,6 +189,7 @@ const channelListSelect = {
   influencerType: true,
   influencerVertical: true,
   countryRegion: true,
+  contentLanguage: true,
   updatedAt: true,
   metrics: {
     select: {
@@ -237,6 +239,7 @@ const channelDetailSelect = {
   influencerType: true,
   influencerVertical: true,
   countryRegion: true,
+  contentLanguage: true,
   createdAt: true,
   updatedAt: true,
   metrics: {
@@ -562,6 +565,7 @@ function toChannelSummary(channel: {
   influencerType: string | null;
   influencerVertical: string | null;
   countryRegion: string | null;
+  contentLanguage: string | null;
   updatedAt: Date;
   metrics: {
     youtubeEngagementRate: number | null;
@@ -605,6 +609,7 @@ function toChannelSummary(channel: {
     email: channel.contacts[0]?.email ?? null,
     influencerVertical: channel.influencerVertical ?? topics[0] ?? null,
     influencerType: channel.influencerType,
+    contentLanguage: channel.contentLanguage,
     youtubeEngagementRate: channel.metrics?.youtubeEngagementRate ?? null,
     youtubeFollowers: toNullableBigIntString(channel.metrics?.youtubeFollowers),
     youtubeVideoMedianViews: toNullableBigIntString(channel.metrics?.youtubeVideoMedianViews),
@@ -626,6 +631,7 @@ function toChannelDetail(channel: {
   influencerType: string | null;
   influencerVertical: string | null;
   countryRegion: string | null;
+  contentLanguage: string | null;
   createdAt: Date;
   updatedAt: Date;
   metrics: {

@@ -326,6 +326,7 @@ integration("week 2 core integration", () => {
         title: "Creator Match",
         handle: "@creator-match",
         countryRegion: "Croatia",
+        contentLanguage: "Croatian",
         influencerVertical: "Gaming",
         influencerType: "Creator",
       },
@@ -391,6 +392,7 @@ integration("week 2 core integration", () => {
     expect(filtered.items.map((item) => item.youtubeChannelId)).toEqual(["UC_CREATOR_MATCH"]);
     expect(filtered.items[0]).toMatchObject({
       socialMediaLink: "https://www.youtube.com/@creator-match",
+      contentLanguage: "Croatian",
       youtubeFollowers: "500000",
       youtubeVideoMedianViews: "220000",
       youtubeShortsMedianViews: "180000",
@@ -398,6 +400,7 @@ integration("week 2 core integration", () => {
 
     const matchedDetail = await core.getChannelById(matchedChannel.id);
     expect(matchedDetail).toMatchObject({
+      contentLanguage: "Croatian",
       youtubeVideoMedianViews: "220000",
       youtubeShortsMedianViews: "180000",
     });
