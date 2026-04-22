@@ -94,7 +94,6 @@ const CatalogTableRow = memo(function CatalogTableRow({
       <td>{channel.email ?? "—"}</td>
       <td>{channel.influencerVertical ?? "—"}</td>
       <td>{channel.influencerType ?? "—"}</td>
-      <td>{formatChannelMetric(channel.youtubeAverageViews ?? null)}</td>
       <td>{formatChannelEngagementRate(channel.youtubeEngagementRate ?? null)}</td>
       <td>{formatChannelMetric(channel.youtubeFollowers ?? null)}</td>
     </tr>
@@ -326,7 +325,6 @@ export function CatalogTable({
               <th scope="col">Email</th>
               <th scope="col">Influencer Vertical</th>
               <th scope="col">Influencer Type</th>
-              <th scope="col">YouTube Average Views</th>
               <th scope="col">YouTube Engagement Rate</th>
               <th scope="col">YouTube Followers</th>
             </tr>
