@@ -129,7 +129,7 @@ function formatRowMetrics(row: CsvImportBatchDetail["rows"][number]): string {
   return segments.join(" · ") || "No metrics supplied";
 }
 
-function formatRowHubspotFields(row: CsvImportBatchDetail["rows"][number]): string {
+function formatRowProfileFields(row: CsvImportBatchDetail["rows"][number]): string {
   const segments = [
     row.influencerType ? `Type ${row.influencerType}` : null,
     row.influencerVertical ? `Vertical ${row.influencerVertical}` : null,
@@ -137,7 +137,7 @@ function formatRowHubspotFields(row: CsvImportBatchDetail["rows"][number]): stri
     row.language ? `Language ${row.language}` : null,
   ].filter((segment): segment is string => Boolean(segment));
 
-  return segments.join(" · ") || "No HubSpot dropdown values supplied";
+  return segments.join(" · ") || "No profile values supplied";
 }
 
 function getBatchPageSummary(batch: CsvImportBatchDetail): string {
@@ -380,7 +380,7 @@ function renderDetailState(props: AdminCsvImportManagerViewProps): ReactElement 
                 <th scope="col">Channel</th>
                 <th scope="col">Contact</th>
                 <th scope="col">Metrics</th>
-                <th scope="col">HubSpot fields</th>
+                <th scope="col">Profile fields</th>
                 <th scope="col">Result</th>
               </tr>
             </thead>
@@ -423,7 +423,7 @@ function renderDetailState(props: AdminCsvImportManagerViewProps): ReactElement 
                     </td>
                     <td>{formatNullableCell(row.contactEmail)}</td>
                     <td>{formatRowMetrics(row)}</td>
-                    <td>{formatRowHubspotFields(row)}</td>
+                    <td>{formatRowProfileFields(row)}</td>
                     <td>{resultCopy}</td>
                   </tr>
                 );
@@ -447,7 +447,7 @@ export function AdminCsvImportManagerView(props: AdminCsvImportManagerViewProps)
       <div className="admin-csv-imports__toolbar">
         <div className="admin-csv-imports__toolbar-links">
           <Link className="admin-csv-imports__link" href="/admin">
-            Approval queue
+            CSV imports
           </Link>
           <Link className="admin-csv-imports__link" href="/admin/users">
             User management
@@ -487,7 +487,7 @@ export function AdminCsvImportManagerView(props: AdminCsvImportManagerViewProps)
               <p>Maximum file size 5 MiB. Up to {CSV_IMPORT_MAX_DATA_ROWS} data rows per batch.</p>
               <p>
                 `influencerType`, `influencerVertical`, `countryRegion`, and `language` must match
-                the saved HubSpot dropdown values.
+                the saved creator profile values.
               </p>
             </div>
 

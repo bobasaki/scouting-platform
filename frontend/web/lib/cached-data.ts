@@ -7,6 +7,7 @@ import {
   listRecentRuns,
   listCampaignManagers,
   listChannels,
+  listHubspotObjectSyncRuns,
   listUserSegments,
   getChannelById,
   listUsers,
@@ -56,10 +57,13 @@ export function getCachedCampaigns(
   )();
 }
 
-export function getCachedClients(userId: string) {
+export function getCachedClients(
+  userId: string,
+  query?: { active?: boolean },
+) {
   return unstable_cache(
-    () => listClients({ userId }),
-    ["clients", userId],
+    () => listClients({ userId, ...(query ? { query } : {}) }),
+    ["clients", userId, JSON.stringify(query ?? {})],
     { revalidate: 60 },
   )();
 }
@@ -116,3 +120,11 @@ export const getCachedUsers = unstable_cache(
   ["users"],
   { revalidate: 60 },
 );
+
+export function getCachedHubspotObjectSyncRuns(userId: string) {
+  return unstable_cache(
+    () => listHubspotObjectSyncRuns({ requestedByUserId: userId }),
+    ["hubspot-object-sync-runs", userId],
+    { revalidate: 30 },
+  )();
+}

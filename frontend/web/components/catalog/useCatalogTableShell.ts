@@ -5,7 +5,7 @@ import type {
   SegmentResponse,
 } from "@scouting-platform/contracts";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { requestChannelEnrichmentBatch, fetchChannels } from "../../lib/channels-api";
 import {
@@ -135,8 +135,33 @@ export function useCatalogTableShellModel({
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const appliedState = parseCatalogUrlState(searchParams);
-  const appliedStateKey = buildCatalogSearchParams(appliedState).toString();
+  const searchParamsKey = searchParams.toString();
+  const parsedState = useMemo(
+    () => parseCatalogUrlState(new URLSearchParams(searchParamsKey)),
+    [searchParamsKey],
+  );
+  const appliedStateKey = useMemo(
+    () => buildCatalogSearchParams(parsedState).toString(),
+    [parsedState],
+  );
+  const appliedState = useMemo(
+    () => parseCatalogUrlState(new URLSearchParams(appliedStateKey)),
+    [appliedStateKey],
+  );
+  const requestInput = useMemo(
+    () => ({
+      page: appliedState.page,
+      pageSize,
+      ...(appliedState.filters.query ? { query: appliedState.filters.query } : {}),
+      ...(appliedState.filters.enrichmentStatus.length > 0
+        ? { enrichmentStatus: appliedState.filters.enrichmentStatus }
+        : {}),
+      ...(appliedState.filters.advancedReportStatus.length > 0
+        ? { advancedReportStatus: appliedState.filters.advancedReportStatus }
+        : {}),
+    }),
+    [appliedState, pageSize],
+  );
   const viewMode = getCatalogViewMode(searchParams);
   const [draftFilters, setDraftFilters] = useState<CatalogFiltersState>(appliedState.filters);
   const [requestState, setRequestState] = useState<CatalogTableRequestState>(
@@ -189,7 +214,7 @@ export function useCatalogTableShellModel({
 
       return appliedState.filters;
     });
-  }, [appliedState.filters, appliedStateKey]);
+  }, [appliedState, appliedStateKey]);
 
   useEffect(() => {
     if (viewMode === "cards" && selectedChannelIds.length > 0) {
@@ -202,17 +227,6 @@ export function useCatalogTableShellModel({
     let activeAbortController: AbortController | null = null;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-    const requestInput = {
-      page: appliedState.page,
-      pageSize,
-      ...(appliedState.filters.query ? { query: appliedState.filters.query } : {}),
-      ...(appliedState.filters.enrichmentStatus.length > 0
-        ? { enrichmentStatus: appliedState.filters.enrichmentStatus }
-        : {}),
-      ...(appliedState.filters.advancedReportStatus.length > 0
-        ? { advancedReportStatus: appliedState.filters.advancedReportStatus }
-        : {}),
-    };
     const canReuseInitialData = reloadToken === 0 && !!initialData;
 
     async function loadChannels(polling = false): Promise<void> {
@@ -277,15 +291,11 @@ export function useCatalogTableShellModel({
       }
     };
   }, [
-    appliedState.filters.advancedReportStatus,
-    appliedState.filters.enrichmentStatus,
-    appliedState.filters.query,
-    appliedState.page,
     appliedStateKey,
     initialData,
     isDocumentVisible,
-    pageSize,
     reloadToken,
+    requestInput,
   ]);
 
   useEffect(() => {

@@ -10,6 +10,7 @@ export * from "./export-previews";
 export * from "./google-sheets-exports";
 export * from "./hubspot-imports";
 export * from "./hubspot-pushes";
+export * from "./hubspot-sync";
 export * from "./jobs";
 export * from "./reference-data";
 export * from "./runs-assessment";

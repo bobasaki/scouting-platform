@@ -25,7 +25,7 @@ import {
 } from "./vertical-inference";
 import { enqueueHubspotPushJob } from "./queue";
 
-export { stopHubspotPushQueue } from "./queue";
+export { stopHubspotObjectSyncQueue, stopHubspotPushQueue } from "./queue";
 export * from "./preparation";
 
 const batchActorSelect = {
@@ -670,3 +670,4 @@ export async function executeHubspotPushBatch(input: {
 }
 
 export * from "./import-batches";
+export * from "./object-sync";

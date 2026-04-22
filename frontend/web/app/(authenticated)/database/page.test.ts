@@ -1,7 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStringAsync } from "../../../lib/test-render";
 
-const { getSessionMock, databaseAdminWorkspaceMock, getCachedCampaignsMock, getCachedClientsMock, getCachedDropdownValuesMock } =
+const {
+  getSessionMock,
+  databaseAdminWorkspaceMock,
+  getCachedCampaignsMock,
+  getCachedClientsMock,
+  getCachedDropdownValuesMock,
+  getCachedHubspotObjectSyncRunsMock,
+} =
   vi.hoisted(() => ({
   getSessionMock: vi.fn(),
   databaseAdminWorkspaceMock: vi.fn(() => "database-admin-workspace"),
@@ -16,6 +23,10 @@ const { getSessionMock, databaseAdminWorkspaceMock, getCachedCampaignsMock, getC
   })),
   getCachedDropdownValuesMock: vi.fn(async () => ({
     items: [],
+  })),
+  getCachedHubspotObjectSyncRunsMock: vi.fn(async () => ({
+    items: [],
+    latest: null,
   })),
 }));
 
@@ -35,6 +46,7 @@ vi.mock("../../../lib/cached-data", () => ({
   getCachedCampaigns: getCachedCampaignsMock,
   getCachedClients: getCachedClientsMock,
   getCachedDropdownValues: getCachedDropdownValuesMock,
+  getCachedHubspotObjectSyncRuns: getCachedHubspotObjectSyncRunsMock,
 }));
 
 import DatabasePage from "./page";
@@ -45,6 +57,7 @@ describe("database page", () => {
     getSessionMock.mockResolvedValue({
       user: {
         id: "user-1",
+        role: "admin",
       },
     });
   });
@@ -58,5 +71,25 @@ describe("database page", () => {
       "Manage clients and campaigns from one database workspace while keeping creator catalog browsing in its own dedicated page.",
     );
     expect(html).toContain("database-admin-workspace");
+  });
+
+  it("renders the database workspace when HubSpot sync run metadata is unavailable", async () => {
+    getCachedHubspotObjectSyncRunsMock.mockRejectedValueOnce(
+      Object.assign(new Error("Prisma client is stale"), {
+        code: "HUBSPOT_OBJECT_SYNC_MODEL_UNAVAILABLE",
+      }),
+    );
+
+    await renderToStringAsync(DatabasePage());
+
+    expect(databaseAdminWorkspaceMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hubspotSyncRuns: {
+          items: [],
+          latest: null,
+        },
+      }),
+      undefined,
+    );
   });
 });

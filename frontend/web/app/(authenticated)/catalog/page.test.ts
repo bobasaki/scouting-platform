@@ -48,7 +48,7 @@ describe("catalog page", () => {
 
     expect(html).toContain("Catalog");
     expect(html).toContain(
-      "Browse the canonical creator catalog with full-width filters, enrichment actions, and export shortcuts.",
+      "Browse the canonical creator catalog with a sticky filter rail, reusable segments, and table or card browsing modes.",
     );
     expect(databaseWorkspaceMock.mock.calls[0]?.[0]).toEqual({
       forcedTab: "catalog",

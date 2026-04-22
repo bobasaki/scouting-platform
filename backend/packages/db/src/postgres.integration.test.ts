@@ -201,5 +201,30 @@ if (!databaseUrl) {
         "channels_youtube_channel_id_trgm_idx",
       ]);
     });
+
+    it("sees hubspot object sync tables and metadata columns after migrations are applied", async () => {
+      const syncRunRows = await prisma.$queryRaw<Array<{ relation_name: string | null }>>`
+        SELECT to_regclass('hubspot_object_sync_runs')::text AS relation_name
+      `;
+      const metadataColumns = await prisma.$queryRaw<
+        Array<{
+          client_hubspot_object_id: string | null;
+          client_is_active: string | null;
+          campaign_hubspot_object_id: string | null;
+        }>
+      >`
+        SELECT
+          MAX(CASE WHEN table_name = 'clients' AND column_name = 'hubspot_object_id' THEN column_name END) AS client_hubspot_object_id,
+          MAX(CASE WHEN table_name = 'clients' AND column_name = 'is_active' THEN column_name END) AS client_is_active,
+          MAX(CASE WHEN table_name = 'campaigns' AND column_name = 'hubspot_object_id' THEN column_name END) AS campaign_hubspot_object_id
+        FROM information_schema.columns
+        WHERE table_name IN ('clients', 'campaigns')
+      `;
+
+      expect(syncRunRows[0]?.relation_name).toBe("hubspot_object_sync_runs");
+      expect(metadataColumns[0]?.client_hubspot_object_id).toBe("hubspot_object_id");
+      expect(metadataColumns[0]?.client_is_active).toBe("is_active");
+      expect(metadataColumns[0]?.campaign_hubspot_object_id).toBe("hubspot_object_id");
+    });
   });
 }

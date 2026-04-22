@@ -11,7 +11,7 @@ export default function DashboardLoading() {
   return (
     <PageSection
       title="Dashboard"
-      description="Review recent scouting runs, track coverage against each run target, and hand each run off to Database, CSV export, or Google Sheets from one compact table."
+      description="Review recent scouting runs, track coverage against each run target, and prepare each run for export from one compact table."
     >
       <SkeletonPageBody>
         <SkeletonFilterBar filters={3} />

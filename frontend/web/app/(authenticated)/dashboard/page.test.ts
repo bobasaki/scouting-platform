@@ -42,11 +42,23 @@ describe("dashboard page", () => {
   it("renders the dashboard workspace", async () => {
     const html = await renderToStringAsync(DashboardPage());
 
-    expect(html).toContain("Dashboard");
-    expect(html).toContain(
-      "Review recent scouting runs, track coverage against each run target, and hand each run off to Database, CSV export, or Google Sheets from one compact table.",
-    );
     expect(dashboardWorkspaceMock).toHaveBeenCalledTimes(1);
+    const firstCall = dashboardWorkspaceMock.mock.calls[0] as unknown[] | undefined;
+    expect(firstCall?.[0]).toMatchObject({
+      initialData: {
+        items: [],
+        filterOptions: {
+          campaignManagers: [],
+          clients: [],
+          markets: [],
+        },
+      },
+      initialFilters: {
+        campaignManagerUserId: "",
+        client: "",
+        market: "",
+      },
+    });
     expect(html).toContain("dashboard-workspace");
   });
 });

@@ -11,6 +11,11 @@ export const campaignClientSchema = z.object({
   domain: z.string().nullable().optional(),
   countryRegion: z.string().nullable().optional(),
   city: z.string().nullable().optional(),
+  isActive: z.boolean().optional(),
+  hubspotObjectId: z.string().nullable().optional(),
+  hubspotObjectType: z.string().nullable().optional(),
+  hubspotArchived: z.boolean().optional(),
+  hubspotSyncedAt: isoDatetimeSchema.nullable().optional(),
 });
 
 export const campaignMarketSchema = z.object({
@@ -21,12 +26,16 @@ export const campaignMarketSchema = z.object({
 export const campaignSummarySchema = z.object({
   id: z.uuid(),
   name: z.string().trim().min(1).max(200),
-  client: campaignClientSchema,
-  market: campaignMarketSchema,
+  client: campaignClientSchema.nullable(),
+  market: campaignMarketSchema.nullable(),
   briefLink: z.string().nullable(),
-  month: runMonthSchema,
-  year: z.number().int().min(2000).max(2100),
+  month: runMonthSchema.nullable(),
+  year: z.number().int().min(2000).max(2100).nullable(),
   isActive: z.boolean(),
+  hubspotObjectId: z.string().nullable().optional(),
+  hubspotObjectType: z.string().nullable().optional(),
+  hubspotArchived: z.boolean().optional(),
+  hubspotSyncedAt: isoDatetimeSchema.nullable().optional(),
   createdAt: isoDatetimeSchema,
   updatedAt: isoDatetimeSchema,
 });
@@ -34,16 +43,33 @@ export const campaignSummarySchema = z.object({
 export const createCampaignRequestSchema = z.object({
   name: z.string().trim().min(1).max(200),
   clientId: z.uuid(),
-  marketId: z.uuid(),
+  marketId: z.uuid().optional(),
   briefLink: z.string().trim().url().max(2048).optional(),
   month: runMonthSchema,
   year: z.number().int().min(2000).max(2100),
   isActive: z.boolean().default(true),
 });
 
+export const updateCampaignRequestSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  clientId: z.uuid(),
+  marketId: z.uuid().optional(),
+  briefLink: z.string().trim().url().max(2048).optional(),
+  month: runMonthSchema,
+  year: z.number().int().min(2000).max(2100),
+  isActive: z.boolean(),
+});
+
 export const listCampaignsQuerySchema = z.object({
   clientId: z.uuid().optional(),
   marketId: z.uuid().optional(),
+  active: z
+    .union([z.boolean(), z.enum(["true", "false"])])
+    .transform((value) => (typeof value === "boolean" ? value : value === "true"))
+    .optional(),
+});
+
+export const listClientsQuerySchema = z.object({
   active: z
     .union([z.boolean(), z.enum(["true", "false"])])
     .transform((value) => (typeof value === "boolean" ? value : value === "true"))
@@ -69,6 +95,11 @@ export const clientSummarySchema = z.object({
   domain: z.string().nullable(),
   countryRegion: z.string().nullable(),
   city: z.string().nullable(),
+  isActive: z.boolean().optional(),
+  hubspotObjectId: z.string().nullable().optional(),
+  hubspotObjectType: z.string().nullable().optional(),
+  hubspotArchived: z.boolean().optional(),
+  hubspotSyncedAt: isoDatetimeSchema.nullable().optional(),
   createdAt: isoDatetimeSchema,
   updatedAt: isoDatetimeSchema,
 });
@@ -78,6 +109,14 @@ export const createClientRequestSchema = z.object({
   domain: z.string().trim().min(1).max(255).optional(),
   countryRegion: z.string().trim().min(1).max(200),
   city: z.string().trim().min(1).max(200),
+});
+
+export const updateClientRequestSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  domain: z.string().trim().min(1).max(255).optional(),
+  countryRegion: z.string().trim().min(1).max(200),
+  city: z.string().trim().min(1).max(200),
+  isActive: z.boolean(),
 });
 
 export const listClientsResponseSchema = z.object({
@@ -93,8 +132,11 @@ export type CampaignClient = z.infer<typeof campaignClientSchema>;
 export type CampaignMarket = z.infer<typeof campaignMarketSchema>;
 export type CampaignSummary = z.infer<typeof campaignSummarySchema>;
 export type CreateCampaignRequest = z.infer<typeof createCampaignRequestSchema>;
+export type UpdateCampaignRequest = z.infer<typeof updateCampaignRequestSchema>;
 export type ListCampaignsQuery = z.infer<typeof listCampaignsQuerySchema>;
 export type ListCampaignsResponse = z.infer<typeof listCampaignsResponseSchema>;
 export type ClientSummary = z.infer<typeof clientSummarySchema>;
 export type CreateClientRequest = z.infer<typeof createClientRequestSchema>;
+export type UpdateClientRequest = z.infer<typeof updateClientRequestSchema>;
+export type ListClientsQuery = z.infer<typeof listClientsQuerySchema>;
 export type ListClientsResponse = z.infer<typeof listClientsResponseSchema>;

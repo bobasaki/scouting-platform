@@ -1,4 +1,4 @@
-import { PrismaClient, Role, UserType } from "@prisma/client";
+import { PrismaClient, Role, RunMonth, UserType } from "@prisma/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COUNTRY_REGION_OPTIONS } from "@scouting-platform/contracts";
@@ -85,5 +85,193 @@ integration("campaigns core integration", () => {
 
     const marketCount = await prisma.market.count();
     expect(marketCount).toBe(COUNTRY_REGION_OPTIONS.length);
+  });
+
+  it("updates and deletes local clients and campaigns with audit events", async () => {
+    const admin = await prisma.user.create({
+      data: {
+        email: "admin@example.com",
+        name: "Admin",
+        role: Role.ADMIN,
+        userType: UserType.ADMIN,
+        passwordHash: "bootstrap-hash",
+        isActive: true,
+      },
+      select: {
+        id: true,
+      },
+    });
+    const client = await prisma.client.create({
+      data: {
+        name: "Old Client",
+        domain: "old.example",
+        countryRegion: "Croatia",
+        city: "Zagreb",
+      },
+      select: {
+        id: true,
+      },
+    });
+    const market = await prisma.market.create({
+      data: {
+        name: "Local Market",
+      },
+      select: {
+        id: true,
+      },
+    });
+    const campaign = await prisma.campaign.create({
+      data: {
+        name: "Old Campaign",
+        clientId: client.id,
+        marketId: market.id,
+        month: RunMonth.APRIL,
+        year: 2026,
+        createdByUserId: admin.id,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    const updatedClient = await campaigns.updateClient({
+      userId: admin.id,
+      clientId: client.id,
+      name: "New Client",
+      domain: "new.example",
+      countryRegion: "Croatia",
+      city: "Split",
+      isActive: false,
+    });
+    expect(updatedClient.name).toBe("New Client");
+    expect(updatedClient.isActive).toBe(false);
+
+    const updatedCampaign = await campaigns.updateCampaign({
+      userId: admin.id,
+      campaignId: campaign.id,
+      name: "New Campaign",
+      clientId: client.id,
+      marketId: market.id,
+      month: "may",
+      year: 2027,
+      isActive: false,
+    });
+    expect(updatedCampaign.name).toBe("New Campaign");
+    expect(updatedCampaign.month).toBe("may");
+    expect(updatedCampaign.isActive).toBe(false);
+
+    await campaigns.deleteCampaign({
+      userId: admin.id,
+      campaignId: campaign.id,
+    });
+    await campaigns.deleteClient({
+      userId: admin.id,
+      clientId: client.id,
+    });
+
+    expect(await prisma.campaign.count()).toBe(0);
+    expect(await prisma.client.count()).toBe(0);
+
+    const auditActions = await prisma.auditEvent.findMany({
+      orderBy: {
+        createdAt: "asc",
+      },
+      select: {
+        action: true,
+      },
+    });
+    expect(auditActions.map((event) => event.action)).toEqual([
+      "client.updated",
+      "campaign.updated",
+      "campaign.deleted",
+      "client.deleted",
+    ]);
+  });
+
+  it("blocks local edits and deletes for HubSpot-synced records", async () => {
+    const admin = await prisma.user.create({
+      data: {
+        email: "admin@example.com",
+        name: "Admin",
+        role: Role.ADMIN,
+        userType: UserType.ADMIN,
+        passwordHash: "bootstrap-hash",
+        isActive: true,
+      },
+      select: {
+        id: true,
+      },
+    });
+    const client = await prisma.client.create({
+      data: {
+        name: "HubSpot Client",
+        countryRegion: "Croatia",
+        city: "Zagreb",
+        hubspotObjectId: "101",
+        hubspotObjectType: "2-CLIENT",
+      },
+      select: {
+        id: true,
+      },
+    });
+    const campaign = await prisma.campaign.create({
+      data: {
+        name: "HubSpot Campaign",
+        clientId: client.id,
+        month: RunMonth.APRIL,
+        year: 2026,
+        hubspotObjectId: "201",
+        hubspotObjectType: "2-CAMPAIGN",
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    await expect(
+      campaigns.updateClient({
+        userId: admin.id,
+        clientId: client.id,
+        name: "Changed",
+        countryRegion: "Croatia",
+        city: "Split",
+        isActive: true,
+      }),
+    ).rejects.toMatchObject({
+      code: "CLIENT_HUBSPOT_SYNCED",
+      status: 409,
+    });
+    await expect(
+      campaigns.deleteClient({
+        userId: admin.id,
+        clientId: client.id,
+      }),
+    ).rejects.toMatchObject({
+      code: "CLIENT_HUBSPOT_SYNCED",
+      status: 409,
+    });
+    await expect(
+      campaigns.updateCampaign({
+        userId: admin.id,
+        campaignId: campaign.id,
+        name: "Changed",
+        clientId: client.id,
+        month: "april",
+        year: 2026,
+        isActive: true,
+      }),
+    ).rejects.toMatchObject({
+      code: "CAMPAIGN_HUBSPOT_SYNCED",
+      status: 409,
+    });
+    await expect(
+      campaigns.deleteCampaign({
+        userId: admin.id,
+        campaignId: campaign.id,
+      }),
+    ).rejects.toMatchObject({
+      code: "CAMPAIGN_HUBSPOT_SYNCED",
+      status: 409,
+    });
   });
 });

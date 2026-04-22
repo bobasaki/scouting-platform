@@ -5,6 +5,7 @@ import { registerChannelsEnrichHypeAuditorWorker } from "./channels-enrich-hypea
 import { registerChannelsEnrichLlmWorker } from "./channels-enrich-llm-worker";
 import { registerExportsCsvGenerateWorker } from "./exports-csv-generate-worker";
 import { registerHubspotImportBatchWorker } from "./hubspot-import-batch-worker";
+import { registerHubspotObjectSyncWorker } from "./hubspot-object-sync-worker";
 import { registerHubspotPreviewEnrichWorker } from "./hubspot-preview-enrich-worker";
 import { registerHubspotPushBatchWorker } from "./hubspot-push-batch-worker";
 import { registerImportsCsvProcessWorker } from "./imports-csv-process-worker";
@@ -43,6 +44,7 @@ async function registerWorkers(
   await registerHubspotPreviewEnrichWorker(boss, config.jobs.hubspotPreviewEnrich);
   await registerHubspotImportBatchWorker(boss, config.jobs.hubspotImportBatch);
   await registerHubspotPushBatchWorker(boss, config.jobs.hubspotPushBatch);
+  await registerHubspotObjectSyncWorker(boss, config.jobs.hubspotObjectSync);
 }
 
 async function startWorker(): Promise<void> {

@@ -90,6 +90,10 @@ const removeYoutubeAverageViewsMigrationPath = path.resolve(
   currentDir,
   "../prisma/migrations/20260421143000_remove_youtube_average_views/migration.sql",
 );
+const hubspotObjectSyncMigrationPath = path.resolve(
+  currentDir,
+  "../prisma/migrations/20260422120000_hubspot_object_sync/migration.sql",
+);
 
 describe("pg-boss migration", () => {
   it("installs the pgboss schema and version table", () => {
@@ -399,5 +403,22 @@ describe("remove youtube average views migration", () => {
     const migrationSql = readFileSync(removeYoutubeAverageViewsMigrationPath, "utf-8");
 
     expect(migrationSql).toContain('DROP COLUMN "youtube_average_views"');
+  });
+});
+
+describe("hubspot object sync migration", () => {
+  it("adds HubSpot metadata to clients/campaigns and durable sync runs", () => {
+    const migrationSql = readFileSync(hubspotObjectSyncMigrationPath, "utf-8");
+
+    expect(migrationSql).toContain('CREATE TYPE "hubspot_object_sync_run_status" AS ENUM');
+    expect(migrationSql).toContain('ALTER TABLE "clients"');
+    expect(migrationSql).toContain('"hubspot_object_id" TEXT');
+    expect(migrationSql).toContain('"hubspot_raw_payload" JSONB');
+    expect(migrationSql).toContain('ALTER TABLE "campaigns"');
+    expect(migrationSql).toContain('CREATE TABLE "hubspot_object_sync_runs"');
+    expect(migrationSql).toContain('"last_error" TEXT');
+    expect(migrationSql).toContain(
+      'CREATE INDEX "hubspot_object_sync_runs_status_idx"',
+    );
   });
 });

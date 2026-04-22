@@ -118,7 +118,7 @@ describe("admin csv import manager view", () => {
 
     expect(html).toContain("Upload CSV");
     expect(html).toContain("youtubeChannelId,channelTitle,contactEmail,firstName,lastName,subscriberCount,viewCount,videoCount,notes,sourceLabel,influencerType,influencerVertical,countryRegion,language");
-    expect(html).toContain("must match the saved HubSpot dropdown values");
+    expect(html).toContain("must match the saved creator profile values");
     expect(html).toContain("Maximum file size 5 MiB. Up to 10000 data rows per batch.");
     expect(html).toContain("Loading CSV import batches...");
     expect(html).toContain("Select an import batch");

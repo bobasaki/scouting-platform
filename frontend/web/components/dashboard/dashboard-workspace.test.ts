@@ -103,8 +103,10 @@ describe("dashboard workspace", () => {
     expect(html).toContain("60% coverage · 12/20");
     expect(html).toContain("status-pill--completed");
     expect(html).toContain(">2026-03-15 12:01 UTC<");
-    expect(html).toContain("Export");
-    expect(html).toContain("Google Sheets");
+    expect(html.match(/>Export</g)).toHaveLength(1);
+    expect(html).toContain('href="/hubspot/prepare/run-1"');
+    expect(html).not.toContain('href="/exports/prepare/run-1"');
+    expect(html).not.toContain("Google Sheets");
     expect(html).toContain("All campaign managers");
     expect(html).toContain("All clients");
     expect(html).toContain("All markets");

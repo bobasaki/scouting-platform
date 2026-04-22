@@ -8,7 +8,7 @@ import { SkeletonFilterBar, SkeletonPageBody, SkeletonTable, Skeleton } from "..
 import { getRoleFromSession } from "../../../lib/access-control";
 
 const DASHBOARD_DESCRIPTION =
-  "Review recent scouting runs, track coverage against each run target, and hand each run off to Database, CSV export, or Google Sheets from one compact table.";
+  "Review recent scouting runs, track coverage against each run target, and prepare each run for export from one compact table.";
 
 async function DashboardData() {
   const session = await getSession();

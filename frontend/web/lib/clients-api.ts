@@ -2,9 +2,11 @@ import {
   clientSummarySchema,
   createClientRequestSchema,
   listClientsResponseSchema,
+  updateClientRequestSchema,
   type ClientSummary,
   type CreateClientRequest,
   type ListClientsResponse,
+  type UpdateClientRequest,
 } from "@scouting-platform/contracts";
 
 type ApiErrorBody = {
@@ -41,11 +43,20 @@ function getApiErrorMessage(response: Response, payload: unknown): string {
   return "Unable to complete the request. Please try again.";
 }
 
-export async function fetchClients(signal?: AbortSignal): Promise<ListClientsResponse> {
-  const response = await fetch("/api/clients", {
+export async function fetchClients(input?: {
+  active?: boolean;
+  signal?: AbortSignal;
+}): Promise<ListClientsResponse> {
+  const params = new URLSearchParams();
+
+  if (typeof input?.active === "boolean") {
+    params.set("active", input.active ? "true" : "false");
+  }
+
+  const response = await fetch(`/api/clients${params.size > 0 ? `?${params.toString()}` : ""}`, {
     method: "GET",
     cache: "no-store",
-    signal: signal ?? null,
+    signal: input?.signal ?? null,
   });
   const payload = await readJsonPayload(response);
 
@@ -71,4 +82,35 @@ export async function createClientRequest(input: CreateClientRequest): Promise<C
   }
 
   return clientSummarySchema.parse(payload);
+}
+
+export async function updateClientRequest(
+  clientId: string,
+  input: UpdateClientRequest,
+): Promise<ClientSummary> {
+  const response = await fetch(`/api/clients/${encodeURIComponent(clientId)}`, {
+    method: "PUT",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(updateClientRequestSchema.parse(input)),
+  });
+  const payload = await readJsonPayload(response);
+
+  if (!response.ok) {
+    throw new ClientsApiError(getApiErrorMessage(response, payload), response.status);
+  }
+
+  return clientSummarySchema.parse(payload);
+}
+
+export async function deleteClientRequest(clientId: string): Promise<void> {
+  const response = await fetch(`/api/clients/${encodeURIComponent(clientId)}`, {
+    method: "DELETE",
+  });
+  const payload = await readJsonPayload(response);
+
+  if (!response.ok) {
+    throw new ClientsApiError(getApiErrorMessage(response, payload), response.status);
+  }
 }

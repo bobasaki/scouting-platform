@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
 
 import { useDocumentVisibility } from "../../lib/document-visibility";
-import { getCsvPreviewHref, getHubspotPreviewHref } from "../../lib/navigation";
+import { getHubspotPreviewHref } from "../../lib/navigation";
 import {
   formatCampaignManagerLabel,
   formatNullableMetadataValue,
@@ -50,7 +50,7 @@ const INITIAL_FILTERS_STATE: DashboardFiltersState = {
 };
 
 const DASHBOARD_DESCRIPTION =
-  "Review recent scouting runs, track coverage against each run target, and hand each run off to Database, CSV export, or Google Sheets from one compact table.";
+  "Review recent scouting runs, track coverage against each run target, and prepare each run for export from one compact table.";
 
 type DashboardStatusFilter = "all" | "running" | "completed" | "failed";
 
@@ -341,9 +341,9 @@ export function DashboardWorkspace({
           </label>
 
           <label className="new-scouting__field">
-            <span>Market</span>
+            <span>Markets</span>
             <SearchableSelect
-              ariaLabel="Market"
+              ariaLabel="Markets"
               disabled={requestState.status === "loading" || !filterOptions}
               onChange={(market) => {
                 setFilters((current) => ({
@@ -429,7 +429,7 @@ export function DashboardWorkspace({
                 <thead>
                   <tr>
                     <th scope="col" style={{ minWidth: "9rem" }}>Client</th>
-                    <th scope="col" style={{ minWidth: "8rem" }}>Market</th>
+                    <th scope="col" style={{ minWidth: "8rem" }}>Markets</th>
                     <th scope="col" style={{ minWidth: "10rem" }}>Campaign Manager</th>
                     <th scope="col" style={{ minWidth: "8rem" }}>Brief Link</th>
                     <th scope="col" style={{ minWidth: "12rem" }}>Influencer List</th>
@@ -474,17 +474,10 @@ export function DashboardWorkspace({
                           <div className="dashboard-workspace__row-actions">
                             <Link
                               className="workspace-button workspace-button--small"
-                              href={getCsvPreviewHref(run.id)}
-                              target="_blank"
-                            >
-                              Export
-                            </Link>
-                            <Link
-                              className="workspace-button workspace-button--small workspace-button--secondary"
                               href={getHubspotPreviewHref(run.id)}
                               target="_blank"
                             >
-                              Google Sheets
+                              Export
                             </Link>
                           </div>
                         </td>

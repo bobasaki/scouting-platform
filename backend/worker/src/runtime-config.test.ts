@@ -15,6 +15,7 @@ describe("getWorkerRuntimeConfig", () => {
     expect(config.jobs.channelsEnrichLlm.teamConcurrency).toBe(2);
     expect(config.jobs.channelsEnrichHypeauditor.teamConcurrency).toBe(1);
     expect(config.jobs.hubspotPreviewEnrich.teamConcurrency).toBe(1);
+    expect(config.jobs.hubspotObjectSync.teamConcurrency).toBe(1);
   });
 
   it("allows per-job concurrency overrides", () => {
@@ -25,12 +26,14 @@ describe("getWorkerRuntimeConfig", () => {
       WORKER_RUNS_ASSESS_CHANNEL_FIT_CONCURRENCY: "5",
       WORKER_EXPORTS_CSV_GENERATE_CONCURRENCY: "2",
       WORKER_HUBSPOT_PREVIEW_ENRICH_CONCURRENCY: "4",
+      WORKER_HUBSPOT_OBJECT_SYNC_CONCURRENCY: "3",
     });
 
     expect(config.jobs.runsDiscover.teamConcurrency).toBe(3);
     expect(config.jobs.runsAssessChannelFit.teamConcurrency).toBe(5);
     expect(config.jobs.exportsCsvGenerate.teamConcurrency).toBe(2);
     expect(config.jobs.hubspotPreviewEnrich.teamConcurrency).toBe(4);
+    expect(config.jobs.hubspotObjectSync.teamConcurrency).toBe(3);
   });
 
   it("rejects invalid concurrency overrides", () => {

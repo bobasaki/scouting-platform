@@ -27,7 +27,7 @@ export default async function AdminPage() {
     <PageSection
       section="Admin"
       title="Admin"
-      description="Review approvals, manage users, and keep the dedicated admin workflows within reach."
+      description="Upload CSV imports and manage user access from the admin workspace."
     >
       <AdminWorkspace />
     </PageSection>

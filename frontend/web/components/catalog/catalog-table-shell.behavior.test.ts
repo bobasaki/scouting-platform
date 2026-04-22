@@ -44,6 +44,7 @@ vi.mock("react", async () => {
   return {
     ...actual,
     useEffect: useEffectMock,
+    useMemo: <T,>(factory: () => T) => factory(),
     useState: useStateMock,
   };
 });

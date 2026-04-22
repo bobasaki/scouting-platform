@@ -75,6 +75,18 @@ describe("parseJobPayload", () => {
     });
   });
 
+  it("parses a valid hubspot.object-sync payload", () => {
+    const payload = parseJobPayload("hubspot.object-sync", {
+      syncRunId: TEST_UUID,
+      requestedByUserId: TEST_UUID,
+    });
+
+    expect(payload).toEqual({
+      syncRunId: TEST_UUID,
+      requestedByUserId: TEST_UUID,
+    });
+  });
+
   it("rejects runs.assess.channel-fit payloads missing runRequestId", () => {
     expect(() =>
       parseJobPayload("runs.assess.channel-fit", {

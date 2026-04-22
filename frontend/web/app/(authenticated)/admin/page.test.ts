@@ -86,7 +86,7 @@ describe("admin page", () => {
     expect(redirectMock).not.toHaveBeenCalled();
     expect(html).toContain("Admin");
     expect(html).toContain(
-      "Review approvals, manage users, and keep the dedicated admin workflows within reach."
+      "Upload CSV imports and manage user access from the admin workspace."
     );
     expect(html).toContain("Admin workspace shell");
   });
