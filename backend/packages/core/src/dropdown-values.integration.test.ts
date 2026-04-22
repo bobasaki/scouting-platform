@@ -87,22 +87,18 @@ integration("dropdown values core integration", () => {
     const initialCurrencies = initial.items
       .filter((item) => item.fieldKey === "currency")
       .map((item) => item.value)
-      .sort((left, right) => left.localeCompare(right));
+      .sort();
 
     expect(initialCurrencies).toEqual([]);
     expect(initial.items.filter((item) => item.fieldKey === "influencerType").map((item) => item.value)).toEqual(
-      [...PLATFORM_MANAGED_DROPDOWN_VALUES.influencerType].sort((left, right) =>
-        left.localeCompare(right),
-      ),
+      [...PLATFORM_MANAGED_DROPDOWN_VALUES.influencerType].sort(),
     );
     expect(
       initial.items
         .filter((item) => item.fieldKey === "influencerVertical")
         .map((item) => item.value),
     ).toEqual(
-      [...PLATFORM_MANAGED_DROPDOWN_VALUES.influencerVertical].sort((left, right) =>
-        left.localeCompare(right),
-      ),
+      [...PLATFORM_MANAGED_DROPDOWN_VALUES.influencerVertical].sort(),
     );
 
     await dropdownValues.replaceDropdownValues({
@@ -115,7 +111,7 @@ integration("dropdown values core integration", () => {
     const updatedCurrencies = updated.items
       .filter((item) => item.fieldKey === "currency")
       .map((item) => item.value)
-      .sort((left, right) => left.localeCompare(right));
+      .sort();
 
     expect(updatedCurrencies).toEqual(["EUR", "USD"]);
   });
@@ -235,18 +231,14 @@ integration("dropdown values core integration", () => {
       "Dedicated Video",
     ]);
     expect(updated.items.filter((item) => item.fieldKey === "influencerType").map((item) => item.value)).toEqual(
-      [...PLATFORM_MANAGED_DROPDOWN_VALUES.influencerType].sort((left, right) =>
-        left.localeCompare(right),
-      ),
+      [...PLATFORM_MANAGED_DROPDOWN_VALUES.influencerType].sort(),
     );
     expect(
       updated.items
         .filter((item) => item.fieldKey === "influencerVertical")
         .map((item) => item.value),
     ).toEqual(
-      [...PLATFORM_MANAGED_DROPDOWN_VALUES.influencerVertical].sort((left, right) =>
-        left.localeCompare(right),
-      ),
+      [...PLATFORM_MANAGED_DROPDOWN_VALUES.influencerVertical].sort(),
     );
     expect(updated.items.filter((item) => item.fieldKey === "countryRegion").map((item) => item.value)).toEqual([
       "Germany",
