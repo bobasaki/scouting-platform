@@ -202,7 +202,7 @@ function renderReadyState(run: RunStatusResponse, onRetry: () => void) {
             {getRunQueryLabel(run.query)}: {run.query}
           </p>
           <div className="run-detail__status-row">
-            <StatusPill status={run.status} />
+            <StatusPill className={`run-detail__status run-detail__status--${run.status}`} status={run.status} />
             <p className="run-detail__status-copy">{getRunProgressMessage(run)}</p>
           </div>
           <StatusTimeline steps={getRunTimelineSteps(run.status)} />
