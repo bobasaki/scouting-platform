@@ -7,17 +7,20 @@ const integration = databaseUrl ? describe.sequential : describe.skip;
 const {
   fetchHubspotAssociationsMock,
   fetchHubspotCustomObjectsMock,
-  fetchHubspotDropdownValuesMock,
+  fetchHubspotAccountDetailsMock,
+  fetchHubspotPropertyDefinitionMock,
 } = vi.hoisted(() => ({
   fetchHubspotAssociationsMock: vi.fn(),
   fetchHubspotCustomObjectsMock: vi.fn(),
-  fetchHubspotDropdownValuesMock: vi.fn(),
+  fetchHubspotAccountDetailsMock: vi.fn(),
+  fetchHubspotPropertyDefinitionMock: vi.fn(),
 }));
 
 vi.mock("@scouting-platform/integrations", () => ({
   fetchHubspotAssociations: fetchHubspotAssociationsMock,
   fetchHubspotCustomObjects: fetchHubspotCustomObjectsMock,
-  fetchHubspotDropdownValues: fetchHubspotDropdownValuesMock,
+  fetchHubspotAccountDetails: fetchHubspotAccountDetailsMock,
+  fetchHubspotPropertyDefinition: fetchHubspotPropertyDefinitionMock,
 }));
 
 type ObjectSyncModule = typeof import("./object-sync");
@@ -38,7 +41,16 @@ integration("HubSpot object sync core service", () => {
     setHubspotMappingEnv();
     process.env.HUBSPOT_API_KEY = "test-api-key";
     vi.clearAllMocks();
-    fetchHubspotDropdownValuesMock.mockResolvedValue([]);
+    fetchHubspotAccountDetailsMock.mockResolvedValue({
+      companyCurrency: null,
+      additionalCurrencies: [],
+    });
+    fetchHubspotPropertyDefinitionMock.mockResolvedValue({
+      name: "property",
+      label: "Property",
+      type: "enumeration",
+      options: [],
+    });
 
     await prisma.$executeRawUnsafe(`
       TRUNCATE TABLE
@@ -332,7 +344,7 @@ integration("HubSpot object sync core service", () => {
     const run = await createSyncRun(admin.id);
 
     fetchHubspotCustomObjectsMock.mockResolvedValue({ nextAfter: null, results: [] });
-    fetchHubspotDropdownValuesMock.mockRejectedValueOnce(new Error("HubSpot dropdown sync failed"));
+    fetchHubspotAccountDetailsMock.mockRejectedValueOnce(new Error("HubSpot dropdown sync failed"));
 
     await expect(
       objectSync.executeHubspotObjectSyncRun({
