@@ -6,12 +6,18 @@ import type {
   CreateClientRequest,
   ListCampaignsQuery,
   ListCampaignsResponse,
+  ListClientsQuery,
+  UpdateCampaignRequest,
+  UpdateClientRequest,
 } from "@scouting-platform/contracts";
 import {
   COUNTRY_REGION_OPTIONS as countryRegionOptions,
   createCampaignRequestSchema,
   createClientRequestSchema,
   listCampaignsQuerySchema,
+  listClientsQuerySchema,
+  updateCampaignRequestSchema,
+  updateClientRequestSchema,
 } from "@scouting-platform/contracts";
 import { prisma, withDbTransaction } from "@scouting-platform/db";
 
@@ -25,6 +31,10 @@ const campaignSelect = {
   month: true,
   year: true,
   isActive: true,
+  hubspotObjectId: true,
+  hubspotObjectType: true,
+  hubspotArchived: true,
+  hubspotSyncedAt: true,
   createdAt: true,
   updatedAt: true,
   client: {
@@ -34,6 +44,11 @@ const campaignSelect = {
       domain: true,
       countryRegion: true,
       city: true,
+      isActive: true,
+      hubspotObjectId: true,
+      hubspotObjectType: true,
+      hubspotArchived: true,
+      hubspotSyncedAt: true,
     },
   },
   market: {
@@ -44,8 +59,8 @@ const campaignSelect = {
   },
 } as const;
 
-function toRunMonthValue(value: string): CampaignSummary["month"] {
-  return value.toLowerCase() as CampaignSummary["month"];
+function toRunMonthValue(value: string | null): CampaignSummary["month"] {
+  return value ? (value.toLowerCase() as NonNullable<CampaignSummary["month"]>) : null;
 }
 
 function toClientSummary(
@@ -55,6 +70,11 @@ function toClientSummary(
     domain: string | null;
     countryRegion: string | null;
     city: string | null;
+    isActive: boolean;
+    hubspotObjectId: string | null;
+    hubspotObjectType: string | null;
+    hubspotArchived: boolean;
+    hubspotSyncedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
   },
@@ -65,6 +85,11 @@ function toClientSummary(
     domain: client.domain,
     countryRegion: client.countryRegion,
     city: client.city,
+    isActive: client.isActive,
+    hubspotObjectId: client.hubspotObjectId,
+    hubspotObjectType: client.hubspotObjectType,
+    hubspotArchived: client.hubspotArchived,
+    hubspotSyncedAt: client.hubspotSyncedAt?.toISOString() ?? null,
     createdAt: client.createdAt.toISOString(),
     updatedAt: client.updatedAt.toISOString(),
   };
@@ -76,12 +101,29 @@ function toCampaignSummary(
   return {
     id: campaign.id,
     name: campaign.name,
-    client: campaign.client,
+    client: campaign.client
+      ? {
+          id: campaign.client.id,
+          name: campaign.client.name,
+          domain: campaign.client.domain,
+          countryRegion: campaign.client.countryRegion,
+          city: campaign.client.city,
+          isActive: campaign.client.isActive,
+          hubspotObjectId: campaign.client.hubspotObjectId,
+          hubspotObjectType: campaign.client.hubspotObjectType,
+          hubspotArchived: campaign.client.hubspotArchived,
+          hubspotSyncedAt: campaign.client.hubspotSyncedAt?.toISOString() ?? null,
+        }
+      : null,
     market: campaign.market,
     briefLink: campaign.briefLink,
     month: toRunMonthValue(campaign.month),
     year: campaign.year,
     isActive: campaign.isActive,
+    hubspotObjectId: campaign.hubspotObjectId,
+    hubspotObjectType: campaign.hubspotObjectType,
+    hubspotArchived: campaign.hubspotArchived,
+    hubspotSyncedAt: campaign.hubspotSyncedAt?.toISOString() ?? null,
     createdAt: campaign.createdAt.toISOString(),
     updatedAt: campaign.updatedAt.toISOString(),
   };
@@ -109,6 +151,18 @@ function canCreateCampaign(user: { role: Role; userType: UserType }): boolean {
     user.userType === UserType.CAMPAIGN_LEAD ||
     user.userType === UserType.HOC
   );
+}
+
+function canManageCampaignRecord(user: { role: Role; userType: UserType }): boolean {
+  return canCreateCampaign(user);
+}
+
+function hasHubspotSyncMetadata(record: {
+  hubspotObjectId: string | null;
+  hubspotObjectType: string | null;
+  hubspotSyncedAt: Date | null;
+}): boolean {
+  return Boolean(record.hubspotObjectId || record.hubspotObjectType || record.hubspotSyncedAt);
 }
 
 async function ensureMarketReferenceData() {
@@ -167,7 +221,7 @@ export async function listCampaigns(input: {
 export async function createCampaign(input: CreateCampaignRequest & { userId: string }): Promise<CampaignSummary> {
   const requestUser = await getRequestUser(input.userId);
 
-  if (!canCreateCampaign(requestUser)) {
+  if (!canManageCampaignRecord(requestUser)) {
     throw new ServiceError("CAMPAIGN_CREATE_FORBIDDEN", 403, "Forbidden");
   }
 
@@ -176,10 +230,12 @@ export async function createCampaign(input: CreateCampaignRequest & { userId: st
 
   const [client, market] = await Promise.all([
     prisma.client.findUnique({ where: { id: payload.clientId }, select: { id: true } }),
-    prisma.market.findUnique({ where: { id: payload.marketId }, select: { id: true } }),
+    payload.marketId
+      ? prisma.market.findUnique({ where: { id: payload.marketId }, select: { id: true } })
+      : Promise.resolve(null),
   ]);
 
-  if (!client || !market) {
+  if (!client || (payload.marketId && !market)) {
     throw new ServiceError("CAMPAIGN_REFERENCE_INVALID", 400, "Client or market not found");
   }
 
@@ -188,7 +244,7 @@ export async function createCampaign(input: CreateCampaignRequest & { userId: st
       data: {
         name: payload.name.trim(),
         clientId: payload.clientId,
-        marketId: payload.marketId,
+        marketId: payload.marketId ?? null,
         briefLink: payload.briefLink?.trim() || null,
         month: payload.month.toUpperCase() as RunMonth,
         year: payload.year,
@@ -206,8 +262,8 @@ export async function createCampaign(input: CreateCampaignRequest & { userId: st
         entityId: campaign.id,
         metadata: {
           campaignName: campaign.name,
-          clientId: campaign.client.id,
-          marketId: campaign.market.id,
+          clientId: campaign.client?.id ?? null,
+          marketId: campaign.market?.id ?? null,
         },
       },
     });
@@ -218,10 +274,152 @@ export async function createCampaign(input: CreateCampaignRequest & { userId: st
   return toCampaignSummary(created);
 }
 
-export async function listClients(input: { userId: string }) {
+export async function updateCampaign(
+  input: UpdateCampaignRequest & { userId: string; campaignId: string },
+): Promise<CampaignSummary> {
+  const requestUser = await getRequestUser(input.userId);
+
+  if (!canManageCampaignRecord(requestUser)) {
+    throw new ServiceError("CAMPAIGN_UPDATE_FORBIDDEN", 403, "Forbidden");
+  }
+
+  const payload = updateCampaignRequestSchema.parse(input);
+  await ensureMarketReferenceData();
+
+  const existingCampaign = await prisma.campaign.findUnique({
+    where: { id: input.campaignId },
+    select: {
+      id: true,
+      name: true,
+      hubspotObjectId: true,
+      hubspotObjectType: true,
+      hubspotSyncedAt: true,
+    },
+  });
+
+  if (!existingCampaign) {
+    throw new ServiceError("CAMPAIGN_NOT_FOUND", 404, "Campaign not found");
+  }
+
+  if (hasHubspotSyncMetadata(existingCampaign)) {
+    throw new ServiceError(
+      "CAMPAIGN_HUBSPOT_SYNCED",
+      409,
+      "HubSpot-synced campaigns cannot be edited locally",
+    );
+  }
+
+  const [client, market] = await Promise.all([
+    prisma.client.findUnique({ where: { id: payload.clientId }, select: { id: true } }),
+    payload.marketId
+      ? prisma.market.findUnique({ where: { id: payload.marketId }, select: { id: true } })
+      : Promise.resolve(null),
+  ]);
+
+  if (!client || (payload.marketId && !market)) {
+    throw new ServiceError("CAMPAIGN_REFERENCE_INVALID", 400, "Client or market not found");
+  }
+
+  const updated = await withDbTransaction(async (tx) => {
+    const campaign = await tx.campaign.update({
+      where: { id: existingCampaign.id },
+      data: {
+        name: payload.name.trim(),
+        clientId: payload.clientId,
+        marketId: payload.marketId ?? null,
+        briefLink: payload.briefLink?.trim() || null,
+        month: payload.month.toUpperCase() as RunMonth,
+        year: payload.year,
+        isActive: payload.isActive,
+      },
+      select: campaignSelect,
+    });
+
+    await tx.auditEvent.create({
+      data: {
+        actorUserId: input.userId,
+        action: "campaign.updated",
+        entityType: "campaign",
+        entityId: campaign.id,
+        metadata: {
+          previousCampaignName: existingCampaign.name,
+          campaignName: campaign.name,
+          clientId: campaign.client?.id ?? null,
+          marketId: campaign.market?.id ?? null,
+        },
+      },
+    });
+
+    return campaign;
+  });
+
+  return toCampaignSummary(updated);
+}
+
+export async function deleteCampaign(input: {
+  userId: string;
+  campaignId: string;
+}): Promise<void> {
+  const requestUser = await getRequestUser(input.userId);
+
+  if (!canManageCampaignRecord(requestUser)) {
+    throw new ServiceError("CAMPAIGN_DELETE_FORBIDDEN", 403, "Forbidden");
+  }
+
+  const existingCampaign = await prisma.campaign.findUnique({
+    where: { id: input.campaignId },
+    select: {
+      id: true,
+      name: true,
+      hubspotObjectId: true,
+      hubspotObjectType: true,
+      hubspotSyncedAt: true,
+    },
+  });
+
+  if (!existingCampaign) {
+    throw new ServiceError("CAMPAIGN_NOT_FOUND", 404, "Campaign not found");
+  }
+
+  if (hasHubspotSyncMetadata(existingCampaign)) {
+    throw new ServiceError(
+      "CAMPAIGN_HUBSPOT_SYNCED",
+      409,
+      "HubSpot-synced campaigns cannot be deleted locally",
+    );
+  }
+
+  await withDbTransaction(async (tx) => {
+    await tx.campaign.delete({
+      where: { id: existingCampaign.id },
+    });
+
+    await tx.auditEvent.create({
+      data: {
+        actorUserId: input.userId,
+        action: "campaign.deleted",
+        entityType: "campaign",
+        entityId: existingCampaign.id,
+        metadata: {
+          campaignName: existingCampaign.name,
+        },
+      },
+    });
+  });
+}
+
+export async function listClients(input: {
+  userId: string;
+  query?: Partial<ListClientsQuery>;
+}) {
+  const parsedQuery = listClientsQuerySchema.partial().parse(input.query ?? {});
+
   const [requestUser, clients] = await Promise.all([
     getRequestUser(input.userId),
     prisma.client.findMany({
+      where: {
+        ...(typeof parsedQuery.active === "boolean" ? { isActive: parsedQuery.active } : {}),
+      },
       orderBy: {
         name: "asc",
       },
@@ -241,7 +439,7 @@ export async function listClients(input: { userId: string }) {
 export async function createClient(input: CreateClientRequest & { userId: string }): Promise<ClientSummary> {
   const requestUser = await getRequestUser(input.userId);
 
-  if (!canCreateCampaign(requestUser)) {
+  if (!canManageCampaignRecord(requestUser)) {
     throw new ServiceError("CLIENT_CREATE_FORBIDDEN", 403, "Forbidden");
   }
 
@@ -273,4 +471,120 @@ export async function createClient(input: CreateClientRequest & { userId: string
   });
 
   return toClientSummary(created);
+}
+
+export async function updateClient(
+  input: UpdateClientRequest & { userId: string; clientId: string },
+): Promise<ClientSummary> {
+  const requestUser = await getRequestUser(input.userId);
+
+  if (!canManageCampaignRecord(requestUser)) {
+    throw new ServiceError("CLIENT_UPDATE_FORBIDDEN", 403, "Forbidden");
+  }
+
+  const payload = updateClientRequestSchema.parse(input);
+  const existingClient = await prisma.client.findUnique({
+    where: { id: input.clientId },
+    select: {
+      id: true,
+      name: true,
+      hubspotObjectId: true,
+      hubspotObjectType: true,
+      hubspotSyncedAt: true,
+    },
+  });
+
+  if (!existingClient) {
+    throw new ServiceError("CLIENT_NOT_FOUND", 404, "Client not found");
+  }
+
+  if (hasHubspotSyncMetadata(existingClient)) {
+    throw new ServiceError(
+      "CLIENT_HUBSPOT_SYNCED",
+      409,
+      "HubSpot-synced clients cannot be edited locally",
+    );
+  }
+
+  const updated = await withDbTransaction(async (tx) => {
+    const client = await tx.client.update({
+      where: { id: existingClient.id },
+      data: {
+        name: payload.name.trim(),
+        domain: payload.domain?.trim() || null,
+        countryRegion: payload.countryRegion.trim(),
+        city: payload.city.trim(),
+        isActive: payload.isActive,
+      },
+    });
+
+    await tx.auditEvent.create({
+      data: {
+        actorUserId: input.userId,
+        action: "client.updated",
+        entityType: "client",
+        entityId: client.id,
+        metadata: {
+          previousClientName: existingClient.name,
+          clientName: client.name,
+        },
+      },
+    });
+
+    return client;
+  });
+
+  return toClientSummary(updated);
+}
+
+export async function deleteClient(input: {
+  userId: string;
+  clientId: string;
+}): Promise<void> {
+  const requestUser = await getRequestUser(input.userId);
+
+  if (!canManageCampaignRecord(requestUser)) {
+    throw new ServiceError("CLIENT_DELETE_FORBIDDEN", 403, "Forbidden");
+  }
+
+  const existingClient = await prisma.client.findUnique({
+    where: { id: input.clientId },
+    select: {
+      id: true,
+      name: true,
+      hubspotObjectId: true,
+      hubspotObjectType: true,
+      hubspotSyncedAt: true,
+    },
+  });
+
+  if (!existingClient) {
+    throw new ServiceError("CLIENT_NOT_FOUND", 404, "Client not found");
+  }
+
+  if (hasHubspotSyncMetadata(existingClient)) {
+    throw new ServiceError(
+      "CLIENT_HUBSPOT_SYNCED",
+      409,
+      "HubSpot-synced clients cannot be deleted locally",
+    );
+  }
+
+  await withDbTransaction(async (tx) => {
+    await tx.client.delete({
+      where: { id: existingClient.id },
+    });
+
+    await tx.auditEvent.create({
+      data: {
+        actorUserId: input.userId,
+        action: "client.deleted",
+        entityType: "client",
+        entityId: existingClient.id,
+        metadata: {
+          clientName: existingClient.name,
+        },
+      },
+    });
+  });
 }

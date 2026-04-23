@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
 
 import { useDocumentVisibility } from "../../lib/document-visibility";
-import { getCsvPreviewHref, getHubspotPreviewHref } from "../../lib/navigation";
+import { getHubspotPreviewHref } from "../../lib/navigation";
 import {
   formatCampaignManagerLabel,
   formatNullableMetadataValue,
@@ -48,9 +48,6 @@ const INITIAL_FILTERS_STATE: DashboardFiltersState = {
   client: "",
   market: "",
 };
-
-const DASHBOARD_DESCRIPTION =
-  "Review recent scouting runs, track coverage against each run target, and hand each run off to Database, CSV export, or Google Sheets from one compact table.";
 
 type DashboardStatusFilter = "all" | "running" | "completed" | "failed";
 
@@ -296,239 +293,236 @@ export function DashboardWorkspace({
           </>
         }
         crumbs={[{ label: "Dashboard" }]}
-        description={DASHBOARD_DESCRIPTION}
         live={isPolling}
         title="Dashboard"
       />
       <div className="page-container page-section__body">
         <div className="dashboard-workspace">
-      <section className="dashboard-workspace__table-panel">
-        <div className="dashboard-workspace__filters">
-          <label className="new-scouting__field">
-            <span>Campaign Manager</span>
-            <SearchableSelect
-              ariaLabel="Campaign Manager"
-              disabled={requestState.status === "loading" || !filterOptions}
-              onChange={(campaignManagerUserId) => {
-                setFilters((current) => ({
-                  ...current,
-                  campaignManagerUserId,
-                }));
-              }}
-              options={campaignManagerOptions}
-              placeholder="All campaign managers"
-              searchPlaceholder="Search campaign managers..."
-              value={filters.campaignManagerUserId}
-            />
-          </label>
+          <section className="dashboard-workspace__table-panel">
+            <div className="dashboard-workspace__filters">
+              <label className="new-scouting__field dashboard-workspace__field">
+                <span>Campaign Manager</span>
+                <SearchableSelect
+                  ariaLabel="Campaign Manager"
+                  disabled={requestState.status === "loading" || !filterOptions}
+                  onChange={(campaignManagerUserId) => {
+                    setFilters((current) => ({
+                      ...current,
+                      campaignManagerUserId,
+                    }));
+                  }}
+                  options={campaignManagerOptions}
+                  placeholder="All campaign managers"
+                  searchPlaceholder="Search campaign managers..."
+                  value={filters.campaignManagerUserId}
+                />
+              </label>
 
-          <label className="new-scouting__field">
-            <span>Client</span>
-            <SearchableSelect
-              ariaLabel="Client"
-              disabled={requestState.status === "loading" || !filterOptions}
-              onChange={(client) => {
-                setFilters((current) => ({
-                  ...current,
-                  client,
-                }));
-              }}
-              options={clientOptions}
-              placeholder="All clients"
-              searchPlaceholder="Search clients..."
-              value={filters.client}
-            />
-          </label>
+              <label className="new-scouting__field dashboard-workspace__field">
+                <span>Client</span>
+                <SearchableSelect
+                  ariaLabel="Client"
+                  disabled={requestState.status === "loading" || !filterOptions}
+                  onChange={(client) => {
+                    setFilters((current) => ({
+                      ...current,
+                      client,
+                    }));
+                  }}
+                  options={clientOptions}
+                  placeholder="All clients"
+                  searchPlaceholder="Search clients..."
+                  value={filters.client}
+                />
+              </label>
 
-          <label className="new-scouting__field">
-            <span>Market</span>
-            <SearchableSelect
-              ariaLabel="Market"
-              disabled={requestState.status === "loading" || !filterOptions}
-              onChange={(market) => {
-                setFilters((current) => ({
-                  ...current,
-                  market,
-                }));
-              }}
-              options={marketOptions}
-              placeholder="All markets"
-              searchPlaceholder="Search markets..."
-              value={filters.market}
-            />
-          </label>
-        </div>
-        <div className="dashboard-workspace__row-actions">
-          <label className="new-scouting__field" style={{ flex: "1 1 16rem", minWidth: "min(100%, 16rem)" }}>
-            <span>Search runs</span>
-            <input
-              onChange={(event) => {
-                setQuery(event.currentTarget.value);
-              }}
-              placeholder="Search campaign or list"
-              type="search"
-              value={query}
-            />
-          </label>
-          <button
-            aria-pressed={statusFilter === "all"}
-            className="status-pill-button"
-            onClick={() => {
-              handleStatusFilterChange("all");
-            }}
-            type="button"
-          >
-            <span className="status-pill status-pill--neutral">All</span>
-          </button>
-          <button
-            aria-pressed={statusFilter === "running"}
-            className="status-pill-button"
-            onClick={() => {
-              handleStatusFilterChange("running");
-            }}
-            type="button"
-          >
-            <StatusPill status="running" />
-          </button>
-          <button
-            aria-pressed={statusFilter === "completed"}
-            className="status-pill-button"
-            onClick={() => {
-              handleStatusFilterChange("completed");
-            }}
-            type="button"
-          >
-            <StatusPill status="completed" />
-          </button>
-          <button
-            aria-pressed={statusFilter === "failed"}
-            className="status-pill-button"
-            onClick={() => {
-              handleStatusFilterChange("failed");
-            }}
-            type="button"
-          >
-            <StatusPill status="failed" />
-          </button>
-        </div>
-
-        {requestState.status === "loading" ? (
-          <div className="dashboard-workspace__feedback" role="status">
-            Loading dashboard runs.
-          </div>
-        ) : null}
-
-        {requestState.status === "error" ? (
-          <ErrorState description={requestState.error} onRetry={() => setReloadToken((current) => current + 1)} title="Couldn't load dashboard" />
-        ) : null}
-
-        {requestState.status === "ready" ? (
-          requestState.data.items.length > 0 ? (
-            visibleRuns.length > 0 ? (
-            <DataTable caption="Recent scouting runs" density="regular">
-                <thead>
-                  <tr>
-                    <th scope="col" style={{ minWidth: "9rem" }}>Client</th>
-                    <th scope="col" style={{ minWidth: "8rem" }}>Market</th>
-                    <th scope="col" style={{ minWidth: "10rem" }}>Campaign Manager</th>
-                    <th scope="col" style={{ minWidth: "8rem" }}>Brief Link</th>
-                    <th scope="col" style={{ minWidth: "12rem" }}>Influencer List</th>
-                    <th scope="col" style={{ minWidth: "12rem" }}>Coverage</th>
-                    <th scope="col" style={{ minWidth: "8rem" }}>Status</th>
-                    <th scope="col" style={{ minWidth: "9rem" }}>Started</th>
-                    <th scope="col" style={{ minWidth: "11rem" }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleRuns.map((run) => {
-                    return (
-                      <tr key={run.id}>
-                        <td>{formatNullableMetadataValue(run.metadata.client)}</td>
-                        <td>{formatNullableMetadataValue(run.metadata.market)}</td>
-                        <td>{formatCampaignManagerLabel(run.metadata.campaignManager)}</td>
-                        <td>
-                          {run.metadata.briefLink ? (
-                            <a
-                              className="dashboard-workspace__list-link"
-                              href={run.metadata.briefLink}
-                              rel="noreferrer"
-                              target="_blank"
-                            >
-                              Open brief
-                            </a>
-                          ) : (
-                            <span className="dashboard-workspace__planned-cell">—</span>
-                          )}
-                        </td>
-                        <td>
-                          <Link className="dashboard-workspace__list-link" href={`/runs/${encodeURIComponent(run.id)}`}>
-                            {run.name}
-                          </Link>
-                        </td>
-                        <td>{renderCoverageCell(run.resultCount, run.target)}</td>
-                        <td>
-                          <StatusPill status={run.status} />
-                        </td>
-                        <td>{formatRunTimestamp(run.startedAt)}</td>
-                        <td>
-                          <div className="dashboard-workspace__row-actions">
-                            <Link
-                              className="workspace-button workspace-button--small"
-                              href={getCsvPreviewHref(run.id)}
-                              target="_blank"
-                            >
-                              Export
-                            </Link>
-                            <Link
-                              className="workspace-button workspace-button--small workspace-button--secondary"
-                              href={getHubspotPreviewHref(run.id)}
-                              target="_blank"
-                            >
-                              Google Sheets
-                            </Link>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-            </DataTable>
-          ) : (
-            <div className="data-table__scroll">
-              <EmptyState
-                action={
-                  <button className="workspace-button workspace-button--secondary" onClick={clearQuickFilters} type="button">
-                    Clear
-                  </button>
-                }
-                description="Clear filters to see all runs."
-                title="No runs match"
-              />
+              <label className="new-scouting__field dashboard-workspace__field">
+                <span>Markets</span>
+                <SearchableSelect
+                  ariaLabel="Markets"
+                  disabled={requestState.status === "loading" || !filterOptions}
+                  onChange={(market) => {
+                    setFilters((current) => ({
+                      ...current,
+                      market,
+                    }));
+                  }}
+                  options={marketOptions}
+                  placeholder="All markets"
+                  searchPlaceholder="Search markets..."
+                  value={filters.market}
+                />
+              </label>
+              <div className="dashboard-workspace__quick-filters">
+                <label className="new-scouting__field dashboard-workspace__field">
+                  <span>Search Runs</span>
+                  <input
+                    onChange={(event) => {
+                      setQuery(event.currentTarget.value);
+                    }}
+                    placeholder="Search campaign or list"
+                    type="search"
+                    value={query}
+                  />
+                </label>
+                <div className="new-scouting__field dashboard-workspace__field dashboard-workspace__status-field">
+                  <span>Status</span>
+                  <div className="dashboard-workspace__status-filters">
+                    <button
+                      aria-pressed={statusFilter === "all"}
+                      className="status-pill-button"
+                      onClick={() => {
+                        handleStatusFilterChange("all");
+                      }}
+                      type="button"
+                    >
+                      <span className="status-pill status-pill--neutral">All</span>
+                    </button>
+                    <button
+                      aria-pressed={statusFilter === "running"}
+                      className="status-pill-button"
+                      onClick={() => {
+                        handleStatusFilterChange("running");
+                      }}
+                      type="button"
+                    >
+                      <StatusPill status="running" />
+                    </button>
+                    <button
+                      aria-pressed={statusFilter === "completed"}
+                      className="status-pill-button"
+                      onClick={() => {
+                        handleStatusFilterChange("completed");
+                      }}
+                      type="button"
+                    >
+                      <StatusPill status="completed" />
+                    </button>
+                    <button
+                      aria-pressed={statusFilter === "failed"}
+                      className="status-pill-button"
+                      onClick={() => {
+                        handleStatusFilterChange("failed");
+                      }}
+                      type="button"
+                    >
+                      <StatusPill status="failed" />
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-          )
-          ) : hasAnyFiltersApplied ? (
-            <EmptyState
-              action={
-                <button className="workspace-button workspace-button--secondary" onClick={clearAllFilters} type="button">
-                  Clear filters
-                </button>
-              }
-              description="Adjust or clear filters to see matching runs."
-              title="No runs match"
-            />
-          ) : (
-            <EmptyState
-              action={
-                <Link className="workspace-button" href="/new-scouting">
-                  New run
-                </Link>
-              }
-              description="Create the first run from New scouting to populate the dashboard."
-              title="No scouting runs yet"
-            />
-          )
-        ) : null}
-      </section>
+
+            {requestState.status === "loading" ? (
+              <div className="dashboard-workspace__feedback" role="status">
+                Loading dashboard runs.
+              </div>
+            ) : null}
+
+            {requestState.status === "error" ? (
+              <ErrorState description={requestState.error} onRetry={() => setReloadToken((current) => current + 1)} title="Couldn't load dashboard" />
+            ) : null}
+
+            {requestState.status === "ready" ? (
+              requestState.data.items.length > 0 ? (
+                visibleRuns.length > 0 ? (
+                  <DataTable caption="Recent scouting runs" density="compact">
+                    <thead>
+                      <tr>
+                        <th scope="col" style={{ minWidth: "9rem" }}>Client</th>
+                        <th scope="col" style={{ minWidth: "8rem" }}>Markets</th>
+                        <th scope="col" style={{ minWidth: "10rem" }}>Campaign Manager</th>
+                        <th scope="col" style={{ minWidth: "8rem" }}>Brief Link</th>
+                        <th scope="col" style={{ minWidth: "12rem" }}>Influencer List</th>
+                        <th scope="col" style={{ minWidth: "12rem" }}>Coverage</th>
+                        <th scope="col" style={{ minWidth: "8rem" }}>Status</th>
+                        <th scope="col" style={{ minWidth: "9rem" }}>Started</th>
+                        <th scope="col" style={{ minWidth: "11rem" }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleRuns.map((run) => {
+                        return (
+                          <tr key={run.id}>
+                            <td>{formatNullableMetadataValue(run.metadata.client)}</td>
+                            <td>{formatNullableMetadataValue(run.metadata.market)}</td>
+                            <td>{formatCampaignManagerLabel(run.metadata.campaignManager)}</td>
+                            <td>
+                              {run.metadata.briefLink ? (
+                                <a
+                                  className="dashboard-workspace__list-link"
+                                  href={run.metadata.briefLink}
+                                  rel="noreferrer"
+                                  target="_blank"
+                                >
+                                  Open brief
+                                </a>
+                              ) : (
+                                <span className="dashboard-workspace__planned-cell">—</span>
+                              )}
+                            </td>
+                            <td>
+                              <Link className="dashboard-workspace__list-link" href={`/runs/${encodeURIComponent(run.id)}`}>
+                                {run.name}
+                              </Link>
+                            </td>
+                            <td>{renderCoverageCell(run.resultCount, run.target)}</td>
+                            <td>
+                              <StatusPill status={run.status} />
+                            </td>
+                            <td>{formatRunTimestamp(run.startedAt)}</td>
+                            <td>
+                              <div className="dashboard-workspace__row-actions">
+                                <Link
+                                  className="workspace-button workspace-button--small"
+                                  href={getHubspotPreviewHref(run.id)}
+                                  target="_blank"
+                                >
+                                  Export
+                                </Link>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </DataTable>
+                ) : (
+                  <div className="data-table__scroll">
+                    <EmptyState
+                      action={
+                        <button className="workspace-button workspace-button--secondary" onClick={clearQuickFilters} type="button">
+                          Clear
+                        </button>
+                      }
+                      description="Clear filters to see all runs."
+                      title="No runs match"
+                    />
+                  </div>
+                )
+              ) : hasAnyFiltersApplied ? (
+                <EmptyState
+                  action={
+                    <button className="workspace-button workspace-button--secondary" onClick={clearAllFilters} type="button">
+                      Clear filters
+                    </button>
+                  }
+                  description="Adjust or clear filters to see matching runs."
+                  title="No runs match"
+                />
+              ) : (
+                <EmptyState
+                  action={
+                    <Link className="workspace-button" href="/new-scouting">
+                      New run
+                    </Link>
+                  }
+                  description="Create the first run from New scouting to populate the dashboard."
+                  title="No scouting runs yet"
+                />
+              )
+            ) : null}
+          </section>
         </div>
       </div>
     </>

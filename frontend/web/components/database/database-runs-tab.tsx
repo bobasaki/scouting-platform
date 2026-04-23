@@ -533,7 +533,7 @@ export function DatabaseRunsTab({
                 <dd>{formatNullableMetadataValue(detailRequestState.data.metadata.client)}</dd>
               </div>
               <div>
-                <dt>Market</dt>
+                <dt>Markets</dt>
                 <dd>{formatNullableMetadataValue(detailRequestState.data.metadata.market)}</dd>
               </div>
               <div>

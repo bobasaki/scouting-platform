@@ -1,5 +1,5 @@
 import { HubspotPushBatchResultShell } from "../../../../components/hubspot/hubspot-push-batch-result-shell";
-import { PageSection } from "../../../../components/layout/page-section";
+import { PageHeader } from "../../../../components/layout/PageHeader";
 
 type HubspotBatchResultPageProps = Readonly<{
   params: Promise<{ batchId: string }>;
@@ -9,11 +9,17 @@ export default async function HubspotBatchResultPage({ params }: HubspotBatchRes
   const { batchId } = await params;
 
   return (
-    <PageSection
-      title="HubSpot Batch Result"
-      description="Review stored row outcomes, visible failures, CSV readiness, and legacy fallback detail for a single HubSpot batch."
-    >
-      <HubspotPushBatchResultShell batchId={batchId} />
-    </PageSection>
+    <section className="page-section">
+      <PageHeader
+        crumbs={[
+          { label: "HubSpot", href: "/hubspot" },
+          { label: "Batch Result" },
+        ]}
+        title="Batch Result"
+      />
+      <div className="page-container page-section__body">
+        <HubspotPushBatchResultShell batchId={batchId} />
+      </div>
+    </section>
   );
 }

@@ -359,8 +359,8 @@ async function loadRunCreationMetadata(input: {
 
   return {
     campaignId: campaign.id,
-    client: campaign.client.name,
-    market: campaign.market.name,
+    client: campaign.client?.name ?? null,
+    market: campaign.market?.name ?? null,
     campaignManagerUserId,
     briefLink: campaign.briefLink,
     campaignName: campaign.name,

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { getCsvExportPreview } from "@scouting-platform/core";
 import { getSession } from "../../../../../lib/cached-auth";
 import { ExportPreparationWorkspace } from "../../../../../components/exports/export-preparation-workspace";
-import { PageSection } from "../../../../../components/layout/page-section";
+import { PageHeader } from "../../../../../components/layout/PageHeader";
 import { SkeletonPageBody, SkeletonTable } from "../../../../../components/ui/skeleton";
 import { getRoleFromSession } from "../../../../../lib/access-control";
 
@@ -40,13 +40,19 @@ export default async function ExportPreparePage({ params }: ExportPreparePagePro
   const { runId } = await params;
 
   return (
-    <PageSection
-      title="CSV Preparation"
-      description="Review the full export table and download a CSV directly from the prepared run snapshot."
-    >
-      <Suspense fallback={<ExportPrepareFallback />}>
-        <ExportPrepareData runId={runId} />
-      </Suspense>
-    </PageSection>
+    <section className="page-section">
+      <PageHeader
+        crumbs={[
+          { label: "Exports", href: "/exports" },
+          { label: "CSV Preparation" },
+        ]}
+        title="CSV Preparation"
+      />
+      <div className="page-container page-section__body">
+        <Suspense fallback={<ExportPrepareFallback />}>
+          <ExportPrepareData runId={runId} />
+        </Suspense>
+      </div>
+    </section>
   );
 }

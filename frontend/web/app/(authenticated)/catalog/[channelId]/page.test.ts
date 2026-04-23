@@ -64,7 +64,8 @@ describe("catalog channel detail page", () => {
       canManageManualEdits: true,
       initialData: { id: "channel-123" },
     });
-    expect(html).not.toContain("Channel Detail");
+    expect(html).toContain("Channel Detail");
+    expect(html).toContain('href="/catalog"');
     expect(html).toContain("channel-detail-shell:channel-123:true:with-data");
   });
 

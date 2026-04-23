@@ -1,5 +1,5 @@
 import React from "react";
-import { PageSection } from "../../../components/layout/page-section";
+import { PageHeader } from "../../../components/layout/PageHeader";
 import {
   Skeleton,
   SkeletonPageBody,
@@ -8,19 +8,21 @@ import {
 
 export default function AdminLoading() {
   return (
-    <PageSection
-      section="Admin"
-      title="Admin"
-      description="Review approvals, manage users, and keep the dedicated admin workflows within reach."
-    >
-      <SkeletonPageBody>
-        <div style={{ display: "flex", gap: "0.5rem" }}>
-          <Skeleton borderRadius="var(--radius-md)" height="2.25rem" width="6rem" />
-          <Skeleton borderRadius="var(--radius-md)" height="2.25rem" width="6rem" />
-          <Skeleton borderRadius="var(--radius-md)" height="2.25rem" width="6rem" />
-        </div>
-        <SkeletonTable columns={5} rows={5} />
-      </SkeletonPageBody>
-    </PageSection>
+    <section className="page-section">
+      <PageHeader
+        crumbs={[{ label: "Admin" }]}
+        title="Admin"
+      />
+      <div className="page-container page-section__body">
+        <SkeletonPageBody>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <Skeleton borderRadius="var(--radius-md)" height="2.25rem" width="6rem" />
+            <Skeleton borderRadius="var(--radius-md)" height="2.25rem" width="6rem" />
+            <Skeleton borderRadius="var(--radius-md)" height="2.25rem" width="6rem" />
+          </div>
+          <SkeletonTable columns={5} rows={5} />
+        </SkeletonPageBody>
+      </div>
+    </section>
   );
 }

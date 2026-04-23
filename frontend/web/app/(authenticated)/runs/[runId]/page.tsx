@@ -57,9 +57,8 @@ export default async function RunDetailPage({ params }: RunDetailPageProps) {
       <PageHeader
         crumbs={[
           { label: "Dashboard", href: "/dashboard" },
-          { label: "Run detail" },
+          { label: "Run Detail" },
         ]}
-        description="Track scouting status, inspect stored snapshot results, and surface queue failures without leaving the runs surface."
         title="Run Detail"
       />
       <div className="page-container page-section__body">

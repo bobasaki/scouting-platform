@@ -2,9 +2,11 @@ import {
   campaignSummarySchema,
   createCampaignRequestSchema as createCampaignPayloadSchema,
   listCampaignsResponseSchema,
+  updateCampaignRequestSchema as updateCampaignPayloadSchema,
   type CampaignSummary,
   type CreateCampaignRequest,
   type ListCampaignsResponse,
+  type UpdateCampaignRequest,
 } from "@scouting-platform/contracts";
 
 type ApiErrorBody = {
@@ -90,4 +92,35 @@ export async function createCampaignRequest(input: CreateCampaignRequest): Promi
   }
 
   return campaignSummarySchema.parse(payload);
+}
+
+export async function updateCampaignRequest(
+  campaignId: string,
+  input: UpdateCampaignRequest,
+): Promise<CampaignSummary> {
+  const response = await fetch(`/api/campaigns/${encodeURIComponent(campaignId)}`, {
+    method: "PUT",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(updateCampaignPayloadSchema.parse(input)),
+  });
+  const payload = await readJsonPayload(response);
+
+  if (!response.ok) {
+    throw new CampaignsApiError(getApiErrorMessage(response, payload), response.status);
+  }
+
+  return campaignSummarySchema.parse(payload);
+}
+
+export async function deleteCampaignRequest(campaignId: string): Promise<void> {
+  const response = await fetch(`/api/campaigns/${encodeURIComponent(campaignId)}`, {
+    method: "DELETE",
+  });
+  const payload = await readJsonPayload(response);
+
+  if (!response.ok) {
+    throw new CampaignsApiError(getApiErrorMessage(response, payload), response.status);
+  }
 }

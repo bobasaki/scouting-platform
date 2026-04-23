@@ -1,5 +1,5 @@
 import { CsvExportBatchResultShell } from "../../../../components/exports/csv-export-batch-result-shell";
-import { PageSection } from "../../../../components/layout/page-section";
+import { PageHeader } from "../../../../components/layout/PageHeader";
 
 type ExportBatchResultPageProps = Readonly<{
   params: Promise<{ batchId: string }>;
@@ -9,11 +9,17 @@ export default async function ExportBatchResultPage({ params }: ExportBatchResul
   const { batchId } = await params;
 
   return (
-    <PageSection
-      title="Export Batch Result"
-      description="Review stored scope, worker status, and download readiness for a single CSV export batch."
-    >
-      <CsvExportBatchResultShell batchId={batchId} />
-    </PageSection>
+    <section className="page-section">
+      <PageHeader
+        crumbs={[
+          { label: "Exports", href: "/exports" },
+          { label: "Export Batch Result" },
+        ]}
+        title="Export Batch Result"
+      />
+      <div className="page-container page-section__body">
+        <CsvExportBatchResultShell batchId={batchId} />
+      </div>
+    </section>
   );
 }

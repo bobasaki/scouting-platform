@@ -31,10 +31,8 @@ describe("hubspot batch result page", () => {
     expect(hubspotPushBatchResultShellMock.mock.calls[0]?.[0]).toEqual({
       batchId: "batch-123",
     });
-    expect(html).toContain("<h1>HubSpot Batch Result</h1>");
-    expect(html).toContain(
-      "Review stored row outcomes, visible failures, CSV readiness, and legacy fallback detail for a single HubSpot batch.",
-    );
+    expect(html).toContain("<h1 class=\"page-header__title\">Batch Result</h1>");
+    expect(html).toContain('href="/hubspot"');
     expect(html).toContain("hubspot-push-batch-result-shell:batch-123");
   });
 });

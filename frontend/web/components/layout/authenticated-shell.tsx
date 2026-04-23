@@ -20,10 +20,10 @@ export function AuthenticatedShell({ children, role }: AuthenticatedShellProps) 
               <Image
                 alt="Arch"
                 className="auth-shell__brand-logo"
-                height={22}
+                height={18}
                 priority
                 src="/arch-logo.svg"
-                width={83}
+                width={68}
               />
             </span>
           </Link>

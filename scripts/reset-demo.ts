@@ -9,6 +9,7 @@ async function main() {
 
   try {
     await prisma.hubspotPreviewEnrichmentJob.deleteMany();
+    await prisma.hubspotObjectSyncRun.deleteMany();
     await prisma.hubspotImportBatchRow.deleteMany();
     await prisma.hubspotImportBatch.deleteMany();
     await prisma.hubspotPushBatchRow.deleteMany();

@@ -1,7 +1,7 @@
 import React from "react";
 import { getSession } from "../../../lib/cached-auth";
 import { AdminWorkspace } from "../../../components/admin/admin-workspace";
-import { PageSection } from "../../../components/layout/page-section";
+import { PageHeader } from "../../../components/layout/PageHeader";
 import {
   canAccessNavigationKey,
   FORBIDDEN_ROUTE,
@@ -24,12 +24,14 @@ export default async function AdminPage() {
   }
 
   return (
-    <PageSection
-      section="Admin"
-      title="Admin"
-      description="Review approvals, manage users, and keep the dedicated admin workflows within reach."
-    >
-      <AdminWorkspace />
-    </PageSection>
+    <section className="page-section">
+      <PageHeader
+        crumbs={[{ label: "Admin" }]}
+        title="Admin"
+      />
+      <div className="page-container page-section__body">
+        <AdminWorkspace />
+      </div>
+    </section>
   );
 }

@@ -11,6 +11,7 @@ export const JOB_NAMES = [
   "hubspot-preview.enrich",
   "hubspot.import.batch",
   "hubspot.push.batch",
+  "hubspot.object-sync",
   "maintenance.refresh-stale",
 ] as const;
 
@@ -69,6 +70,11 @@ export const hubspotImportBatchPayloadSchema = z.object({
   requestedByUserId: uuid,
 });
 
+export const hubspotObjectSyncPayloadSchema = z.object({
+  syncRunId: uuid,
+  requestedByUserId: uuid,
+});
+
 export const maintenanceRefreshStalePayloadSchema = z.object({
   initiatedBy: z.enum(["system", "admin"]),
   requestedByUserId: uuid.optional(),
@@ -85,6 +91,7 @@ export const jobPayloadSchemas = {
   "hubspot-preview.enrich": hubspotPreviewEnrichPayloadSchema,
   "hubspot.import.batch": hubspotImportBatchPayloadSchema,
   "hubspot.push.batch": hubspotPushBatchPayloadSchema,
+  "hubspot.object-sync": hubspotObjectSyncPayloadSchema,
   "maintenance.refresh-stale": maintenanceRefreshStalePayloadSchema,
 } as const satisfies Record<JobName, z.ZodType>;
 

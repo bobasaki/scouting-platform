@@ -1,13 +1,13 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { authMock, redirectMock } = vi.hoisted(() => ({
-  authMock: vi.fn(),
+const { getSessionMock, redirectMock } = vi.hoisted(() => ({
+  getSessionMock: vi.fn(),
   redirectMock: vi.fn(),
 }));
 
-vi.mock("../../../../auth", () => ({
-  auth: authMock,
+vi.mock("../../../../lib/cached-auth", () => ({
+  getSession: getSessionMock,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -22,7 +22,7 @@ describe("admin imports page", () => {
   });
 
   it("redirects unauthenticated users to login", async () => {
-    authMock.mockResolvedValueOnce(null);
+    getSessionMock.mockResolvedValueOnce(null);
 
     const result = await AdminImportsPage();
 
@@ -31,7 +31,7 @@ describe("admin imports page", () => {
   });
 
   it("redirects sessions without user to login", async () => {
-    authMock.mockResolvedValueOnce({});
+    getSessionMock.mockResolvedValueOnce({});
 
     const result = await AdminImportsPage();
 
@@ -41,8 +41,9 @@ describe("admin imports page", () => {
   });
 
   it("redirects authenticated non-admin users to forbidden", async () => {
-    authMock.mockResolvedValueOnce({
+    getSessionMock.mockResolvedValueOnce({
       user: {
+        id: "user-1",
         role: "user",
       },
     });
@@ -54,8 +55,9 @@ describe("admin imports page", () => {
   });
 
   it("redirects unknown roles to forbidden", async () => {
-    authMock.mockResolvedValueOnce({
+    getSessionMock.mockResolvedValueOnce({
       user: {
+        id: "user-1",
         role: "owner",
       },
     });
@@ -68,8 +70,9 @@ describe("admin imports page", () => {
   });
 
   it("renders csv imports page for admin role", async () => {
-    authMock.mockResolvedValueOnce({
+    getSessionMock.mockResolvedValueOnce({
       user: {
+        id: "user-1",
         role: "admin",
       },
     });
@@ -78,9 +81,7 @@ describe("admin imports page", () => {
 
     expect(redirectMock).not.toHaveBeenCalled();
     expect(html).toContain("CSV Imports");
-    expect(html).toContain(
-      "Upload strict-template CSV batches and inspect row-level results without leaving the admin workspace.",
-    );
+    expect(html).toContain('href="/admin"');
     expect(html).toContain("Upload CSV");
     expect(html).toContain("Loading CSV import batches...");
   });

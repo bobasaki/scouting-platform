@@ -24,10 +24,8 @@ describe("new run page", () => {
     expect(createRunShellMock.mock.calls[0]?.[0]).toEqual({
       showLegacyNotice: true,
     });
-    expect(html).toContain("<h1>New scouting</h1>");
-    expect(html).toContain(
-      "Legacy shortcut to the new scouting workspace. Run name, target, and prompt are live today while the remaining planning controls stay visible as disabled scaffolds.",
-    );
+    expect(html).toContain("New Scouting");
+    expect(html).toContain('href="/dashboard"');
     expect(html).toContain("new-scouting-workspace:true");
   });
 });

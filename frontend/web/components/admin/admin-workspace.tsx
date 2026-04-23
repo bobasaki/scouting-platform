@@ -5,9 +5,6 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import React from "react";
 
-const AdminAdvancedReportQueue = dynamic(
-  () => import("./admin-advanced-report-queue").then((mod) => mod.AdminAdvancedReportQueue),
-);
 const AdminCsvImportManager = dynamic(
   () => import("./admin-csv-import-manager").then((mod) => mod.AdminCsvImportManager),
 );
@@ -15,13 +12,12 @@ const AdminUsersManager = dynamic(
   () => import("./admin-users-manager").then((mod) => mod.AdminUsersManager),
 );
 
-type AdminWorkspaceTab = "approvals" | "imports" | "users" | "exports" | "hubspot";
+type AdminWorkspaceTab = "imports" | "users" | "exports" | "hubspot";
 
 const ADMIN_TABS: ReadonlyArray<{
   value: AdminWorkspaceTab;
   label: string;
 }> = [
-  { value: "approvals", label: "Approvals" },
   { value: "imports", label: "CSV Imports" },
   { value: "users", label: "Users" },
   { value: "exports", label: "Exports" },
@@ -30,13 +26,13 @@ const ADMIN_TABS: ReadonlyArray<{
 
 function resolveAdminTab(value: string | null): AdminWorkspaceTab {
   switch (value) {
-    case "imports":
     case "users":
+    case "imports":
     case "exports":
     case "hubspot":
       return value;
     default:
-      return "approvals";
+      return "imports";
   }
 }
 
@@ -51,7 +47,7 @@ export function AdminWorkspace() {
   function selectTab(tab: AdminWorkspaceTab) {
     const params = new URLSearchParams(searchParams.toString());
 
-    if (tab === "approvals") {
+    if (tab === "imports") {
       params.delete("tab");
     } else {
       params.set("tab", tab);
@@ -103,20 +99,6 @@ export function AdminWorkspace() {
         </button>
       </div>
 
-      {activeTab === "approvals" ? (
-        <div
-          aria-labelledby="admin-workspace-tab-approvals"
-          className="admin-workspace__panel"
-          id={activePanelId}
-          key={`approvals-${refreshKey}`}
-          role="tabpanel"
-        >
-          <div id="admin-approval-queue">
-            <AdminAdvancedReportQueue />
-          </div>
-        </div>
-      ) : null}
-
       {activeTab === "imports" ? (
         <div
           aria-labelledby="admin-workspace-tab-imports"
@@ -142,39 +124,31 @@ export function AdminWorkspace() {
       ) : null}
 
       {activeTab === "exports" ? (
-        <section
+        <div
           aria-labelledby="admin-workspace-tab-exports"
-          className="admin-workspace__panel admin-workspace__panel--placeholder"
+          className="admin-workspace__panel"
           id={activePanelId}
           key={`exports-${refreshKey}`}
           role="tabpanel"
         >
-          <div className="admin-workspace__placeholder">
-            <h2>Exports</h2>
-            <p>Review selected and filtered export batches from the dedicated export workspace.</p>
-            <Link className="admin-workspace__link" href="/exports">
-              Open exports workspace
-            </Link>
-          </div>
-        </section>
+          <h3>Exports workspace</h3>
+          <p>Export operations are available in the dedicated workspace.</p>
+          <Link href="/exports">Open /exports</Link>
+        </div>
       ) : null}
 
       {activeTab === "hubspot" ? (
-        <section
+        <div
           aria-labelledby="admin-workspace-tab-hubspot"
-          className="admin-workspace__panel admin-workspace__panel--placeholder"
+          className="admin-workspace__panel"
           id={activePanelId}
           key={`hubspot-${refreshKey}`}
           role="tabpanel"
         >
-          <div className="admin-workspace__placeholder">
-            <h2>HubSpot</h2>
-            <p>Inspect legacy import history, row-level results, and failure details in the dedicated HubSpot workspace.</p>
-            <Link className="admin-workspace__link" href="/hubspot">
-              Open HubSpot workspace
-            </Link>
-          </div>
-        </section>
+          <h3>HubSpot workspace</h3>
+          <p>HubSpot sync operations are available in the dedicated workspace.</p>
+          <Link href="/hubspot">Open /hubspot</Link>
+        </div>
       ) : null}
     </div>
   );

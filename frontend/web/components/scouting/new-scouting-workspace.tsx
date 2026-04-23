@@ -60,11 +60,16 @@ export function NewScoutingWorkspace({
       label: initialCampaigns.length === 0 ? "No active campaigns available" : "Select campaign",
       disabled: initialCampaigns.length === 0,
     },
-    ...initialCampaigns.map((campaign) => ({
-      value: campaign.id,
-      label: `${campaign.name} · ${campaign.client.name} · ${campaign.market.name}`,
-      keywords: [campaign.name, campaign.client.name, campaign.market.name],
-    })),
+    ...initialCampaigns.map((campaign) => {
+      const clientLabel = campaign.client?.name ?? "No client";
+      const marketsLabel = campaign.market?.name ?? "No markets";
+
+      return {
+        value: campaign.id,
+        label: `${campaign.name} · ${clientLabel} · ${marketsLabel}`,
+        keywords: [campaign.name, clientLabel, marketsLabel],
+      };
+    }),
   ];
   const campaignManagerOptions: SearchableSelectOption[] = [
     {

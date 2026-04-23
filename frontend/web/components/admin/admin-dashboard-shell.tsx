@@ -4,7 +4,6 @@ import type {
   AdminDashboardResponse,
   AdminUserResponse,
   CsvImportBatchSummary,
-  LatestCompletedAdvancedReport,
 } from "@scouting-platform/contracts";
 import Link from "next/link";
 import React, { useEffect, useState, type ReactElement } from "react";
@@ -43,40 +42,16 @@ const INITIAL_DASHBOARD_STATE: AdminDashboardState = {
 
 const ADMIN_DASHBOARD_SHORTCUTS: readonly AdminDashboardShortcut[] = [
   {
-    label: "Queue",
-    title: "HypeAuditor approvals",
-    href: "#admin-approval-queue",
-    copy: "Review pending, approved, queued, running, completed, and failed report requests without leaving this page.",
-  },
-  {
     label: "Admin",
     title: "CSV imports",
     href: "/admin/imports",
-    copy: "Open strict-template import history, inspect exact row failures, and keep long-running batches in view.",
+    copy: "Open Creator List import history, inspect row-level outcomes, and keep long-running batches in view.",
   },
   {
     label: "Admin",
     title: "User setup",
     href: "/admin/users",
     copy: "Create accounts, reset passwords, and assign YouTube API keys before managers start new runs.",
-  },
-  {
-    label: "Catalog",
-    title: "Catalog QA",
-    href: "/catalog",
-    copy: "Jump into channel detail pages for manual edits, enrichment follow-up, and advanced report request context.",
-  },
-  {
-    label: "Week 6",
-    title: "CSV exports",
-    href: "/exports",
-    copy: "Review selected and filtered export batches from the dedicated export workspace.",
-  },
-  {
-    label: "Week 6",
-    title: "HubSpot pushes",
-    href: "/hubspot",
-    copy: "Inspect row-level push results and exact HubSpot failure messages in the dedicated workspace.",
   },
 ] as const;
 
@@ -112,18 +87,6 @@ function getPersonLabel(person: { name: string | null; email: string }): string 
   return person.name?.trim() || person.email;
 }
 
-function getFreshnessCopy(lastCompletedReport: LatestCompletedAdvancedReport | null): string {
-  if (!lastCompletedReport) {
-    return "No completed report on record.";
-  }
-
-  if (lastCompletedReport.withinFreshWindow) {
-    return `Last completed report is fresh (${lastCompletedReport.ageDays} days old).`;
-  }
-
-  return `Last completed report is outside the 120-day window (${lastCompletedReport.ageDays} days old).`;
-}
-
 function getImportSnippet(batch: CsvImportBatchSummary): string {
   if (batch.lastError) {
     return `Last error: ${batch.lastError}`;
@@ -134,14 +97,6 @@ function getImportSnippet(batch: CsvImportBatchSummary): string {
 
 function getUserSnippet(user: AdminUserResponse): string {
   return `Created ${formatTimestamp(user.createdAt)} · Missing YouTube API key`;
-}
-
-function getActiveApprovalCount(dashboard: AdminDashboardResponse): number {
-  return (
-    dashboard.approvals.counts.approved +
-    dashboard.approvals.counts.queued +
-    dashboard.approvals.counts.running
-  );
 }
 
 function getActionableImportCount(dashboard: AdminDashboardResponse): number {
@@ -162,37 +117,17 @@ export function shouldPollAdminDashboard(dashboard: AdminDashboardResponse | nul
   }
 
   return (
-    dashboard.approvals.counts.pendingApproval > 0 ||
-    dashboard.approvals.counts.approved > 0 ||
-    dashboard.approvals.counts.queued > 0 ||
-    dashboard.approvals.counts.running > 0 ||
     dashboard.imports.counts.queued > 0 ||
     dashboard.imports.counts.running > 0
   );
 }
 
 function renderReadyState(dashboard: AdminDashboardResponse): ReactElement {
-  const activeApprovalCount = getActiveApprovalCount(dashboard);
   const actionableImportCount = getActionableImportCount(dashboard);
 
   return (
     <div className="admin-dashboard__content">
       <div className="admin-dashboard__card-grid">
-        <article className="admin-dashboard__card">
-          <p className="admin-dashboard__card-label">Pending approvals</p>
-          <p className="admin-dashboard__card-value">{dashboard.approvals.counts.pendingApproval}</p>
-          <p className="admin-dashboard__card-copy">
-            Oldest pending requests stay visible below so you can review them in order.
-          </p>
-        </article>
-        <article className="admin-dashboard__card">
-          <p className="admin-dashboard__card-label">HypeAuditor follow-through</p>
-          <p className="admin-dashboard__card-value">{activeApprovalCount}</p>
-          <p className="admin-dashboard__card-copy">
-            Approved {dashboard.approvals.counts.approved}, queued {dashboard.approvals.counts.queued},
-            running {dashboard.approvals.counts.running}, failed {dashboard.approvals.counts.failed}.
-          </p>
-        </article>
         <article className="admin-dashboard__card">
           <p className="admin-dashboard__card-label">CSV imports needing attention</p>
           <p className="admin-dashboard__card-value">{actionableImportCount}</p>
@@ -213,43 +148,6 @@ function renderReadyState(dashboard: AdminDashboardResponse): ReactElement {
       </div>
 
       <div className="admin-dashboard__panel-grid">
-        <section className="admin-dashboard__panel" aria-labelledby="admin-dashboard-pending-heading">
-          <header className="admin-dashboard__panel-header">
-            <div>
-              <p className="admin-dashboard__eyebrow">Attention</p>
-              <h3 id="admin-dashboard-pending-heading">Pending approvals</h3>
-            </div>
-            <Link className="admin-dashboard__link" href="#admin-approval-queue">
-              Jump to queue
-            </Link>
-          </header>
-          {dashboard.approvals.pendingPreview.length === 0 ? (
-            <p className="admin-dashboard__empty-copy">No pending approvals right now.</p>
-          ) : (
-            <ul className="admin-dashboard__list">
-              {dashboard.approvals.pendingPreview.map((request) => (
-                <li className="admin-dashboard__list-item" key={request.id}>
-                  <div className="admin-dashboard__list-item-header">
-                    <div>
-                      <h4>{request.channel.title}</h4>
-                      <p className="admin-dashboard__list-meta">
-                        <code>{request.channel.youtubeChannelId}</code>
-                      </p>
-                    </div>
-                    <span className="admin-dashboard__status admin-dashboard__status--pending_approval">
-                      Pending approval
-                    </span>
-                  </div>
-                  <p className="admin-dashboard__list-copy">
-                    Requested by {getPersonLabel(request.requestedBy)} at {formatTimestamp(request.createdAt)}.
-                  </p>
-                  <p className="admin-dashboard__list-copy">{getFreshnessCopy(request.lastCompletedReport)}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
         <section className="admin-dashboard__panel" aria-labelledby="admin-dashboard-imports-heading">
           <header className="admin-dashboard__panel-header">
             <div>
@@ -333,8 +231,7 @@ function renderWorkspaceShortcuts(): ReactElement {
           <p className="admin-dashboard__eyebrow">Workspaces</p>
           <h3 id="admin-dashboard-shortcuts-heading">Jump straight into the right workflow</h3>
           <p className="admin-dashboard__section-copy">
-            Admin-only work starts here, but imports, users, catalog QA, exports, and HubSpot all keep
-            their dedicated Week 6 surfaces.
+            Open focused admin workspaces for import review and user setup.
           </p>
         </div>
       </header>
@@ -359,11 +256,10 @@ export function AdminDashboardShellView(props: AdminDashboardShellViewProps): Re
     <div className="admin-dashboard">
       <div className="admin-dashboard__toolbar">
         <div className="admin-dashboard__toolbar-copy">
-          <p className="admin-dashboard__eyebrow">Week 6 workspace</p>
+          <p className="admin-dashboard__eyebrow">Admin workspace</p>
           <h2>Admin operations hub</h2>
           <p className="admin-dashboard__toolbar-summary">
-            Triage admin-only work first, then jump into catalog, export, and HubSpot workflows without
-            losing the current approval queue context.
+            Monitor CSV import batches and user readiness from the admin workspace.
           </p>
         </div>
         <div className="admin-dashboard__toolbar-actions">

@@ -50,10 +50,8 @@ describe("run detail page", () => {
       initialData: { id: "run-123", status: "completed", results: [] },
       runId: "run-123",
     });
-    expect(html).toContain("<h1>Run Detail</h1>");
-    expect(html).toContain(
-      "Track scouting status, inspect stored snapshot results, and surface queue failures without leaving the runs surface.",
-    );
+    expect(html).toContain("page-header__title\">Run Detail");
+    expect(html).toContain('href="/dashboard"');
     expect(html).toContain("run-detail-shell:run-123:with-data");
   });
 });

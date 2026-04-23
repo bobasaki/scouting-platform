@@ -40,10 +40,8 @@ describe("new scouting page", () => {
   it("renders the new scouting workspace", async () => {
     const html = await renderToStringAsync(NewScoutingPage());
 
-    expect(html).toContain("New scouting");
-    expect(html).toContain(
-      "Start a scouting run from an active campaign, use catalog criteria instead of a freeform prompt, and preserve campaign data as a run snapshot.",
-    );
+    expect(html).toContain("New Scouting");
+    expect(html).toContain('href="/dashboard"');
     expect(newScoutingWorkspaceMock).toHaveBeenCalledTimes(1);
     expect(html).toContain("new-scouting-workspace");
   });

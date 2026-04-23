@@ -20,9 +20,7 @@ describe("hubspot page", () => {
     const html = renderToStaticMarkup(HubspotPage());
 
     expect(html).toContain("HubSpot");
-    expect(html).toContain(
-      "Review Week 7 import-ready CSV batches, inspect missing-field failures, and keep legacy Week 6 push history readable without leaving the authenticated workspace.",
-    );
+    expect(html).toContain('aria-label="Breadcrumb"');
     expect(hubspotPushManagerMock).toHaveBeenCalledTimes(1);
     expect(html).toContain("hubspot-push-manager");
   });

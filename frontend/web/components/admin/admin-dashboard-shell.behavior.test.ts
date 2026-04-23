@@ -35,6 +35,10 @@ vi.mock("../../lib/admin-dashboard-api", () => ({
   fetchAdminDashboard: fetchAdminDashboardMock,
 }));
 
+vi.mock("../../lib/document-visibility", () => ({
+  useDocumentVisibility: () => true,
+}));
+
 import { AdminDashboardApiError } from "../../lib/admin-dashboard-api";
 import {
   ADMIN_DASHBOARD_POLL_INTERVAL_MS,
@@ -170,7 +174,7 @@ describe("admin dashboard shell behavior", () => {
     });
   });
 
-  it("polls while the dashboard still has active approvals or imports", () => {
+  it("polls while the dashboard still has active imports", () => {
     const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout").mockImplementation((handler) => {
       void handler();
       return 123 as unknown as ReturnType<typeof setTimeout>;

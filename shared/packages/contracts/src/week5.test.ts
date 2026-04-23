@@ -14,6 +14,7 @@ describe("week 5 contracts", () => {
       youtubeChannelId: "UC-WEEK5-1",
       title: "Channel Name",
       handle: "@channel-name",
+      contentLanguage: "English",
       description: "Channel description",
       thumbnailUrl: null,
       createdAt: new Date().toISOString(),
@@ -80,6 +81,7 @@ describe("week 5 contracts", () => {
     });
 
     expect(payload.advancedReport.status).toBe("completed");
+    expect(payload.contentLanguage).toBe("English");
     expect(payload.insights.brandMentions[0]?.brandName).toBe("Nike");
   });
 

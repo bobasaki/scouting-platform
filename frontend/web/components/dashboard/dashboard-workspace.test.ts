@@ -77,13 +77,13 @@ describe("dashboard workspace", () => {
     );
 
     expect(html).toContain("Dashboard");
-    expect(html).toContain("Review recent scouting runs");
     expect(html).toContain("Refresh");
     expect(html).toContain("New run");
-    expect(html).toContain("Search runs");
+    expect(html).toContain("Search Runs");
+    expect(html).toContain("dashboard-workspace__status-field");
     expect(html).toContain("Campaign Manager");
     expect(html).toContain("Client");
-    expect(html).toContain("Market");
+    expect(html).toContain("Markets");
     expect(html).toContain(">All<");
     expect(html).toContain(">Running<");
     expect(html).toContain(">Completed<");
@@ -103,8 +103,11 @@ describe("dashboard workspace", () => {
     expect(html).toContain("60% coverage · 12/20");
     expect(html).toContain("status-pill--completed");
     expect(html).toContain(">2026-03-15 12:01 UTC<");
-    expect(html).toContain("Export");
-    expect(html).toContain("Google Sheets");
+    expect(html.match(/>Export</g)).toHaveLength(1);
+    expect(html).toContain('class="data-table data-table--compact"');
+    expect(html).toContain('href="/hubspot/prepare/run-1"');
+    expect(html).not.toContain('href="/exports/prepare/run-1"');
+    expect(html).not.toContain("Google Sheets");
     expect(html).toContain("All campaign managers");
     expect(html).toContain("All clients");
     expect(html).toContain("All markets");

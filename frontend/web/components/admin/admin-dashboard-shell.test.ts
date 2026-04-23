@@ -118,10 +118,10 @@ describe("admin dashboard shell view", () => {
     expect(html).toContain("Loading admin dashboard...");
     expect(html).toContain('href="/admin/imports"');
     expect(html).toContain('href="/admin/users"');
-    expect(html).toContain('href="/catalog"');
-    expect(html).toContain('href="/exports"');
-    expect(html).toContain('href="/hubspot"');
-    expect(html).toContain('href="#admin-approval-queue"');
+    expect(html).not.toContain('href="/exports"');
+    expect(html).not.toContain('href="/hubspot"');
+    expect(html).not.toContain('href="/catalog"');
+    expect(html).not.toContain('href="#admin-approval-queue"');
   });
 
   it("renders overview cards and preview panels when ready", () => {
@@ -134,21 +134,21 @@ describe("admin dashboard shell view", () => {
       }),
     );
 
-    expect(html).toContain("Pending approvals");
-    expect(html).toContain("HypeAuditor follow-through");
     expect(html).toContain("CSV imports needing attention");
     expect(html).toContain("Managers blocked on YouTube keys");
-    expect(html).toContain("Pending Channel");
     expect(html).toContain("contacts.csv");
     expect(html).toContain("Missing Key");
     expect(html).toContain("Refreshing overview...");
-    expect(html).toContain("Catalog QA");
-    expect(html).toContain("CSV exports");
-    expect(html).toContain("HubSpot pushes");
-    expect(html).toContain("Approved 1, queued 1, running 0, failed 1.");
     expect(html).toContain("Queued 1, running 1, failed 1.");
     expect(html).toContain("3 active accounts, 1 admin, 4 total records.");
-    expect(html).toContain('href="#admin-approval-queue"');
+    expect(html).not.toContain("CSV exports");
+    expect(html).not.toContain("HubSpot pushes");
+    expect(html).not.toContain('href="/exports"');
+    expect(html).not.toContain('href="/hubspot"');
+    expect(html).not.toContain("Pending approvals");
+    expect(html).not.toContain("HypeAuditor");
+    expect(html).not.toContain("Pending Channel");
+    expect(html).not.toContain('href="#admin-approval-queue"');
   });
 
   it("renders error feedback", () => {
@@ -171,17 +171,17 @@ describe("admin dashboard shell view", () => {
 });
 
 describe("admin dashboard helpers", () => {
-  it("polls only while approvals or imports are actively moving", () => {
+  it("polls only while imports are actively moving", () => {
     expect(shouldPollAdminDashboard(buildDashboard())).toBe(true);
     expect(
       shouldPollAdminDashboard(
         buildDashboard({
           approvals: {
             counts: {
-              pendingApproval: 0,
-              approved: 0,
-              queued: 0,
-              running: 0,
+              pendingApproval: 2,
+              approved: 1,
+              queued: 1,
+              running: 1,
               failed: 1,
             },
             pendingPreview: [],

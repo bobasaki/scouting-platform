@@ -9,6 +9,7 @@ export const JOB_NAMES = [
   "hubspot-preview.enrich",
   "hubspot.import.batch",
   "hubspot.push.batch",
+  "hubspot.object-sync",
   "maintenance.refresh-stale",
 ] as const;
 

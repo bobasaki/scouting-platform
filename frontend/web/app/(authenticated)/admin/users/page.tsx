@@ -1,7 +1,7 @@
 import React from "react";
 import { getSession } from "../../../../lib/cached-auth";
 import { AdminUsersManager } from "../../../../components/admin/admin-users-manager";
-import { PageSection } from "../../../../components/layout/page-section";
+import { PageHeader } from "../../../../components/layout/PageHeader";
 import {
   canAccessNavigationKey,
   FORBIDDEN_ROUTE,
@@ -24,12 +24,17 @@ export default async function AdminUsersPage() {
   }
 
   return (
-    <PageSection
-      section="Admin"
-      title="User Management"
-      description="Create users and reset passwords for campaign managers."
-    >
-      <AdminUsersManager />
-    </PageSection>
+    <section className="page-section">
+      <PageHeader
+        crumbs={[
+          { label: "Admin", href: "/admin" },
+          { label: "Users" },
+        ]}
+        title="Users"
+      />
+      <div className="page-container page-section__body">
+        <AdminUsersManager />
+      </div>
+    </section>
   );
 }

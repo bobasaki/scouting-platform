@@ -1,21 +1,21 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { authMock, redirectMock } = vi.hoisted(() => ({
-  authMock: vi.fn(),
-  redirectMock: vi.fn()
+const { getSessionMock, redirectMock } = vi.hoisted(() => ({
+  getSessionMock: vi.fn(),
+  redirectMock: vi.fn(),
 }));
 
-vi.mock("../../../auth", () => ({
-  auth: authMock
+vi.mock("../../../lib/cached-auth", () => ({
+  getSession: getSessionMock,
 }));
 
 vi.mock("next/navigation", () => ({
-  redirect: redirectMock
+  redirect: redirectMock,
 }));
 
 vi.mock("../../../components/admin/admin-workspace", () => ({
-  AdminWorkspace: () => "Admin workspace shell"
+  AdminWorkspace: () => "Admin workspace shell",
 }));
 
 import AdminPage from "./page";
@@ -26,7 +26,7 @@ describe("admin page", () => {
   });
 
   it("redirects unauthenticated users to login", async () => {
-    authMock.mockResolvedValueOnce(null);
+    getSessionMock.mockResolvedValueOnce(null);
 
     const result = await AdminPage();
 
@@ -37,7 +37,7 @@ describe("admin page", () => {
   });
 
   it("redirects sessions without user to login", async () => {
-    authMock.mockResolvedValueOnce({});
+    getSessionMock.mockResolvedValueOnce({});
 
     const result = await AdminPage();
 
@@ -48,10 +48,11 @@ describe("admin page", () => {
   });
 
   it("redirects authenticated non-admin users to forbidden", async () => {
-    authMock.mockResolvedValueOnce({
+    getSessionMock.mockResolvedValueOnce({
       user: {
-        role: "user"
-      }
+        id: "user-1",
+        role: "user",
+      },
     });
 
     const result = await AdminPage();
@@ -61,10 +62,11 @@ describe("admin page", () => {
   });
 
   it("redirects users with unknown roles to forbidden", async () => {
-    authMock.mockResolvedValueOnce({
+    getSessionMock.mockResolvedValueOnce({
       user: {
-        role: "owner"
-      }
+        id: "user-1",
+        role: "owner",
+      },
     });
 
     const result = await AdminPage();
@@ -75,19 +77,18 @@ describe("admin page", () => {
   });
 
   it("renders the admin workspace for admin role", async () => {
-    authMock.mockResolvedValueOnce({
+    getSessionMock.mockResolvedValueOnce({
       user: {
-        role: "admin"
-      }
+        id: "user-1",
+        role: "admin",
+      },
     });
 
     const html = renderToStaticMarkup(await AdminPage());
 
     expect(redirectMock).not.toHaveBeenCalled();
     expect(html).toContain("Admin");
-    expect(html).toContain(
-      "Review approvals, manage users, and keep the dedicated admin workflows within reach."
-    );
+    expect(html).toContain('aria-label="Breadcrumb"');
     expect(html).toContain("Admin workspace shell");
   });
 });

@@ -1,22 +1,23 @@
 import type {
-  ChannelAdvancedReportStatus,
-  ChannelEnrichmentStatus,
   ListChannelsResponse,
   SegmentResponse,
 } from "@scouting-platform/contracts";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { requestChannelEnrichmentBatch, fetchChannels } from "../../lib/channels-api";
 import {
   DEFAULT_CATALOG_FILTERS,
-  areCatalogFiltersEqual,
   buildCatalogSearchParams,
   buildSavedSegmentFilters,
   getCatalogFiltersFromSavedSegment,
+  normalizeCatalogNumericFilterValue,
   parseCatalogUrlState,
-  toggleCatalogStatusFilter,
+  toggleCatalogMultiValueFilter,
+  type CatalogCreatorFilterOptions,
   type CatalogFiltersState,
+  type CatalogMultiValueFilterKey,
+  type CatalogNumericFilterKey,
   type CatalogUrlState,
 } from "../../lib/catalog-filters";
 import { createCsvExportBatch, fetchCsvExportBatchDetail } from "../../lib/csv-export-batches-api";
@@ -70,6 +71,7 @@ export type CatalogTableRequestState =
     };
 
 type UseCatalogTableShellInput = Readonly<{
+  creatorFilterOptions: CatalogCreatorFilterOptions;
   initialData: ListChannelsResponse | undefined;
   initialSavedSegments: SegmentResponse[] | undefined;
   pageSize: number;
@@ -128,6 +130,7 @@ function buildCatalogNavigationHref(
 }
 
 export function useCatalogTableShellModel({
+  creatorFilterOptions,
   initialData,
   initialSavedSegments,
   pageSize,
@@ -135,10 +138,55 @@ export function useCatalogTableShellModel({
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const appliedState = parseCatalogUrlState(searchParams);
-  const appliedStateKey = buildCatalogSearchParams(appliedState).toString();
+  const searchParamsKey = searchParams.toString();
+  const parsedState = useMemo(
+    () => parseCatalogUrlState(new URLSearchParams(searchParamsKey)),
+    [searchParamsKey],
+  );
+  const appliedStateKey = useMemo(
+    () => buildCatalogSearchParams(parsedState).toString(),
+    [parsedState],
+  );
+  const appliedState = useMemo(
+    () => parseCatalogUrlState(new URLSearchParams(appliedStateKey)),
+    [appliedStateKey],
+  );
+  const requestInput = useMemo(
+    () => ({
+      page: appliedState.page,
+      pageSize,
+      ...(appliedState.filters.query ? { query: appliedState.filters.query } : {}),
+      ...(appliedState.filters.countryRegion.length > 0
+        ? { countryRegion: appliedState.filters.countryRegion }
+        : {}),
+      ...(appliedState.filters.influencerVertical.length > 0
+        ? { influencerVertical: appliedState.filters.influencerVertical }
+        : {}),
+      ...(appliedState.filters.influencerType.length > 0
+        ? { influencerType: appliedState.filters.influencerType }
+        : {}),
+      ...(appliedState.filters.youtubeVideoMedianViewsMin
+        ? { youtubeVideoMedianViewsMin: Number(appliedState.filters.youtubeVideoMedianViewsMin) }
+        : {}),
+      ...(appliedState.filters.youtubeVideoMedianViewsMax
+        ? { youtubeVideoMedianViewsMax: Number(appliedState.filters.youtubeVideoMedianViewsMax) }
+        : {}),
+      ...(appliedState.filters.youtubeShortsMedianViewsMin
+        ? { youtubeShortsMedianViewsMin: Number(appliedState.filters.youtubeShortsMedianViewsMin) }
+        : {}),
+      ...(appliedState.filters.youtubeShortsMedianViewsMax
+        ? { youtubeShortsMedianViewsMax: Number(appliedState.filters.youtubeShortsMedianViewsMax) }
+        : {}),
+      ...(appliedState.filters.youtubeFollowersMin
+        ? { youtubeFollowersMin: Number(appliedState.filters.youtubeFollowersMin) }
+        : {}),
+      ...(appliedState.filters.youtubeFollowersMax
+        ? { youtubeFollowersMax: Number(appliedState.filters.youtubeFollowersMax) }
+        : {}),
+    }),
+    [appliedState, pageSize],
+  );
   const viewMode = getCatalogViewMode(searchParams);
-  const [draftFilters, setDraftFilters] = useState<CatalogFiltersState>(appliedState.filters);
   const [requestState, setRequestState] = useState<CatalogTableRequestState>(
     initialData
       ? {
@@ -182,16 +230,6 @@ export function useCatalogTableShellModel({
   const isDocumentVisible = useDocumentVisibility();
 
   useEffect(() => {
-    setDraftFilters((current) => {
-      if (areCatalogFiltersEqual(current, appliedState.filters)) {
-        return current;
-      }
-
-      return appliedState.filters;
-    });
-  }, [appliedState.filters, appliedStateKey]);
-
-  useEffect(() => {
     if (viewMode === "cards" && selectedChannelIds.length > 0) {
       setSelectedChannelIds([]);
     }
@@ -202,17 +240,6 @@ export function useCatalogTableShellModel({
     let activeAbortController: AbortController | null = null;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-    const requestInput = {
-      page: appliedState.page,
-      pageSize,
-      ...(appliedState.filters.query ? { query: appliedState.filters.query } : {}),
-      ...(appliedState.filters.enrichmentStatus.length > 0
-        ? { enrichmentStatus: appliedState.filters.enrichmentStatus }
-        : {}),
-      ...(appliedState.filters.advancedReportStatus.length > 0
-        ? { advancedReportStatus: appliedState.filters.advancedReportStatus }
-        : {}),
-    };
     const canReuseInitialData = reloadToken === 0 && !!initialData;
 
     async function loadChannels(polling = false): Promise<void> {
@@ -277,15 +304,11 @@ export function useCatalogTableShellModel({
       }
     };
   }, [
-    appliedState.filters.advancedReportStatus,
-    appliedState.filters.enrichmentStatus,
-    appliedState.filters.query,
-    appliedState.page,
     appliedStateKey,
     initialData,
     isDocumentVisible,
-    pageSize,
     reloadToken,
+    requestInput,
   ]);
 
   useEffect(() => {
@@ -492,6 +515,13 @@ export function useCatalogTableShellModel({
     router.replace(buildCatalogNavigationHref(pathname, state, viewMode));
   }
 
+  function applyFilters(nextFilters: CatalogFiltersState): void {
+    replaceCatalogState({
+      page: 1,
+      filters: nextFilters,
+    });
+  }
+
   async function handleCreateSegment(): Promise<void> {
     const name = savedSegmentName.trim();
 
@@ -505,7 +535,7 @@ export function useCatalogTableShellModel({
     try {
       const created = await createSavedSegment({
         name,
-        filters: buildSavedSegmentFilters(draftFilters),
+        filters: buildSavedSegmentFilters(appliedState.filters),
       });
 
       setSavedSegments((current) => upsertSavedSegment(current, created));
@@ -527,7 +557,6 @@ export function useCatalogTableShellModel({
   function handleLoadSegment(segment: SegmentResponse): void {
     const filters = getCatalogFiltersFromSavedSegment(segment.filters);
 
-    setDraftFilters(filters);
     setSavedSegmentName(segment.name);
     setSavedSegmentOperationStatus({
       type: "success",
@@ -694,8 +723,8 @@ export function useCatalogTableShellModel({
 
   return {
     batchEnrichmentActionState,
-    draftFilters,
-    hasPendingFilterChanges: !areCatalogFiltersEqual(draftFilters, appliedState.filters),
+    creatorFilterOptions,
+    filters: appliedState.filters,
     latestCsvExportBatch,
     latestHubspotPushBatch,
     pendingSegmentAction,
@@ -706,22 +735,16 @@ export function useCatalogTableShellModel({
     savedSegmentsRequestState,
     selectedChannelIds,
     viewMode,
-    onApplyFilters: () => {
-      replaceCatalogState({
-        page: 1,
-        filters: draftFilters,
-      });
-    },
     onClearSelection: () => {
       setSelectedChannelIds([]);
     },
     onCreateSegment: handleCreateSegment,
     onDeleteSegment: handleDeleteSegment,
-    onDraftQueryChange: (value: string) => {
-      setDraftFilters((current) => ({
-        ...current,
+    onQueryChange: (value: string) => {
+      applyFilters({
+        ...appliedState.filters,
         query: value,
-      }));
+      });
     },
     onExportSelectedChannels: handleExportSelectedChannels,
     onLoadSegment: handleLoadSegment,
@@ -760,7 +783,6 @@ export function useCatalogTableShellModel({
     onPushSelectedChannelsToHubspot: handlePushSelectedChannelsToHubspot,
     onRequestSelectedEnrichment: handleRequestSelectedEnrichment,
     onResetFilters: () => {
-      setDraftFilters(DEFAULT_CATALOG_FILTERS);
       replaceCatalogState({
         page: 1,
         filters: DEFAULT_CATALOG_FILTERS,
@@ -775,20 +797,33 @@ export function useCatalogTableShellModel({
     onSavedSegmentNameChange: (value: string) => {
       setSavedSegmentName(value);
     },
-    onToggleAdvancedReportStatus: (value: ChannelAdvancedReportStatus) => {
-      setDraftFilters((current) => ({
-        ...current,
-        advancedReportStatus: toggleCatalogStatusFilter(current.advancedReportStatus, value),
-      }));
-    },
     onToggleChannelSelection: (channelId: string) => {
       setSelectedChannelIds((current) => toggleCatalogChannelSelection(current, channelId));
     },
-    onToggleEnrichmentStatus: (value: ChannelEnrichmentStatus) => {
-      setDraftFilters((current) => ({
-        ...current,
-        enrichmentStatus: toggleCatalogStatusFilter(current.enrichmentStatus, value),
-      }));
+    onNumericFilterChange: (key: CatalogNumericFilterKey, value: string) => {
+      applyFilters({
+        ...appliedState.filters,
+        [key]: normalizeCatalogNumericFilterValue(value),
+      });
+    },
+    onClearNumericRangeFilter: (minKey: CatalogNumericFilterKey, maxKey: CatalogNumericFilterKey) => {
+      applyFilters({
+        ...appliedState.filters,
+        [minKey]: "",
+        [maxKey]: "",
+      });
+    },
+    onClearMultiValueFilter: (key: CatalogMultiValueFilterKey) => {
+      applyFilters({
+        ...appliedState.filters,
+        [key]: [],
+      });
+    },
+    onToggleMultiValueFilter: (key: CatalogMultiValueFilterKey, value: string) => {
+      applyFilters({
+        ...appliedState.filters,
+        [key]: toggleCatalogMultiValueFilter(appliedState.filters[key], value),
+      });
     },
     onTogglePageSelection: () => {
       if (requestState.status !== "ready") {

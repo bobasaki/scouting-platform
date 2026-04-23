@@ -7,9 +7,6 @@ import { PageHeader } from "../../../components/layout/PageHeader";
 import { SkeletonFilterBar, SkeletonPageBody, SkeletonTable, Skeleton } from "../../../components/ui/skeleton";
 import { getRoleFromSession } from "../../../lib/access-control";
 
-const DASHBOARD_DESCRIPTION =
-  "Review recent scouting runs, track coverage against each run target, and hand each run off to Database, CSV export, or Google Sheets from one compact table.";
-
 async function DashboardData() {
   const session = await getSession();
   const role = getRoleFromSession(session);
@@ -39,7 +36,6 @@ function DashboardFallback() {
     <>
       <PageHeader
         crumbs={[{ label: "Dashboard" }]}
-        description={DASHBOARD_DESCRIPTION}
         title="Dashboard"
       />
       <div className="page-container page-section__body">

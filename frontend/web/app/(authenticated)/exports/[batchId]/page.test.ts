@@ -31,10 +31,8 @@ describe("export batch result page", () => {
     expect(csvExportBatchResultShellMock.mock.calls[0]?.[0]).toEqual({
       batchId: "batch-123",
     });
-    expect(html).toContain("<h1>Export Batch Result</h1>");
-    expect(html).toContain(
-      "Review stored scope, worker status, and download readiness for a single CSV export batch.",
-    );
+    expect(html).toContain("<h1 class=\"page-header__title\">Export Batch Result</h1>");
+    expect(html).toContain('href="/exports"');
     expect(html).toContain("csv-export-batch-result-shell:batch-123");
   });
 });
