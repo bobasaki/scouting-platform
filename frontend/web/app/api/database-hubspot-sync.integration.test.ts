@@ -104,7 +104,11 @@ integration("database HubSpot sync API integration", () => {
     expect(createResponse.status).toBe(202);
     const createPayload = await createResponse.json();
     expect(createPayload.run.status).toBe("queued");
-    expect(createPayload.run.objectTypes).toEqual(["clients", "campaigns"]);
+    expect(createPayload.run.objectTypes).toEqual([
+      "clients",
+      "campaigns",
+      "dropdownValues",
+    ]);
 
     const jobs = await prisma.$queryRaw<Array<{ count: number }>>`
       SELECT COUNT(*)::int AS count

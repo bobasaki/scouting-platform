@@ -19,10 +19,15 @@ import {
 } from "@scouting-platform/integrations";
 
 import { recordAuditEvent } from "../audit";
+import { syncHubspotDropdownValues } from "../dropdown-values";
 import { ServiceError } from "../errors";
 import { enqueueHubspotObjectSyncJob } from "./queue";
 
-const OBJECT_TYPES: HubspotObjectSyncObjectType[] = ["clients", "campaigns"];
+const OBJECT_TYPES: HubspotObjectSyncObjectType[] = [
+  "clients",
+  "campaigns",
+  "dropdownValues",
+];
 
 const syncRunSelect = {
   id: true,
@@ -918,20 +923,26 @@ async function deleteStaleHubspotClients(input: {
   return deleted.count;
 }
 
-async function performHubspotObjectSync(config: HubspotObjectSyncConfig): Promise<SyncCounts> {
+async function performHubspotObjectSync(input: {
+  config: HubspotObjectSyncConfig;
+  requestedByUserId: string;
+}): Promise<SyncCounts> {
   const now = new Date();
   const clientResult = await syncClients({
-    config,
+    config: input.config,
     now,
   });
   const campaignResult = await syncCampaigns({
-    config,
+    config: input.config,
     clients: clientResult.syncedClients,
     now,
   });
   const deletedClientCount = await deleteStaleHubspotClients({
-    config,
+    config: input.config,
     activeHubspotObjectIds: clientResult.activeHubspotObjectIds,
+  });
+  await syncHubspotDropdownValues({
+    actorUserId: input.requestedByUserId,
   });
 
   return {
@@ -1064,7 +1075,10 @@ export async function executeHubspotObjectSyncRun(input: {
 
   try {
     const config = loadHubspotObjectSyncConfig();
-    const counts = await performHubspotObjectSync(config);
+    const counts = await performHubspotObjectSync({
+      config,
+      requestedByUserId: input.requestedByUserId,
+    });
 
     await syncRunDelegate.update({
       where: {

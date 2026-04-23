@@ -2,7 +2,11 @@ import { z } from "zod";
 
 const isoDatetimeSchema = z.string().datetime();
 
-export const hubspotObjectSyncObjectTypeSchema = z.enum(["clients", "campaigns"]);
+export const hubspotObjectSyncObjectTypeSchema = z.enum([
+  "clients",
+  "campaigns",
+  "dropdownValues",
+]);
 
 export const hubspotObjectSyncRunStatusSchema = z.enum([
   "queued",

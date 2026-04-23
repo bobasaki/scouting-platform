@@ -20,9 +20,7 @@ describe("exports page", () => {
     const html = renderToStaticMarkup(ExportsPage());
 
     expect(html).toContain("Exports");
-    expect(html).toContain(
-      "Create filtered CSV exports from catalog criteria and review your export batch history without leaving the authenticated workspace.",
-    );
+    expect(html).toContain('aria-label="Breadcrumb"');
     expect(csvExportManagerMock).toHaveBeenCalledTimes(1);
     expect(html).toContain("csv-export-manager");
   });

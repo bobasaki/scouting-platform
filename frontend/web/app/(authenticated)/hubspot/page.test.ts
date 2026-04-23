@@ -20,9 +20,7 @@ describe("hubspot page", () => {
     const html = renderToStaticMarkup(HubspotPage());
 
     expect(html).toContain("HubSpot");
-    expect(html).toContain(
-      "Review legacy import-ready CSV batches, inspect missing-field failures, and keep older HubSpot push history readable while Google Sheets remains the primary handoff path.",
-    );
+    expect(html).toContain('aria-label="Breadcrumb"');
     expect(hubspotPushManagerMock).toHaveBeenCalledTimes(1);
     expect(html).toContain("hubspot-push-manager");
   });

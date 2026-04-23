@@ -24,7 +24,6 @@ import {
   type CatalogMultiValueFilterKey,
   type CatalogNumericFilterKey,
 } from "../../lib/catalog-filters";
-import { CatalogBatchCards } from "./CatalogBatchCards";
 import { CatalogFilters } from "./CatalogFilters";
 import { CatalogTable } from "./CatalogTable";
 import type {
@@ -100,16 +99,17 @@ type CatalogTableShellProps = {
 
 type CatalogTableShellViewProps = {
   creatorFilterOptions: CatalogCreatorFilterOptions;
-  draftFilters: CatalogFiltersState;
+  filters: CatalogFiltersState;
   requestState: CatalogTableRequestState;
   selectedChannelIds: readonly string[];
   batchEnrichmentActionState: BatchEnrichmentActionState;
   latestCsvExportBatch: CatalogCsvExportBatchState;
   latestHubspotPushBatch: CatalogHubspotPushBatchState;
-  hasPendingFilterChanges: boolean;
   viewMode?: CatalogViewMode;
-  onDraftQueryChange: (value: string) => void;
+  onQueryChange: (value: string) => void;
   onNumericFilterChange: (key: CatalogNumericFilterKey, value: string) => void;
+  onClearNumericRangeFilter: (minKey: CatalogNumericFilterKey, maxKey: CatalogNumericFilterKey) => void;
+  onClearMultiValueFilter: (key: CatalogMultiValueFilterKey) => void;
   onToggleMultiValueFilter: (key: CatalogMultiValueFilterKey, value: string) => void;
   onToggleChannelSelection: (channelId: string) => void;
   onTogglePageSelection: () => void;
@@ -117,7 +117,6 @@ type CatalogTableShellViewProps = {
   onPushSelectedChannelsToHubspot: () => void | Promise<void>;
   onRequestSelectedEnrichment: () => void | Promise<void>;
   onClearSelection: () => void;
-  onApplyFilters: () => void;
   onResetFilters: () => void;
   onRetry: () => void;
   onPreviousPage: () => void;
@@ -128,16 +127,17 @@ export { CATALOG_BATCH_STATUS_POLL_INTERVAL_MS, CATALOG_ENRICHMENT_POLL_INTERVAL
 
 export function CatalogTableShellView({
   creatorFilterOptions,
-  draftFilters,
+  filters,
   requestState,
   selectedChannelIds,
   batchEnrichmentActionState,
   latestCsvExportBatch,
   latestHubspotPushBatch,
-  hasPendingFilterChanges,
   viewMode = "table",
-  onDraftQueryChange,
+  onQueryChange,
   onNumericFilterChange,
+  onClearNumericRangeFilter,
+  onClearMultiValueFilter,
   onToggleMultiValueFilter,
   onToggleChannelSelection,
   onTogglePageSelection,
@@ -145,7 +145,6 @@ export function CatalogTableShellView({
   onPushSelectedChannelsToHubspot,
   onRequestSelectedEnrichment,
   onClearSelection,
-  onApplyFilters,
   onResetFilters,
   onRetry,
   onPreviousPage,
@@ -162,66 +161,54 @@ export function CatalogTableShellView({
 
   return (
     <div className="catalog-table">
-      <div className="catalog-layout">
-        <div className="catalog-layout__rail-stack">
-          <CatalogFilters
-            creatorFilterOptions={creatorFilterOptions}
-            draftFilters={draftFilters}
-            hasPendingFilterChanges={hasPendingFilterChanges}
-            searchOptions={searchOptions}
-            onApplyFilters={onApplyFilters}
-            onDraftQueryChange={onDraftQueryChange}
-            onNumericFilterChange={onNumericFilterChange}
-            onResetFilters={onResetFilters}
-            onToggleMultiValueFilter={onToggleMultiValueFilter}
-          />
+      <CatalogFilters
+        creatorFilterOptions={creatorFilterOptions}
+        filters={filters}
+        searchOptions={searchOptions}
+        onClearMultiValueFilter={onClearMultiValueFilter}
+        onClearNumericRangeFilter={onClearNumericRangeFilter}
+        onNumericFilterChange={onNumericFilterChange}
+        onQueryChange={onQueryChange}
+        onResetFilters={onResetFilters}
+        onToggleMultiValueFilter={onToggleMultiValueFilter}
+      />
+
+      {requestState.status === "loading" ? (
+        <p className="catalog-table__feedback catalog-table__feedback--loading">Loading channels...</p>
+      ) : null}
+
+      {requestState.status === "error" ? (
+        <div className="catalog-table__feedback catalog-table__feedback--error" role="alert">
+          <p>{requestState.error}</p>
+          <button
+            className="catalog-table__button catalog-table__button--secondary"
+            onClick={onRetry}
+            suppressHydrationWarning
+            type="button"
+          >
+            Retry
+          </button>
         </div>
+      ) : null}
 
-        <div className="catalog-layout__content">
-          {requestState.status === "loading" ? (
-            <p className="catalog-table__feedback catalog-table__feedback--loading">Loading channels...</p>
-          ) : null}
-
-          {requestState.status === "error" ? (
-            <div className="catalog-table__feedback catalog-table__feedback--error" role="alert">
-              <p>{requestState.error}</p>
-              <button
-                className="catalog-table__button catalog-table__button--secondary"
-                onClick={onRetry}
-                suppressHydrationWarning
-                type="button"
-              >
-                Retry
-              </button>
-            </div>
-          ) : null}
-
-          {requestState.status === "ready" ? (
-            <>
-              <CatalogBatchCards
-                latestCsvExportBatch={latestCsvExportBatch}
-                latestHubspotPushBatch={latestHubspotPushBatch}
-              />
-              <CatalogTable
-                batchEnrichmentActionState={batchEnrichmentActionState}
-                data={requestState.data}
-                latestCsvExportBatch={latestCsvExportBatch}
-                latestHubspotPushBatch={latestHubspotPushBatch}
-                onClearSelection={onClearSelection}
-                onExportSelectedChannels={onExportSelectedChannels}
-                onNextPage={onNextPage}
-                onPreviousPage={onPreviousPage}
-                onPushSelectedChannelsToHubspot={onPushSelectedChannelsToHubspot}
-                onRequestSelectedEnrichment={onRequestSelectedEnrichment}
-                onToggleChannelSelection={onToggleChannelSelection}
-                onTogglePageSelection={onTogglePageSelection}
-                selectedChannelIds={selectedChannelIds}
-                viewMode={viewMode}
-              />
-            </>
-          ) : null}
-        </div>
-      </div>
+      {requestState.status === "ready" ? (
+        <CatalogTable
+          batchEnrichmentActionState={batchEnrichmentActionState}
+          data={requestState.data}
+          latestCsvExportBatch={latestCsvExportBatch}
+          latestHubspotPushBatch={latestHubspotPushBatch}
+          onClearSelection={onClearSelection}
+          onExportSelectedChannels={onExportSelectedChannels}
+          onNextPage={onNextPage}
+          onPreviousPage={onPreviousPage}
+          onPushSelectedChannelsToHubspot={onPushSelectedChannelsToHubspot}
+          onRequestSelectedEnrichment={onRequestSelectedEnrichment}
+          onToggleChannelSelection={onToggleChannelSelection}
+          onTogglePageSelection={onTogglePageSelection}
+          selectedChannelIds={selectedChannelIds}
+          viewMode={viewMode}
+        />
+      ) : null}
     </div>
   );
 }

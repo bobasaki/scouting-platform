@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   APP_ROLES,
-  APP_NAVIGATION_GROUPS,
   APP_NAVIGATION_ITEMS,
   getCsvExportBatchResultHref,
-  getNavigationGroupLabel,
   getHubspotPushBatchResultHref,
   getNavigationForRole,
   isAppRole,
@@ -21,7 +19,6 @@ describe("navigation config", () => {
       "database",
       "admin",
     ]);
-    expect(APP_NAVIGATION_GROUPS.map((group) => group.key)).toEqual(["workspace", "admin"]);
     expect(APP_ROLES).toEqual(["admin", "user"]);
   });
 
@@ -43,7 +40,6 @@ describe("navigation config", () => {
     expect(catalogEntry).toBeDefined();
     expect(adminOnlyEntry).toBeDefined();
     expect(adminEntry?.visibleTo).toEqual(["admin"]);
-    expect(adminEntry?.group).toBe("admin");
     expect(isNavItemVisibleToRole(catalogEntry!, "user")).toBe(true);
     expect(isNavItemVisibleToRole(adminOnlyEntry!, "user")).toBe(false);
   });
@@ -88,9 +84,9 @@ describe("navigation config", () => {
     expect(resolveAppRole("invalid")).toBe("user");
   });
 
-  it("returns stable group labels", () => {
-    expect(getNavigationGroupLabel("workspace")).toBe("Workspace");
-    expect(getNavigationGroupLabel("admin")).toBe("Admin");
+  it("uses the updated title casing for New Scouting", () => {
+    const newScoutingEntry = APP_NAVIGATION_ITEMS.find((item) => item.key === "new-scouting");
+    expect(newScoutingEntry?.label).toBe("New Scouting");
   });
 
   it("builds detail routes for export and HubSpot batches", () => {

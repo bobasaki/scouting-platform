@@ -1,6 +1,6 @@
 import { getSession } from "../../../../lib/cached-auth";
 import { AdminCsvImportManager } from "../../../../components/admin/admin-csv-import-manager";
-import { PageSection } from "../../../../components/layout/page-section";
+import { PageHeader } from "../../../../components/layout/PageHeader";
 import {
   canAccessNavigationKey,
   FORBIDDEN_ROUTE,
@@ -23,12 +23,17 @@ export default async function AdminImportsPage() {
   }
 
   return (
-    <PageSection
-      section="Admin"
-      title="CSV Imports"
-      description="Upload strict-template CSV batches and inspect row-level results without leaving the admin workspace."
-    >
-      <AdminCsvImportManager />
-    </PageSection>
+    <section className="page-section">
+      <PageHeader
+        crumbs={[
+          { label: "Admin", href: "/admin" },
+          { label: "CSV Imports" },
+        ]}
+        title="CSV Imports"
+      />
+      <div className="page-container page-section__body">
+        <AdminCsvImportManager />
+      </div>
+    </section>
   );
 }

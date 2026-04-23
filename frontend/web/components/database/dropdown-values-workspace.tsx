@@ -8,7 +8,6 @@ import {
   isHubspotSyncedDropdownField,
   isPlatformManagedDropdownField,
   replaceDropdownValuesRequest,
-  syncHubspotDropdownValuesRequest,
 } from "../../lib/dropdown-values-api";
 
 type DropdownValuesWorkspaceProps = Readonly<{
@@ -31,7 +30,6 @@ export function DropdownValuesWorkspace({ initialData }: DropdownValuesWorkspace
   const [activeField, setActiveField] = useState<DropdownValueFieldKey | null>(null);
   const [textareaValue, setTextareaValue] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
   const grouped = useMemo(() => groupDropdownValuesByField(items), [items]);
 
   function openField(fieldKey: DropdownValueFieldKey) {
@@ -67,42 +65,15 @@ export function DropdownValuesWorkspace({ initialData }: DropdownValuesWorkspace
     }
   }
 
-  async function handleHubspotSync() {
-    setIsSyncing(true);
-    setStatus("");
-
-    try {
-      const updatedItems = await syncHubspotDropdownValuesRequest();
-      setItems(updatedItems);
-      setActiveField(null);
-      setTextareaValue("");
-      setStatus("HubSpot dropdown values synced.");
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Unable to sync HubSpot dropdown values.");
-    } finally {
-      setIsSyncing(false);
-    }
-  }
-
   return (
     <div className="database-records">
       <div className="database-records__header">
         <div>
           <h2>Dropdown Values</h2>
           <p className="workspace-copy">
-            Sync HubSpot dropdowns to refresh Currency, Deal Type, Activation Type, Country/Region,
-            and Language from HubSpot. Influencer Type and Influencer Vertical are built into the
-            platform.
+            HubSpot-backed values refresh via the main <strong>Sync from HubSpot</strong> action in Database.
           </p>
         </div>
-        <button
-          className="database-records__cta"
-          disabled={isSyncing}
-          onClick={() => void handleHubspotSync()}
-          type="button"
-        >
-          {isSyncing ? "Syncing..." : "Sync HubSpot dropdowns"}
-        </button>
       </div>
 
       {status ? <p role="status">{status}</p> : null}

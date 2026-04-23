@@ -11,7 +11,6 @@ import {
   CSV_IMPORT_MAX_DATA_ROWS,
   CSV_IMPORT_TEMPLATE_VERSION,
 } from "@scouting-platform/contracts";
-import Link from "next/link";
 import { useEffect, useState, type FormEvent, type ReactElement } from "react";
 
 import {
@@ -494,32 +493,6 @@ export function AdminCsvImportManagerView(props: AdminCsvImportManagerViewProps)
 
   return (
     <div className="admin-csv-imports">
-      <div className="admin-csv-imports__toolbar">
-        <div className="admin-csv-imports__toolbar-links">
-          <Link className="admin-csv-imports__link" href="/admin">
-            CSV imports
-          </Link>
-          <Link className="admin-csv-imports__link" href="/admin/users">
-            User management
-          </Link>
-        </div>
-
-        <div className="admin-csv-imports__toolbar-copy">
-          <button
-            className="admin-csv-imports__button admin-csv-imports__button--secondary"
-            onClick={props.onReload}
-            type="button"
-          >
-            Reload imports
-          </button>
-          {props.isRefreshingList ? (
-            <p className="admin-csv-imports__inline-note" role="status">
-              Refreshing imports...
-            </p>
-          ) : null}
-        </div>
-      </div>
-
       <div className="admin-csv-imports__layout">
         <div className="admin-csv-imports__sidebar">
           <section className="admin-csv-imports__panel" aria-labelledby="admin-csv-imports-upload-heading">

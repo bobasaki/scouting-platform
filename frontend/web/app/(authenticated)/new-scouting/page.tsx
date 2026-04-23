@@ -3,7 +3,7 @@ import React, { Suspense } from "react";
 import type { CampaignManagerOption } from "@scouting-platform/contracts";
 import { getSession } from "../../../lib/cached-auth";
 import { getCachedCampaigns, getCachedCampaignManagers } from "../../../lib/cached-data";
-import { PageSection } from "../../../components/layout/page-section";
+import { PageHeader } from "../../../components/layout/PageHeader";
 import { NewScoutingWorkspace } from "../../../components/scouting/new-scouting-workspace";
 import { Skeleton, SkeletonPageBody } from "../../../components/ui/skeleton";
 
@@ -51,13 +51,19 @@ function NewScoutingFallback() {
 
 export default function NewScoutingPage() {
   return (
-    <PageSection
-      title="New scouting"
-      description="Start a scouting run from an active campaign, use catalog criteria instead of a freeform prompt, and preserve campaign data as a run snapshot."
-    >
-      <Suspense fallback={<NewScoutingFallback />}>
-        <NewScoutingData />
-      </Suspense>
-    </PageSection>
+    <section className="page-section">
+      <PageHeader
+        crumbs={[
+          { label: "Dashboard", href: "/dashboard" },
+          { label: "New Scouting" },
+        ]}
+        title="New Scouting"
+      />
+      <div className="page-container page-section__body">
+        <Suspense fallback={<NewScoutingFallback />}>
+          <NewScoutingData />
+        </Suspense>
+      </div>
+    </section>
   );
 }

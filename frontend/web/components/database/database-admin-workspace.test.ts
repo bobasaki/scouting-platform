@@ -71,7 +71,7 @@ const clients = {
 const latestSyncRun = {
   id: "11111111-1111-4111-8111-111111111111",
   status: "completed" as const,
-  objectTypes: ["clients" as const, "campaigns" as const],
+  objectTypes: ["clients" as const, "campaigns" as const, "dropdownValues" as const],
   clientUpsertCount: 2,
   campaignUpsertCount: 3,
   deactivatedCount: 1,
@@ -99,7 +99,7 @@ describe("DatabaseAdminWorkspace", () => {
     useSearchParamsMock.mockReturnValue(new URLSearchParams());
   });
 
-  it("shows HubSpot object sync action and status to admins near database records", async () => {
+  it("shows the HubSpot sync action for admins without the old summary block", async () => {
     const html = await renderToStringAsync(
       createElement(DatabaseAdminWorkspace, {
         campaigns,
@@ -110,10 +110,12 @@ describe("DatabaseAdminWorkspace", () => {
       }),
     );
 
-    expect(html).toContain("HubSpot sync");
+    expect(html).toContain("Clients");
+    expect(html).toContain("Campaigns");
+    expect(html).toContain("Dropdown Values");
     expect(html).toContain("Sync from HubSpot");
-    expect(html).toMatch(/Clients[\s\S]*2/u);
-    expect(html).toMatch(/Campaigns[\s\S]*3/u);
+    expect(html).not.toContain("Last run:");
+    expect(html).not.toContain("Deactivated");
     expect(html).not.toContain("Skipped 27");
   });
 

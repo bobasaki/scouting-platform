@@ -226,8 +226,8 @@ describe("admin csv import manager view", () => {
     expect(html).toContain("Maximum file size 5 MiB. Up to 10000 data rows per batch.");
     expect(html).toContain("Loading CSV import batches...");
     expect(html).toContain("Select an import batch");
-    expect(html).toContain('href="/admin"');
-    expect(html).toContain('href="/admin/users"');
+    expect(html).not.toContain('href="/admin/users"');
+    expect(html).not.toContain("Reload imports");
   });
 
   it("renders ready detail with failed rows, pagination, and refresh copy", () => {
@@ -260,7 +260,6 @@ describe("admin csv import manager view", () => {
     );
 
     expect(html).toContain("Selected file: contacts.csv");
-    expect(html).toContain("Refreshing imports...");
     expect(html).toContain("Refreshing selected batch...");
     expect(html).toContain("Imported Creator");
     expect(html).toContain("Failed Creator");

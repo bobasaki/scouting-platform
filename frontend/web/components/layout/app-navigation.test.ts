@@ -25,6 +25,8 @@ describe("app navigation", () => {
     expect(html).toContain('href="/catalog"');
     expect(html).toContain('href="/database"');
     expect(html).not.toContain('href="/admin"');
+    expect(html).not.toContain(">Workspace<");
+    expect(html).not.toContain(">Admin<");
     expect(linkCount).toBe(4);
   });
 
@@ -37,6 +39,8 @@ describe("app navigation", () => {
     expect(html).toContain('href="/catalog"');
     expect(html).toContain('href="/database"');
     expect(html).toContain('href="/admin"');
+    expect(html).toContain(">New Scouting<");
+    expect(html).not.toContain(">Workspace<");
     expect(linkCount).toBe(5);
   });
 });

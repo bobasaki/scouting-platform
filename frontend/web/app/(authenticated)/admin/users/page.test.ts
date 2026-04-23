@@ -1,14 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { authMock, redirectMock, pushMock } = vi.hoisted(() => ({
-  authMock: vi.fn(),
+const { getSessionMock, redirectMock, pushMock } = vi.hoisted(() => ({
+  getSessionMock: vi.fn(),
   redirectMock: vi.fn(),
   pushMock: vi.fn(),
 }));
 
-vi.mock("../../../../auth", () => ({
-  auth: authMock
+vi.mock("../../../../lib/cached-auth", () => ({
+  getSession: getSessionMock,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -26,7 +26,7 @@ describe("admin users page", () => {
   });
 
   it("redirects unauthenticated users to login", async () => {
-    authMock.mockResolvedValueOnce(null);
+    getSessionMock.mockResolvedValueOnce(null);
 
     const result = await AdminUsersPage();
 
@@ -35,7 +35,7 @@ describe("admin users page", () => {
   });
 
   it("redirects sessions without user to login", async () => {
-    authMock.mockResolvedValueOnce({});
+    getSessionMock.mockResolvedValueOnce({});
 
     const result = await AdminUsersPage();
 
@@ -45,10 +45,11 @@ describe("admin users page", () => {
   });
 
   it("redirects authenticated non-admin users to forbidden", async () => {
-    authMock.mockResolvedValueOnce({
+    getSessionMock.mockResolvedValueOnce({
       user: {
-        role: "user"
-      }
+        id: "user-1",
+        role: "user",
+      },
     });
 
     const result = await AdminUsersPage();
@@ -58,10 +59,11 @@ describe("admin users page", () => {
   });
 
   it("redirects unknown roles to forbidden", async () => {
-    authMock.mockResolvedValueOnce({
+    getSessionMock.mockResolvedValueOnce({
       user: {
-        role: "owner"
-      }
+        id: "user-1",
+        role: "owner",
+      },
     });
 
     const result = await AdminUsersPage();
@@ -72,18 +74,19 @@ describe("admin users page", () => {
   });
 
   it("renders placeholder for admin role", async () => {
-    authMock.mockResolvedValueOnce({
+    getSessionMock.mockResolvedValueOnce({
       user: {
-        role: "admin"
-      }
+        id: "user-1",
+        role: "admin",
+      },
     });
 
     const html = renderToStaticMarkup(await AdminUsersPage());
 
     expect(redirectMock).not.toHaveBeenCalled();
-    expect(html).toContain("User Management");
-    expect(html).toContain("Create users and reset passwords for campaign managers.");
-    expect(html).toContain("Create user");
+    expect(html).toContain("Users");
+    expect(html).toContain('href="/admin"');
+    expect(html).toContain("Add User");
     expect(html).toContain("Loading users...");
   });
 });

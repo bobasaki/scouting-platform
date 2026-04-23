@@ -3,6 +3,7 @@ import React, { Suspense } from "react";
 import { getSession } from "../../../../lib/cached-auth";
 import { getCachedChannelById } from "../../../../lib/cached-data";
 import { ChannelDetailShell } from "../../../../components/catalog/channel-detail-shell";
+import { PageHeader } from "../../../../components/layout/PageHeader";
 import { Skeleton, SkeletonPageBody, SkeletonText } from "../../../../components/ui/skeleton";
 import { getRoleFromSession } from "../../../../lib/access-control";
 
@@ -47,8 +48,20 @@ export default async function CatalogChannelDetailPage({ params }: CatalogChanne
   const { channelId } = await params;
 
   return (
-    <Suspense fallback={<ChannelDetailFallback />}>
-      <ChannelDetailData channelId={channelId} />
-    </Suspense>
+    <section className="page-section">
+      <PageHeader
+        crumbs={[
+          { label: "Database", href: "/database" },
+          { label: "Catalog", href: "/catalog" },
+          { label: "Channel Detail" },
+        ]}
+        title="Channel Detail"
+      />
+      <div className="page-container page-section__body">
+        <Suspense fallback={<ChannelDetailFallback />}>
+          <ChannelDetailData channelId={channelId} />
+        </Suspense>
+      </div>
+    </section>
   );
 }

@@ -185,7 +185,7 @@ function renderView(
         influencerVertical: [{ value: "Gaming", label: "Gaming" }],
         influencerType: [{ value: "Creator", label: "Creator" }],
       },
-      draftFilters: {
+      filters: {
         query: "space",
         countryRegion: ["Croatia"],
         influencerVertical: ["Gaming"],
@@ -217,10 +217,8 @@ function renderView(
         isRefreshing: false,
       },
       requestState,
-      hasPendingFilterChanges: true,
-      onApplyFilters: vi.fn(),
       onClearSelection: vi.fn(),
-      onDraftQueryChange: vi.fn(),
+      onQueryChange: vi.fn(),
       onExportSelectedChannels: vi.fn(),
       onNextPage: vi.fn(),
       onPreviousPage: vi.fn(),
@@ -230,6 +228,8 @@ function renderView(
       onRetry: vi.fn(),
       onToggleChannelSelection: vi.fn(),
       onNumericFilterChange: vi.fn(),
+      onClearNumericRangeFilter: vi.fn(),
+      onClearMultiValueFilter: vi.fn(),
       onToggleMultiValueFilter: vi.fn(),
       onTogglePageSelection: vi.fn(),
     }),
@@ -579,8 +579,8 @@ describe("catalog table shell view", () => {
     });
 
     expect(html).toContain("Country/Region");
-    expect(html).toContain("YouTube Video Median Views");
-    expect(html).toContain("Apply");
+    expect(html).toContain("Video Median Views");
+    expect(html).toContain("Clear all");
     expect(html).toContain("Loading channels...");
     expect(html).not.toContain(">Save</button>");
   });
@@ -609,7 +609,6 @@ describe("catalog table shell view", () => {
       error: null,
     });
 
-    expect(html).toContain("Active filters: 5");
     expect(html).toContain("0 channels");
     expect(html).toContain("No channels match the current filters.");
     expect(html).toContain("Page 1");
@@ -761,7 +760,7 @@ describe("catalog table shell view", () => {
     expect(html).toContain("catalog-table__selection-status--success");
   });
 
-  it("renders inline export and HubSpot batch cards for the latest created batches", () => {
+  it("does not render the recent exports cards section", () => {
     const html = renderView(
       {
         status: "ready",
@@ -769,7 +768,7 @@ describe("catalog table shell view", () => {
         error: null,
       },
       {
-        selectedChannelIds: [pagedChannels.items[0]!.id],
+        selectedChannelIds: [],
         latestCsvExportBatch: {
           requestState: "ready",
           summary: buildBatchSummaryPayloadForCatalogTests({
@@ -848,25 +847,11 @@ describe("catalog table shell view", () => {
       },
     );
 
-    expect(html).toContain("CSV export");
-    expect(html).toContain("selected-creators.csv");
-    expect(html).toContain("Completed with 2 channels in the CSV. Download is ready.");
-    expect(html).toContain("Download CSV");
-    expect(html).toContain("Open batch result");
-    expect(html).toContain('href="/exports/0612f7d5-70b2-402b-9151-a98ec850c8cb"');
-    expect(html).toContain(
-      "href=\"/api/csv-export-batches/0612f7d5-70b2-402b-9151-a98ec850c8cb/download\"",
-    );
-    expect(html).toContain("HubSpot push");
-    expect(html).toContain("1 pushed · 1 failed.");
-    expect(html).toContain("Failed rows");
-    expect(
-      html,
-    ).toContain('href="/hubspot/dc605f9b-0cd3-41f5-ad85-969255759293"');
-    expect(html).toContain(
-      "e11e5184-79a2-42bf-bceb-345f30611c39: Channel has no contact email.",
-    );
-    expect(html).toContain("Refreshing HubSpot status...");
+    expect(html).not.toContain("Recent exports");
+    expect(html).not.toContain("CSV export");
+    expect(html).not.toContain("Download CSV");
+    expect(html).not.toContain("Failed rows");
+    expect(html).not.toContain("Refreshing HubSpot status...");
   });
 });
 

@@ -153,7 +153,6 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
           { label: "Database", href: "/database" },
           { label: "Catalog" },
         ]}
-        description="Browse the canonical creator catalog with creator filters and table or card browsing modes."
         title="Catalog"
       />
       <div className="page-container page-section__body">

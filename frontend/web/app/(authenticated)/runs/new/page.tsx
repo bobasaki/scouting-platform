@@ -1,13 +1,19 @@
-import { PageSection } from "../../../../components/layout/page-section";
+import { PageHeader } from "../../../../components/layout/PageHeader";
 import { NewScoutingWorkspace } from "../../../../components/scouting/new-scouting-workspace";
 
 export default function NewRunPage() {
   return (
-    <PageSection
-      title="New scouting"
-      description="Legacy shortcut to the new scouting workspace. Run name, target, and prompt are live today while the remaining planning controls stay visible as disabled scaffolds."
-    >
-      <NewScoutingWorkspace showLegacyNotice />
-    </PageSection>
+    <section className="page-section">
+      <PageHeader
+        crumbs={[
+          { label: "Dashboard", href: "/dashboard" },
+          { label: "New Scouting" },
+        ]}
+        title="New Scouting"
+      />
+      <div className="page-container page-section__body">
+        <NewScoutingWorkspace showLegacyNotice />
+      </div>
+    </section>
   );
 }

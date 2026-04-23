@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { getHubspotExportPreview } from "@scouting-platform/core";
 import { getSession } from "../../../../../lib/cached-auth";
 import { ExportPreparationWorkspace } from "../../../../../components/exports/export-preparation-workspace";
-import { PageSection } from "../../../../../components/layout/page-section";
+import { PageHeader } from "../../../../../components/layout/PageHeader";
 import { SkeletonPageBody, SkeletonTable } from "../../../../../components/ui/skeleton";
 import { getRoleFromSession } from "../../../../../lib/access-control";
 
@@ -40,13 +40,19 @@ export default async function HubspotPreparePage({ params }: HubspotPreparePageP
   const { runId } = await params;
 
   return (
-    <PageSection
-      title="Google Sheets Export"
-      description="Review the HubSpot-ready columns, fill required gaps, and export them into Google Sheets for manual HubSpot import."
-    >
-      <Suspense fallback={<HubspotPrepareFallback />}>
-        <HubspotPrepareData runId={runId} />
-      </Suspense>
-    </PageSection>
+    <section className="page-section">
+      <PageHeader
+        crumbs={[
+          { label: "HubSpot", href: "/hubspot" },
+          { label: "Google Sheets Export" },
+        ]}
+        title="Google Sheets Export"
+      />
+      <div className="page-container page-section__body">
+        <Suspense fallback={<HubspotPrepareFallback />}>
+          <HubspotPrepareData runId={runId} />
+        </Suspense>
+      </div>
+    </section>
   );
 }

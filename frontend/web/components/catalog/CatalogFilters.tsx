@@ -2,7 +2,6 @@ import React from "react";
 
 import {
   countActiveCatalogFilters,
-  hasActiveCatalogFilters,
   type CatalogCreatorFilterOptions,
   type CatalogFilterOption,
   type CatalogFiltersState,
@@ -165,10 +164,7 @@ function SearchCreatorDropdown({
     .slice(0, 20);
 
   return (
-    <div
-      ref={rootRef}
-      className="catalog-table__combobox"
-    >
+    <div className="catalog-filter-bar__search" ref={rootRef}>
       <label className="catalog-table__search catalog-table__search--primary">
         <span>Search creators</span>
         <input
@@ -216,54 +212,71 @@ function SearchCreatorDropdown({
   );
 }
 
-function SearchableMultiSelect({
-  legend,
+function MultiValueFilterChip({
+  label,
   options,
   selected,
   searchValue,
   onSearchChange,
   onToggle,
+  onClear,
 }: {
-  legend: string;
+  label: string;
   options: ReadonlyArray<CatalogFilterOption>;
   selected: readonly string[];
   searchValue: string;
   onSearchChange: (value: string) => void;
   onToggle: (value: string) => void;
+  onClear: () => void;
 }) {
   const [isOpen, setIsOpen] = React.useState(false);
-  const rootRef = useDismissOnOutsideClick<HTMLFieldSetElement>(isOpen, () => {
+  const rootRef = useDismissOnOutsideClick<HTMLDivElement>(isOpen, () => {
     setIsOpen(false);
   });
+  const isActive = selected.length > 0;
   const selectedSummary =
     selected.length === 0
-      ? "Any"
+      ? label
       : selected.length === 1
-        ? selected[0]
-        : `${selected.length} selected`;
+        ? `${label}: ${selected[0]}`
+        : `${label}: ${selected.length} selected`;
   const visibleOptions = filterOptions(
     getOptionsWithSelectedValues(options, selected),
     searchValue,
   );
 
   return (
-    <fieldset className="catalog-table__filter-group" ref={rootRef}>
-      <legend>{legend}</legend>
-      <div className="catalog-table__filter-pill">
+    <div className="catalog-filter-chip" ref={rootRef}>
+      <button
+        aria-expanded={isOpen}
+        className={isActive ? "catalog-filter-chip__trigger catalog-filter-chip__trigger--active" : "catalog-filter-chip__trigger"}
+        onClick={() => {
+          setIsOpen((current) => !current);
+        }}
+        type="button"
+      >
+        <span>{selectedSummary}</span>
+      </button>
+
+      {isActive ? (
         <button
-          aria-expanded={isOpen}
-          className="catalog-table__filter-pill-trigger"
-          onClick={() => {
-            setIsOpen((current) => !current);
+          aria-label={`Clear ${label} filter`}
+          className="catalog-filter-chip__clear"
+          onClick={(event) => {
+            event.stopPropagation();
+            onClear();
+            setIsOpen(false);
           }}
           type="button"
         >
-          <span>{selectedSummary}</span>
+          ×
         </button>
-        {isOpen ? (
-          <div className="catalog-table__filter-popover">
+      ) : null}
+
+      {isOpen ? (
+        <div className="catalog-filter-chip__popover">
           <label className="catalog-table__filter-search">
-            <span>{legend}</span>
+            <span>{label}</span>
             <input
               onChange={(event) => {
                 onSearchChange(event.target.value);
@@ -300,115 +313,151 @@ function SearchableMultiSelect({
               <p className="catalog-table__filter-note">No matches</p>
             )}
           </div>
-          </div>
-        ) : null}
-      </div>
-    </fieldset>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
-function MetricRangeSlider({
-  legend,
+function MetricRangeFilterChip({
+  label,
   minKey,
   maxKey,
-  draftFilters,
+  filters,
+  onClearNumericRangeFilter,
   onNumericFilterChange,
 }: {
-  legend: string;
+  label: string;
   minKey: CatalogNumericFilterKey;
   maxKey: CatalogNumericFilterKey;
-  draftFilters: CatalogFiltersState;
+  filters: CatalogFiltersState;
+  onClearNumericRangeFilter: (minKey: CatalogNumericFilterKey, maxKey: CatalogNumericFilterKey) => void;
   onNumericFilterChange: (key: CatalogNumericFilterKey, value: string) => void;
 }) {
-  const minValue = draftFilters[minKey];
-  const maxValue = draftFilters[maxKey];
+  const [isOpen, setIsOpen] = React.useState(false);
+  const rootRef = useDismissOnOutsideClick<HTMLDivElement>(isOpen, () => {
+    setIsOpen(false);
+  });
+  const minValue = filters[minKey];
+  const maxValue = filters[maxKey];
+  const isActive = minValue.length > 0 || maxValue.length > 0;
   const minIndex = getNearestMetricStepIndex(minValue, 0);
   const maxIndex = getNearestMetricStepIndex(maxValue, LAST_METRIC_STEP_INDEX);
   const boundedMinIndex = Math.min(minIndex, maxIndex);
   const boundedMaxIndex = Math.max(maxIndex, minIndex);
   const selectedRangeStart = (boundedMinIndex / LAST_METRIC_STEP_INDEX) * 100;
   const selectedRangeEnd = (boundedMaxIndex / LAST_METRIC_STEP_INDEX) * 100;
+  const summary = getRangeSummary(minValue, maxValue);
 
   return (
-    <fieldset className="catalog-table__filter-group">
-      <legend>{legend}</legend>
-      <div className="catalog-table__range-control">
-        <div className="catalog-table__range-summary">
-          <span>{getRangeSummary(minValue, maxValue)}</span>
-        </div>
-        <div
-          className="catalog-table__dual-range"
-          style={{
-            "--catalog-range-start": `${selectedRangeStart}%`,
-            "--catalog-range-end": `${selectedRangeEnd}%`,
-          } as React.CSSProperties}
+    <div className="catalog-filter-chip" ref={rootRef}>
+      <button
+        aria-expanded={isOpen}
+        className={isActive ? "catalog-filter-chip__trigger catalog-filter-chip__trigger--active" : "catalog-filter-chip__trigger"}
+        onClick={() => {
+          setIsOpen((current) => !current);
+        }}
+        type="button"
+      >
+        <span>{isActive ? `${label}: ${summary}` : label}</span>
+      </button>
+
+      {isActive ? (
+        <button
+          aria-label={`Clear ${label} filter`}
+          className="catalog-filter-chip__clear"
+          onClick={(event) => {
+            event.stopPropagation();
+            onClearNumericRangeFilter(minKey, maxKey);
+            setIsOpen(false);
+          }}
+          type="button"
         >
-          <div className="catalog-table__dual-range-track" />
-          <input
-            aria-label={`${legend} minimum`}
-            className="catalog-table__dual-range-input"
-            max={LAST_METRIC_STEP_INDEX}
-            min="0"
-            name={minKey}
-            onChange={(event) => {
-              const nextIndex = Math.min(Number(event.target.value), boundedMaxIndex);
-              const nextValue = METRIC_RANGE_STEPS[nextIndex];
+          ×
+        </button>
+      ) : null}
 
-              onNumericFilterChange(minKey, nextIndex === 0 ? "" : String(nextValue));
-            }}
-            suppressHydrationWarning
-            type="range"
-            value={boundedMinIndex}
-          />
-          <input
-            aria-label={`${legend} maximum`}
-            className="catalog-table__dual-range-input"
-            max={LAST_METRIC_STEP_INDEX}
-            min="0"
-            name={maxKey}
-            onChange={(event) => {
-              const nextIndex = Math.max(Number(event.target.value), boundedMinIndex);
-              const nextValue = METRIC_RANGE_STEPS[nextIndex];
+      {isOpen ? (
+        <div className="catalog-filter-chip__popover">
+          <div className="catalog-table__range-control">
+            <div className="catalog-table__range-summary">
+              <span>{summary}</span>
+            </div>
+            <div
+              className="catalog-table__dual-range"
+              style={{
+                "--catalog-range-start": `${selectedRangeStart}%`,
+                "--catalog-range-end": `${selectedRangeEnd}%`,
+              } as React.CSSProperties}
+            >
+              <div className="catalog-table__dual-range-track" />
+              <input
+                aria-label={`${label} minimum`}
+                className="catalog-table__dual-range-input"
+                max={LAST_METRIC_STEP_INDEX}
+                min="0"
+                name={minKey}
+                onChange={(event) => {
+                  const nextIndex = Math.min(Number(event.target.value), boundedMaxIndex);
+                  const nextValue = METRIC_RANGE_STEPS[nextIndex];
 
-              onNumericFilterChange(
-                maxKey,
-                nextIndex === LAST_METRIC_STEP_INDEX ? "" : String(nextValue),
-              );
-            }}
-            suppressHydrationWarning
-            type="range"
-            value={boundedMaxIndex}
-          />
+                  onNumericFilterChange(minKey, nextIndex === 0 ? "" : String(nextValue));
+                }}
+                suppressHydrationWarning
+                type="range"
+                value={boundedMinIndex}
+              />
+              <input
+                aria-label={`${label} maximum`}
+                className="catalog-table__dual-range-input"
+                max={LAST_METRIC_STEP_INDEX}
+                min="0"
+                name={maxKey}
+                onChange={(event) => {
+                  const nextIndex = Math.max(Number(event.target.value), boundedMinIndex);
+                  const nextValue = METRIC_RANGE_STEPS[nextIndex];
+
+                  onNumericFilterChange(
+                    maxKey,
+                    nextIndex === LAST_METRIC_STEP_INDEX ? "" : String(nextValue),
+                  );
+                }}
+                suppressHydrationWarning
+                type="range"
+                value={boundedMaxIndex}
+              />
+            </div>
+            <div className="catalog-table__range-scale" aria-hidden="true">
+              <span>1K</span>
+              <span>1M+</span>
+            </div>
+          </div>
         </div>
-        <div className="catalog-table__range-scale" aria-hidden="true">
-          <span>1K</span>
-          <span>1M+</span>
-        </div>
-      </div>
-    </fieldset>
+      ) : null}
+    </div>
   );
 }
 
 type CatalogFiltersProps = Readonly<{
   creatorFilterOptions: CatalogCreatorFilterOptions;
-  draftFilters: CatalogFiltersState;
-  hasPendingFilterChanges: boolean;
+  filters: CatalogFiltersState;
   searchOptions: readonly CatalogSearchOption[];
-  onApplyFilters: () => void;
-  onDraftQueryChange: (value: string) => void;
+  onClearMultiValueFilter: (key: CatalogMultiValueFilterKey) => void;
+  onClearNumericRangeFilter: (minKey: CatalogNumericFilterKey, maxKey: CatalogNumericFilterKey) => void;
   onNumericFilterChange: (key: CatalogNumericFilterKey, value: string) => void;
+  onQueryChange: (value: string) => void;
   onResetFilters: () => void;
   onToggleMultiValueFilter: (key: CatalogMultiValueFilterKey, value: string) => void;
 }>;
 
 export function CatalogFilters({
   creatorFilterOptions,
-  draftFilters,
-  hasPendingFilterChanges,
+  filters,
   searchOptions,
-  onApplyFilters,
-  onDraftQueryChange,
+  onClearMultiValueFilter,
+  onClearNumericRangeFilter,
   onNumericFilterChange,
+  onQueryChange,
   onResetFilters,
   onToggleMultiValueFilter,
 }: CatalogFiltersProps) {
@@ -417,114 +466,90 @@ export function CatalogFilters({
     influencerVertical: "",
     influencerType: "",
   });
-  const activeFilters = hasActiveCatalogFilters(draftFilters);
-  const activeFilterCount = countActiveCatalogFilters(draftFilters);
+  const activeFilterCount = countActiveCatalogFilters(filters);
 
   return (
-    <details className="catalog-layout__rail" open>
-      <summary className="catalog-layout__summary">Filters</summary>
-      <section className="catalog-table__filters" aria-labelledby="catalog-filter-heading">
-        <div className="catalog-table__filters-header">
-          <div>
-            <h2 id="catalog-filter-heading">Filters</h2>
-          </div>
-          {activeFilterCount > 0 ? (
-            <span className="catalog-table__filters-badge">{activeFilterCount} active</span>
-          ) : null}
-        </div>
+    <section className="catalog-filter-bar" aria-label="Catalog filters">
+      <SearchCreatorDropdown
+        onChange={onQueryChange}
+        options={searchOptions}
+        value={filters.query}
+      />
 
-        <SearchCreatorDropdown
-          onChange={onDraftQueryChange}
-          options={searchOptions}
-          value={draftFilters.query}
-        />
-
-        <SearchableMultiSelect
-          legend="Country/Region"
-          onToggle={(value) => onToggleMultiValueFilter("countryRegion", value)}
+      <div className="catalog-filter-bar__chips">
+        <MultiValueFilterChip
+          label="Country/Region"
+          onClear={() => onClearMultiValueFilter("countryRegion")}
           onSearchChange={(value) => {
             setDropdownSearch((current) => ({ ...current, countryRegion: value }));
           }}
+          onToggle={(value) => onToggleMultiValueFilter("countryRegion", value)}
           options={creatorFilterOptions.countryRegion}
           searchValue={dropdownSearch.countryRegion}
-          selected={draftFilters.countryRegion}
+          selected={filters.countryRegion}
         />
 
-        <SearchableMultiSelect
-          legend="Influencer Vertical"
-          onToggle={(value) => onToggleMultiValueFilter("influencerVertical", value)}
+        <MultiValueFilterChip
+          label="Influencer Vertical"
+          onClear={() => onClearMultiValueFilter("influencerVertical")}
           onSearchChange={(value) => {
             setDropdownSearch((current) => ({ ...current, influencerVertical: value }));
           }}
+          onToggle={(value) => onToggleMultiValueFilter("influencerVertical", value)}
           options={creatorFilterOptions.influencerVertical}
           searchValue={dropdownSearch.influencerVertical}
-          selected={draftFilters.influencerVertical}
+          selected={filters.influencerVertical}
         />
 
-        <SearchableMultiSelect
-          legend="Influencer Type"
-          onToggle={(value) => onToggleMultiValueFilter("influencerType", value)}
+        <MultiValueFilterChip
+          label="Influencer Type"
+          onClear={() => onClearMultiValueFilter("influencerType")}
           onSearchChange={(value) => {
             setDropdownSearch((current) => ({ ...current, influencerType: value }));
           }}
+          onToggle={(value) => onToggleMultiValueFilter("influencerType", value)}
           options={creatorFilterOptions.influencerType}
           searchValue={dropdownSearch.influencerType}
-          selected={draftFilters.influencerType}
+          selected={filters.influencerType}
         />
 
-        <MetricRangeSlider
-          draftFilters={draftFilters}
-          legend="YouTube Video Median Views"
+        <MetricRangeFilterChip
+          filters={filters}
+          label="Video Median Views"
           maxKey="youtubeVideoMedianViewsMax"
           minKey="youtubeVideoMedianViewsMin"
           onNumericFilterChange={onNumericFilterChange}
+          onClearNumericRangeFilter={onClearNumericRangeFilter}
         />
 
-        <MetricRangeSlider
-          draftFilters={draftFilters}
-          legend="YouTube Shorts Median Views"
+        <MetricRangeFilterChip
+          filters={filters}
+          label="Shorts Median Views"
           maxKey="youtubeShortsMedianViewsMax"
           minKey="youtubeShortsMedianViewsMin"
           onNumericFilterChange={onNumericFilterChange}
+          onClearNumericRangeFilter={onClearNumericRangeFilter}
         />
 
-        <MetricRangeSlider
-          draftFilters={draftFilters}
-          legend="YouTube Followers"
+        <MetricRangeFilterChip
+          filters={filters}
+          label="YouTube Followers"
           maxKey="youtubeFollowersMax"
           minKey="youtubeFollowersMin"
           onNumericFilterChange={onNumericFilterChange}
+          onClearNumericRangeFilter={onClearNumericRangeFilter}
         />
 
-        <div className="catalog-table__filter-actions">
-          <button
-            className="catalog-table__button catalog-table__button--secondary"
-            disabled={!activeFilters && !hasPendingFilterChanges}
-            onClick={onResetFilters}
-            suppressHydrationWarning
-            type="button"
-          >
-            Clear all
-          </button>
-
-          <button
-            className="catalog-table__button"
-            onClick={onApplyFilters}
-            suppressHydrationWarning
-            type="button"
-          >
-            Apply
-          </button>
-        </div>
-
-        {hasPendingFilterChanges ? (
-          <p className="catalog-table__filter-note">Draft changes are ready to apply.</p>
-        ) : null}
-
-        {activeFilterCount > 0 ? (
-          <p className="catalog-table__filter-note">Active filters: {activeFilterCount}</p>
-        ) : null}
-      </section>
-    </details>
+        <button
+          className="catalog-table__button catalog-table__button--secondary catalog-filter-bar__clear-all"
+          disabled={activeFilterCount === 0}
+          onClick={onResetFilters}
+          suppressHydrationWarning
+          type="button"
+        >
+          Clear all
+        </button>
+      </div>
+    </section>
   );
 }

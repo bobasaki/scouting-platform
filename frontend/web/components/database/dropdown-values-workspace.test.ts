@@ -16,7 +16,7 @@ describe("dropdown values workspace", () => {
     expect(html).toContain("Country/Region");
     expect(html).toContain("Language");
     expect(html).not.toContain("Edit values");
-    expect(html.match(/Synced from HubSpot/gu)?.length).toBe(5);
-    expect(html.match(/Built into platform/gu)?.length).toBe(2);
+    expect(html).not.toContain("Sync HubSpot dropdowns");
+    expect(html.match(/Synced from HubSpot/gu)?.length).toBe(7);
   });
 });

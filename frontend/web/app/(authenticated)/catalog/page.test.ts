@@ -56,9 +56,7 @@ describe("catalog page", () => {
     const html = await renderToStringAsync(CatalogPage({}));
 
     expect(html).toContain("Catalog");
-    expect(html).toContain(
-      "Browse the canonical creator catalog with creator filters and table or card browsing modes.",
-    );
+    expect(html).toContain('href="/database"');
     expect(databaseWorkspaceMock.mock.calls[0]?.[0]).toEqual({
       forcedTab: "catalog",
       initialCatalogData: {

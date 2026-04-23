@@ -67,9 +67,7 @@ describe("database page", () => {
 
     expect(databaseAdminWorkspaceMock).toHaveBeenCalledTimes(1);
     expect(html).toContain("Database");
-    expect(html).toContain(
-      "Manage clients and campaigns from one database workspace while keeping creator catalog browsing in its own dedicated page.",
-    );
+    expect(html).toContain('aria-label="Breadcrumb"');
     expect(html).toContain("database-admin-workspace");
   });
 

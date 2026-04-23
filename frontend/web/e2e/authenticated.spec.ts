@@ -140,7 +140,7 @@ test.describe("authenticated launch-readiness flows", () => {
     const queuedRun = {
       id: "0d63aee0-df1a-4579-8b59-17e6baf6d04f",
       status: "queued",
-      objectTypes: ["clients", "campaigns"],
+      objectTypes: ["clients", "campaigns", "dropdownValues"],
       clientUpsertCount: 0,
       campaignUpsertCount: 0,
       deactivatedCount: 0,

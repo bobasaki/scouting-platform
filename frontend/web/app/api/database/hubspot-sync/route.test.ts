@@ -29,7 +29,7 @@ import { GET, POST } from "./route";
 const run = {
   id: "11111111-1111-4111-8111-111111111111",
   status: "queued",
-  objectTypes: ["clients", "campaigns"],
+  objectTypes: ["clients", "campaigns", "dropdownValues"],
   clientUpsertCount: 0,
   campaignUpsertCount: 0,
   deactivatedCount: 0,

@@ -4,14 +4,20 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 const databaseUrl = process.env.DATABASE_URL_TEST?.trim() ?? "";
 const integration = databaseUrl ? describe.sequential : describe.skip;
 
-const { fetchHubspotAssociationsMock, fetchHubspotCustomObjectsMock } = vi.hoisted(() => ({
+const {
+  fetchHubspotAssociationsMock,
+  fetchHubspotCustomObjectsMock,
+  fetchHubspotDropdownValuesMock,
+} = vi.hoisted(() => ({
   fetchHubspotAssociationsMock: vi.fn(),
   fetchHubspotCustomObjectsMock: vi.fn(),
+  fetchHubspotDropdownValuesMock: vi.fn(),
 }));
 
 vi.mock("@scouting-platform/integrations", () => ({
   fetchHubspotAssociations: fetchHubspotAssociationsMock,
   fetchHubspotCustomObjects: fetchHubspotCustomObjectsMock,
+  fetchHubspotDropdownValues: fetchHubspotDropdownValuesMock,
 }));
 
 type ObjectSyncModule = typeof import("./object-sync");
@@ -30,7 +36,9 @@ integration("HubSpot object sync core service", () => {
   beforeEach(async () => {
     process.env.DATABASE_URL = databaseUrl;
     setHubspotMappingEnv();
+    process.env.HUBSPOT_API_KEY = "test-api-key";
     vi.clearAllMocks();
+    fetchHubspotDropdownValuesMock.mockResolvedValue([]);
 
     await prisma.$executeRawUnsafe(`
       TRUNCATE TABLE
@@ -94,7 +102,7 @@ integration("HubSpot object sync core service", () => {
     return prisma.hubspotObjectSyncRun.create({
       data: {
         requestedByUserId,
-        objectTypes: ["clients", "campaigns"],
+        objectTypes: ["clients", "campaigns", "dropdownValues"],
       },
       select: {
         id: true,
@@ -316,5 +324,30 @@ integration("HubSpot object sync core service", () => {
     expect(failedRun.completedAt).not.toBeNull();
     expect(failedRun.lastError).toContain("HUBSPOT_CLIENT_OBJECT_TYPE");
     expect(fetchHubspotCustomObjectsMock).not.toHaveBeenCalled();
+  });
+
+  it("fails the sync run when dropdown value sync fails", async () => {
+    const objectSync = await loadObjectSync();
+    const admin = await createAdmin();
+    const run = await createSyncRun(admin.id);
+
+    fetchHubspotCustomObjectsMock.mockResolvedValue({ nextAfter: null, results: [] });
+    fetchHubspotDropdownValuesMock.mockRejectedValueOnce(new Error("HubSpot dropdown sync failed"));
+
+    await expect(
+      objectSync.executeHubspotObjectSyncRun({
+        syncRunId: run.id,
+        requestedByUserId: admin.id,
+      }),
+    ).rejects.toThrow("HubSpot dropdown sync failed");
+
+    const failedRun = await prisma.hubspotObjectSyncRun.findUniqueOrThrow({
+      where: {
+        id: run.id,
+      },
+    });
+    expect(failedRun.status).toBe("FAILED");
+    expect(failedRun.completedAt).not.toBeNull();
+    expect(failedRun.lastError).toContain("HubSpot dropdown sync failed");
   });
 });

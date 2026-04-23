@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { getSession } from "../../../../../lib/cached-auth";
 import { getCachedUsers } from "../../../../../lib/cached-data";
 import { UserAccountDetail } from "../../../../../components/admin/user-account-detail";
-import { PageSection } from "../../../../../components/layout/page-section";
+import { PageHeader } from "../../../../../components/layout/PageHeader";
 import { Skeleton, SkeletonPageBody } from "../../../../../components/ui/skeleton";
 import {
   canAccessNavigationKey,
@@ -39,28 +39,40 @@ async function UserDetailData({ userId }: { userId: string }) {
   }
 
   return (
-    <PageSection
-      section="Admin"
-      title={user.name?.trim() || user.email}
-      description={`Manage account identity and YouTube credential assignment for ${user.email}.`}
-    >
-      <UserAccountDetail user={user} />
-    </PageSection>
+    <section className="page-section">
+      <PageHeader
+        crumbs={[
+          { label: "Admin", href: "/admin" },
+          { label: "Users", href: "/admin/users" },
+          { label: "User" },
+        ]}
+        title={user.name?.trim() || user.email}
+      />
+      <div className="page-container page-section__body">
+        <UserAccountDetail user={user} />
+      </div>
+    </section>
   );
 }
 
 function UserDetailFallback() {
   return (
-    <PageSection
-      section="Admin"
-      title="User"
-      description="Loading user account details..."
-    >
-      <SkeletonPageBody>
-        <Skeleton height="2rem" width="16rem" />
-        <Skeleton height="12rem" width="100%" />
-      </SkeletonPageBody>
-    </PageSection>
+    <section className="page-section">
+      <PageHeader
+        crumbs={[
+          { label: "Admin", href: "/admin" },
+          { label: "Users", href: "/admin/users" },
+          { label: "User" },
+        ]}
+        title="User"
+      />
+      <div className="page-container page-section__body">
+        <SkeletonPageBody>
+          <Skeleton height="2rem" width="16rem" />
+          <Skeleton height="12rem" width="100%" />
+        </SkeletonPageBody>
+      </div>
+    </section>
   );
 }
 

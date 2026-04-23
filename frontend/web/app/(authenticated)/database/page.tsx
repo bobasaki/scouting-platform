@@ -10,7 +10,7 @@ import {
   getCachedHubspotObjectSyncRuns,
 } from "../../../lib/cached-data";
 import { DatabaseAdminWorkspace } from "../../../components/database/database-admin-workspace";
-import { PageSection } from "../../../components/layout/page-section";
+import { PageHeader } from "../../../components/layout/PageHeader";
 import { Skeleton, SkeletonPageBody, SkeletonTable } from "../../../components/ui/skeleton";
 
 const emptyHubspotSyncRuns: ListHubspotObjectSyncRunsResponse = {
@@ -80,13 +80,16 @@ function DatabaseFallback() {
 
 export default function DatabasePage() {
   return (
-    <PageSection
-      title="Database"
-      description="Manage clients and campaigns from one database workspace while keeping creator catalog browsing in its own dedicated page."
-    >
-      <Suspense fallback={<DatabaseFallback />}>
-        <DatabaseData />
-      </Suspense>
-    </PageSection>
+    <section className="page-section">
+      <PageHeader
+        crumbs={[{ label: "Database" }]}
+        title="Database"
+      />
+      <div className="page-container page-section__body">
+        <Suspense fallback={<DatabaseFallback />}>
+          <DatabaseData />
+        </Suspense>
+      </div>
+    </section>
   );
 }

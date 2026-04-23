@@ -1,5 +1,5 @@
 import React from "react";
-import { PageSection } from "../../../components/layout/page-section";
+import { PageHeader } from "../../../components/layout/PageHeader";
 import {
   SkeletonPageBody,
   SkeletonTable,
@@ -7,13 +7,13 @@ import {
 
 export default function ExportsLoading() {
   return (
-    <PageSection
-      title="Exports"
-      description="Create filtered CSV exports from catalog criteria and review your export batch history without leaving the authenticated workspace."
-    >
-      <SkeletonPageBody>
-        <SkeletonTable columns={5} rows={4} />
-      </SkeletonPageBody>
-    </PageSection>
+    <section className="page-section">
+      <PageHeader crumbs={[{ label: "Exports" }]} title="Exports" />
+      <div className="page-container page-section__body">
+        <SkeletonPageBody>
+          <SkeletonTable columns={5} rows={4} />
+        </SkeletonPageBody>
+      </div>
+    </section>
   );
 }
