@@ -1,7 +1,7 @@
 "use client";
 
 import type { CampaignSummary, ListCampaignsResponse, RunMonth } from "@scouting-platform/contracts";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 import { MONTH_LABELS } from "../../lib/countries";
 import {
@@ -100,6 +100,10 @@ export function CampaignsWorkspace({ initialData }: CampaignsWorkspaceProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const canManageLocalCampaigns = initialData.permissions.canCreate;
+
+  useEffect(() => {
+    setItems(initialData.items);
+  }, [initialData.items]);
   const clientOptions: SearchableSelectOption[] = [
     { value: "", label: "All clients" },
     ...initialData.filterOptions.clients.map((client) => ({

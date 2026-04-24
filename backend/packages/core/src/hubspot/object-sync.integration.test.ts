@@ -95,10 +95,10 @@ integration("HubSpot object sync core service", () => {
     process.env.HUBSPOT_CAMPAIGN_ACTIVE_PROPERTY = "active";
   }
 
-  async function createAdmin(): Promise<{ id: string }> {
+  async function createAdmin(email = "admin@example.com"): Promise<{ id: string }> {
     return prisma.user.create({
       data: {
-        email: "admin@example.com",
+        email,
         name: "Admin",
         role: Role.ADMIN,
         passwordHash: "hash",
@@ -121,6 +121,22 @@ integration("HubSpot object sync core service", () => {
       },
     });
   }
+
+  it("lists sync runs scoped to the requesting admin", async () => {
+    const objectSync = await loadObjectSync();
+    const adminA = await createAdmin("admin-a@example.com");
+    const adminB = await createAdmin("admin-b@example.com");
+    const runA = await createSyncRun(adminA.id);
+    const runB = await createSyncRun(adminB.id);
+
+    const listed = await objectSync.listHubspotObjectSyncRuns({
+      requestedByUserId: adminA.id,
+    });
+
+    expect(listed.items.map((item) => item.id)).toContain(runA.id);
+    expect(listed.items.map((item) => item.id)).not.toContain(runB.id);
+    expect(listed.latest?.id).toBe(runA.id);
+  });
 
   it("upserts HubSpot clients and campaigns", async () => {
     const objectSync = await loadObjectSync();

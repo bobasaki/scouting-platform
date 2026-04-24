@@ -1006,6 +1006,9 @@ export async function listHubspotObjectSyncRuns(input: {
 
   const syncRunDelegate = getHubspotObjectSyncRunDelegate();
   const runs = await syncRunDelegate.findMany({
+    where: {
+      requestedByUserId: input.requestedByUserId,
+    },
     orderBy: {
       createdAt: "desc",
     },

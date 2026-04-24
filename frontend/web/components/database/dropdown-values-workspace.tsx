@@ -1,7 +1,7 @@
 "use client";
 
 import type { DropdownValue, DropdownValueFieldKey } from "@scouting-platform/contracts";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 import {
   groupDropdownValuesByField,
@@ -31,6 +31,10 @@ export function DropdownValuesWorkspace({ initialData }: DropdownValuesWorkspace
   const [textareaValue, setTextareaValue] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const grouped = useMemo(() => groupDropdownValuesByField(items), [items]);
+
+  useEffect(() => {
+    setItems(initialData);
+  }, [initialData]);
 
   function openField(fieldKey: DropdownValueFieldKey) {
     setActiveField(fieldKey);

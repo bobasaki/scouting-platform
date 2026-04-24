@@ -25,6 +25,26 @@ const DropdownValuesWorkspace = dynamic(
   () => import("./dropdown-values-workspace").then((mod) => mod.DropdownValuesWorkspace),
 );
 
+function formatHubspotSyncStatus(
+  run: ListHubspotObjectSyncRunsResponse["latest"],
+): string | null {
+  if (!run) {
+    return null;
+  }
+
+  if (run.status === "completed") {
+    return run.lastError
+      ? `HubSpot sync completed with warnings: ${run.lastError}`
+      : "HubSpot sync completed.";
+  }
+
+  if (run.status === "failed") {
+    return run.lastError ? `HubSpot sync failed: ${run.lastError}` : "HubSpot sync failed.";
+  }
+
+  return null;
+}
+
 export function DatabaseAdminWorkspace({
   campaigns,
   clients,
@@ -62,6 +82,10 @@ export function DatabaseAdminWorkspace({
     latestSyncRun?.status === "queued" || latestSyncRun?.status === "running" || isTriggeringSync;
 
   useEffect(() => {
+    setSyncRuns(hubspotSyncRuns);
+  }, [hubspotSyncRuns]);
+
+  useEffect(() => {
     if (
       !isAdmin ||
       (latestSyncRun?.status !== "queued" && latestSyncRun?.status !== "running")
@@ -74,7 +98,10 @@ export function DatabaseAdminWorkspace({
         .then((runs) => {
           setSyncRuns(runs);
 
-          if (runs.latest?.status === "completed" || runs.latest?.status === "failed") {
+          const syncStatusMessage = formatHubspotSyncStatus(runs.latest);
+
+          if (syncStatusMessage) {
+            setSyncStatus(syncStatusMessage);
             router.refresh();
           }
         })

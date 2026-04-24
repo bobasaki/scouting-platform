@@ -110,6 +110,18 @@ integration("database HubSpot sync API integration", () => {
       "dropdownValues",
     ]);
 
+    const otherAdmin = await createUser({
+      email: "other-admin@example.com",
+      role: Role.ADMIN,
+      userType: UserType.ADMIN,
+    });
+    await prisma.hubspotObjectSyncRun.create({
+      data: {
+        requestedByUserId: otherAdmin.id,
+        objectTypes: ["clients", "campaigns", "dropdownValues"],
+      },
+    });
+
     const jobs = await prisma.$queryRaw<Array<{ count: number }>>`
       SELECT COUNT(*)::int AS count
       FROM pgboss.job
