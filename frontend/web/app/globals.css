@@ -8157,6 +8157,7 @@ button:disabled,
   display: flex;
   flex-wrap: nowrap;
   gap: 0.4rem;
+  padding: 2px;
   align-items: center;
   overflow-x: auto;
   scrollbar-width: thin;

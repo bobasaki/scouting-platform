@@ -1,7 +1,7 @@
 "use client";
 
 import type { ClientSummary, ListClientsResponse } from "@scouting-platform/contracts";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 import {
   createClientRequest,
@@ -71,6 +71,10 @@ export function ClientsWorkspace({ initialData }: ClientsWorkspaceProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const canManageLocalClients = initialData.permissions.canCreate;
+
+  useEffect(() => {
+    setItems(initialData.items);
+  }, [initialData.items]);
 
   function updateFormField<Key extends keyof ClientFormState>(field: Key, value: ClientFormState[Key]) {
     setForm((current) => ({ ...current, [field]: value }));
