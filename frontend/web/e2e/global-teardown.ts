@@ -1,14 +1,9 @@
 import fs from "node:fs/promises";
-import { createRequire } from "node:module";
 
 import { disconnectPrisma, prisma, withDbTransaction } from "@scouting-platform/db";
 
 import { E2E_ADMIN, E2E_MANAGER, PLAYWRIGHT_SEED_PATH } from "./test-data";
-
-const require = createRequire(import.meta.url);
-const { assertSafeTestDatabaseConfiguration } = require("../../../scripts/test-db-guard.mjs") as {
-  assertSafeTestDatabaseConfiguration: () => void;
-};
+import { assertSafeTestDatabaseConfiguration } from "./test-db-guard";
 
 export default async function globalTeardown(): Promise<void> {
   assertSafeTestDatabaseConfiguration();

@@ -1,5 +1,4 @@
 import fs from "node:fs/promises";
-import { createRequire } from "node:module";
 import path from "node:path";
 
 import {
@@ -39,12 +38,8 @@ import {
   PLAYWRIGHT_SEED_PATH,
   type PlaywrightSeedData,
 } from "./test-data";
+import { assertSafeTestDatabaseConfiguration } from "./test-db-guard";
 import { ensurePlaywrightEnvironment } from "./test-env";
-
-const require = createRequire(import.meta.url);
-const { assertSafeTestDatabaseConfiguration } = require("../../../scripts/test-db-guard.mjs") as {
-  assertSafeTestDatabaseConfiguration: () => void;
-};
 
 function buildSeededExportCsv(channelId: string): string {
   const row = {
