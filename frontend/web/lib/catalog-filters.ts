@@ -62,7 +62,7 @@ export const EMPTY_CATALOG_CREATOR_FILTER_OPTIONS: CatalogCreatorFilterOptions =
   influencerType: [],
 };
 
-export const CATALOG_NUMERIC_FILTER_KEYS: readonly CatalogNumericFilterKey[] = [
+const CATALOG_NUMERIC_FILTER_KEYS: readonly CatalogNumericFilterKey[] = [
   "youtubeVideoMedianViewsMin",
   "youtubeVideoMedianViewsMax",
   "youtubeShortsMedianViewsMin",
@@ -88,15 +88,6 @@ const MULTI_VALUE_FILTER_LABELS: Record<CatalogMultiValueFilterKey, string> = {
   countryRegion: "Country/Region",
   influencerVertical: "Influencer Vertical",
   influencerType: "Influencer Type",
-};
-
-const NUMERIC_FILTER_LABELS: Record<CatalogNumericFilterKey, string> = {
-  youtubeVideoMedianViewsMin: "Video median min",
-  youtubeVideoMedianViewsMax: "Video median max",
-  youtubeShortsMedianViewsMin: "Shorts median min",
-  youtubeShortsMedianViewsMax: "Shorts median max",
-  youtubeFollowersMin: "Followers min",
-  youtubeFollowersMax: "Followers max",
 };
 
 function isPositiveInteger(value: string | null): boolean {
@@ -449,8 +440,4 @@ export function countActiveCatalogFilters(filters: CatalogFiltersState): number 
     filters.influencerType.length +
     CATALOG_NUMERIC_FILTER_KEYS.filter((key) => Boolean(filters[key])).length
   );
-}
-
-export function getCatalogNumericFilterLabel(key: CatalogNumericFilterKey): string {
-  return NUMERIC_FILTER_LABELS[key];
 }

@@ -15,7 +15,6 @@ import {
   formatRunResultCount as formatRunResultCountValue,
   getRunJobFeedback,
   getRunResultsEmptyMessage,
-  formatRunStatusLabel,
   formatRunTimestamp,
   getRunFailureMessage,
   getRunStatusSummary,
@@ -66,13 +65,13 @@ const NOT_FOUND_REQUEST_STATE: RunDetailRequestState = {
   error: null,
 };
 
-export { RUN_STATUS_POLL_INTERVAL_MS, formatRunStatusLabel, formatRunTimestamp, getRunFailureMessage, shouldPollRunStatus };
+export { RUN_STATUS_POLL_INTERVAL_MS, getRunFailureMessage, shouldPollRunStatus };
 
 export function formatRunResultCount(run: Pick<RunStatusResponse, "results">): string {
   return formatRunResultCountValue(run.results.length);
 }
 
-export function getRunProgressMessage(run: Pick<RunStatusResponse, "status" | "results">): string {
+function getRunProgressMessage(run: Pick<RunStatusResponse, "status" | "results">): string {
   return getRunStatusSummary({
     status: run.status,
     resultCount: run.results.length,
@@ -80,7 +79,7 @@ export function getRunProgressMessage(run: Pick<RunStatusResponse, "status" | "r
   });
 }
 
-export function getRunDetailRequestErrorMessage(error: unknown): string {
+function getRunDetailRequestErrorMessage(error: unknown): string {
   if (error instanceof ApiRequestError) {
     if (error.status === 401 || error.status === 403) {
       return "Your session does not allow access to this run anymore. Sign in again and retry.";

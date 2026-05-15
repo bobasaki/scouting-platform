@@ -1,13 +1,7 @@
-import { NextResponse } from "next/server";
+import { advancedReportRequestsRetiredResponse } from "../../../_retired";
 
-export async function POST(request: Request): Promise<NextResponse> {
+export async function POST(request: Request): Promise<Response> {
   void request;
 
-  return NextResponse.json(
-    {
-      error:
-        "Advanced report requests are retired from the active product surface.",
-    },
-    { status: 410 },
-  );
+  return advancedReportRequestsRetiredResponse();
 }

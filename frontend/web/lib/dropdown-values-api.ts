@@ -1,7 +1,6 @@
 import {
   HUBSPOT_SYNCED_DROPDOWN_FIELD_KEYS,
   listDropdownValuesResponseSchema,
-  syncHubspotDropdownValuesResponseSchema,
   type DropdownValue,
   type DropdownValueFieldKey,
   type UpdateDropdownValuesRequest,
@@ -14,7 +13,7 @@ type ApiErrorBody = {
   error?: string;
 };
 
-export class DropdownValuesApiError extends Error {
+class DropdownValuesApiError extends Error {
   readonly status: number;
 
   constructor(message: string, status: number) {
@@ -44,21 +43,6 @@ function getApiErrorMessage(response: Response, payload: unknown): string {
   return "Unable to complete the request. Please try again.";
 }
 
-export async function fetchDropdownValues(signal?: AbortSignal): Promise<DropdownValue[]> {
-  const response = await fetch("/api/admin/dropdown-values", {
-    method: "GET",
-    cache: "no-store",
-    signal: signal ?? null,
-  });
-  const payload = await readJsonPayload(response);
-
-  if (!response.ok) {
-    throw new DropdownValuesApiError(getApiErrorMessage(response, payload), response.status);
-  }
-
-  return listDropdownValuesResponseSchema.parse(payload).items;
-}
-
 export async function replaceDropdownValuesRequest(input: UpdateDropdownValuesRequest): Promise<DropdownValue[]> {
   const response = await fetch("/api/admin/dropdown-values", {
     method: "PUT",
@@ -76,19 +60,6 @@ export async function replaceDropdownValuesRequest(input: UpdateDropdownValuesRe
   return listDropdownValuesResponseSchema.parse(payload).items;
 }
 
-export async function syncHubspotDropdownValuesRequest(): Promise<DropdownValue[]> {
-  const response = await fetch("/api/admin/dropdown-values", {
-    method: "POST",
-  });
-  const payload = await readJsonPayload(response);
-
-  if (!response.ok) {
-    throw new DropdownValuesApiError(getApiErrorMessage(response, payload), response.status);
-  }
-
-  return syncHubspotDropdownValuesResponseSchema.parse(payload).items;
-}
-
 export function groupDropdownValuesByField(items: DropdownValue[]): Record<DropdownValueFieldKey, string[]> {
   return {
     currency: items.filter((item) => item.fieldKey === "currency").map((item) => item.value),
@@ -103,9 +74,4 @@ export function groupDropdownValuesByField(items: DropdownValue[]): Record<Dropd
 
 export function isHubspotSyncedDropdownField(fieldKey: DropdownValueFieldKey): boolean {
   return HUBSPOT_SYNCED_DROPDOWN_FIELD_SET.has(fieldKey);
-}
-
-export function isPlatformManagedDropdownField(fieldKey: DropdownValueFieldKey): boolean {
-  void fieldKey;
-  return false;
 }

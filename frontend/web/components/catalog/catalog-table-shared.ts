@@ -5,7 +5,6 @@ import type {
   CsvExportBatchStatus,
   CsvExportBatchSummary,
   HubspotPushBatchDetail,
-  HubspotPushBatchRow,
   HubspotPushBatchStatus,
   HubspotPushBatchSummary,
   ListChannelsResponse,
@@ -58,7 +57,7 @@ type CatalogPaginationState = Pick<ListChannelsResponse, "page" | "pageSize" | "
 
 export type CatalogViewMode = "table" | "cards";
 
-export function formatCatalogTimestamp(value: string | null): string | null {
+function formatCatalogTimestamp(value: string | null): string | null {
   if (!value) {
     return null;
   }
@@ -327,30 +326,13 @@ export function formatCatalogSelectionSummary(
   return `${summary} · ${selectedOnPageCount} on this page`;
 }
 
-function toTitleCase(value: string): string {
-  return value
-    .split("_")
-    .map((segment) => {
-      if (!segment) {
-        return segment;
-      }
-
-      return `${segment.charAt(0).toUpperCase()}${segment.slice(1)}`;
-    })
-    .join(" ");
-}
-
-export function getCatalogBatchStatusLabel(status: string): string {
-  return toTitleCase(status);
-}
-
-export function getCsvExportBatchSnapshot(
+function getCsvExportBatchSnapshot(
   state: CatalogCsvExportBatchState,
 ): CsvExportBatchSummary | CsvExportBatchDetail | null {
   return state.detail ?? state.summary;
 }
 
-export function getHubspotPushBatchSnapshot(
+function getHubspotPushBatchSnapshot(
   state: CatalogHubspotPushBatchState,
 ): HubspotPushBatchSummary | HubspotPushBatchDetail | null {
   return state.detail ?? state.summary;
@@ -382,27 +364,7 @@ export function shouldPollCatalogHubspotPushBatch(
   return status === "queued" || status === "running";
 }
 
-export function getCsvExportBatchTimestamp(state: CatalogCsvExportBatchState): string | null {
-  const batch = getCsvExportBatchSnapshot(state);
-
-  if (!batch) {
-    return null;
-  }
-
-  return formatCatalogTimestamp(batch.completedAt ?? batch.updatedAt);
-}
-
-export function getHubspotPushBatchTimestamp(state: CatalogHubspotPushBatchState): string | null {
-  const batch = getHubspotPushBatchSnapshot(state);
-
-  if (!batch) {
-    return null;
-  }
-
-  return formatCatalogTimestamp(batch.completedAt ?? batch.updatedAt);
-}
-
-export function formatSelectedChannelCount(count: number): string {
+function formatSelectedChannelCount(count: number): string {
   return `${count} channel${count === 1 ? "" : "s"}`;
 }
 
@@ -414,72 +376,6 @@ function ensureTerminalPunctuation(message: string): string {
   }
 
   return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
-}
-
-export function getCsvExportBatchSummaryCopy(state: CatalogCsvExportBatchState): string {
-  const batch = getCsvExportBatchSnapshot(state);
-
-  if (!batch) {
-    if (state.requestState === "loading") {
-      return "Creating selected export batch...";
-    }
-
-    return state.error ?? "";
-  }
-
-  switch (batch.status) {
-    case "queued":
-      return "Export queued and refreshing automatically.";
-    case "running":
-      return "Export is running in the background and refreshing automatically.";
-    case "completed":
-      return `Completed with ${formatSelectedChannelCount(batch.rowCount)} in the CSV. Download is ready.`;
-    case "failed":
-      return batch.lastError
-        ? `Export failed: ${ensureTerminalPunctuation(batch.lastError)}`
-        : "Export failed before the worker finished.";
-    default:
-      return batch.status;
-  }
-}
-
-export function getHubspotPushBatchSummaryCopy(state: CatalogHubspotPushBatchState): string {
-  const batch = getHubspotPushBatchSnapshot(state);
-
-  if (!batch) {
-    if (state.requestState === "loading") {
-      return "Creating HubSpot push batch...";
-    }
-
-    return state.error ?? "";
-  }
-
-  switch (batch.status) {
-    case "queued":
-      return "HubSpot push queued and refreshing automatically.";
-    case "running":
-      return "HubSpot push is running in the background and refreshing automatically.";
-    case "completed":
-      return `${batch.pushedRowCount} pushed · ${batch.failedRowCount} failed.`;
-    case "failed":
-      return batch.lastError
-        ? `HubSpot push failed: ${ensureTerminalPunctuation(batch.lastError)}`
-        : "HubSpot push failed before the worker finished.";
-    default:
-      return batch.status;
-  }
-}
-
-export function getFailedHubspotPushRows(state: CatalogHubspotPushBatchState): HubspotPushBatchRow[] {
-  return state.detail?.rows.filter((row) => row.status === "failed") ?? [];
-}
-
-export function getHubspotPushFailedRowLabel(row: HubspotPushBatchRow): string {
-  const identity = row.contactEmail?.trim() ? row.contactEmail : row.channelId;
-
-  return `${identity}: ${ensureTerminalPunctuation(
-    row.errorMessage ?? "Unknown HubSpot row failure",
-  )}`;
 }
 
 export function getBatchEnrichmentSubmittingMessage(selectedCount: number): string {

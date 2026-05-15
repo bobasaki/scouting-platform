@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import { auth } from "../auth";
 
-export function jsonError(message: string, status: number): NextResponse {
+function jsonError(message: string, status: number): NextResponse {
   return NextResponse.json({ error: message }, { status });
 }
 

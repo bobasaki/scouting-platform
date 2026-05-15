@@ -31,7 +31,7 @@ export function SkeletonText({ width = "100%", lines = 1 }: Readonly<{ width?: s
   );
 }
 
-export function SkeletonTableRow({ columns }: Readonly<{ columns: number }>) {
+function SkeletonTableRow({ columns }: Readonly<{ columns: number }>) {
   return (
     <tr aria-hidden="true">
       {Array.from({ length: columns }, (_, i) => (

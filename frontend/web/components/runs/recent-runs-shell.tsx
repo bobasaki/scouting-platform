@@ -43,7 +43,7 @@ const INITIAL_REQUEST_STATE: RecentRunsRequestState = {
   error: null,
 };
 
-export function getRecentRunsRequestErrorMessage(error: unknown): string {
+function getRecentRunsRequestErrorMessage(error: unknown): string {
   if (error instanceof ApiRequestError) {
     if (error.status === 401 || error.status === 403) {
       return "Your session does not allow access to recent runs anymore. Sign in again and retry.";
@@ -63,7 +63,7 @@ export function hasActiveRecentRuns(runs: readonly RecentRunItem[]): boolean {
   return runs.some((run) => shouldPollRunStatus(run.status));
 }
 
-export function getRecentRunsSummary(data: ListRecentRunsResponse): string {
+function getRecentRunsSummary(data: ListRecentRunsResponse): string {
   if (data.items.length === 0) {
     return "No recent runs yet";
   }

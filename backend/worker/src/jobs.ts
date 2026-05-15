@@ -12,5 +12,3 @@ export const JOB_NAMES = [
   "hubspot.object-sync",
   "maintenance.refresh-stale",
 ] as const;
-
-export type JobName = (typeof JOB_NAMES)[number];

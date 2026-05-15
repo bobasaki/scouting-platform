@@ -1,11 +1,9 @@
 import {
-  csvExportPreviewSchema,
   createHubspotPreviewEnrichmentResponseSchema,
   getHubspotPreviewEnrichmentStatusResponseSchema,
   hubspotExportPreviewSchema,
   hubspotPreviewEnrichmentResponseSchema,
   hubspotPrepUpdateRequestSchema,
-  type CsvExportPreview,
   type CreateHubspotPreviewEnrichmentResponse,
   type GetHubspotPreviewEnrichmentStatusResponse,
   type HubspotPrepUpdateRequest,
@@ -44,7 +42,7 @@ function getApiErrorMessage(response: Response, payload: unknown, fallback: stri
   return fallback;
 }
 
-export async function fetchHubspotExportPreview(runId: string, signal?: AbortSignal): Promise<HubspotExportPreview> {
+async function fetchHubspotExportPreview(runId: string, signal?: AbortSignal): Promise<HubspotExportPreview> {
   const response = await fetch(`/api/runs/${encodeURIComponent(runId)}/hubspot-preview`, {
     method: "GET",
     cache: "no-store",
@@ -57,21 +55,6 @@ export async function fetchHubspotExportPreview(runId: string, signal?: AbortSig
   }
 
   return hubspotExportPreviewSchema.parse(payload);
-}
-
-export async function fetchCsvExportPreview(runId: string, signal?: AbortSignal): Promise<CsvExportPreview> {
-  const response = await fetch(`/api/runs/${encodeURIComponent(runId)}/csv-preview`, {
-    method: "GET",
-    cache: "no-store",
-    signal: signal ?? null,
-  });
-  const payload = await readJsonPayload(response);
-
-  if (!response.ok) {
-    throw new Error(getApiErrorMessage(response, payload, "Unable to load CSV preview."));
-  }
-
-  return csvExportPreviewSchema.parse(payload);
 }
 
 export async function updateHubspotExportPreview(
