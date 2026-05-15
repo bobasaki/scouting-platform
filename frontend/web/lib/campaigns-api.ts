@@ -1,11 +1,9 @@
 import {
   campaignSummarySchema,
   createCampaignRequestSchema as createCampaignPayloadSchema,
-  listCampaignsResponseSchema,
   updateCampaignRequestSchema as updateCampaignPayloadSchema,
   type CampaignSummary,
   type CreateCampaignRequest,
-  type ListCampaignsResponse,
   type UpdateCampaignRequest,
 } from "@scouting-platform/contracts";
 
@@ -13,7 +11,7 @@ type ApiErrorBody = {
   error?: string;
 };
 
-export class CampaignsApiError extends Error {
+class CampaignsApiError extends Error {
   readonly status: number;
 
   constructor(message: string, status: number) {
@@ -41,40 +39,6 @@ function getApiErrorMessage(response: Response, payload: unknown): string {
   }
 
   return "Unable to complete the request. Please try again.";
-}
-
-export async function fetchCampaigns(input?: {
-  clientId?: string;
-  marketId?: string;
-  active?: boolean;
-  signal?: AbortSignal;
-}): Promise<ListCampaignsResponse> {
-  const params = new URLSearchParams();
-
-  if (input?.clientId) {
-    params.set("clientId", input.clientId);
-  }
-
-  if (input?.marketId) {
-    params.set("marketId", input.marketId);
-  }
-
-  if (typeof input?.active === "boolean") {
-    params.set("active", input.active ? "true" : "false");
-  }
-
-  const response = await fetch(`/api/campaigns${params.size > 0 ? `?${params.toString()}` : ""}`, {
-    method: "GET",
-    cache: "no-store",
-    signal: input?.signal ?? null,
-  });
-  const payload = await readJsonPayload(response);
-
-  if (!response.ok) {
-    throw new CampaignsApiError(getApiErrorMessage(response, payload), response.status);
-  }
-
-  return listCampaignsResponseSchema.parse(payload);
 }
 
 export async function createCampaignRequest(input: CreateCampaignRequest): Promise<CampaignSummary> {

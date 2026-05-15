@@ -79,7 +79,7 @@ const IDLE_MANUAL_EDIT_STATUS: ManualEditOperationStatus = {
   message: "",
 };
 
-export function createManualEditDrafts(channel: ChannelDetail): ManualEditDrafts {
+function createManualEditDrafts(channel: ChannelDetail): ManualEditDrafts {
   return {
     title: channel.title,
     handle: channel.handle ?? "",

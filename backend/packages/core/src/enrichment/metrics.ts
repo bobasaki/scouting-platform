@@ -143,11 +143,6 @@ export function isYoutubeShortVideo(durationSeconds: number | null | undefined):
   return normalizedDurationSeconds <= YOUTUBE_SHORTS_MAX_DURATION_SECONDS;
 }
 
-export function isYoutubeLongFormVideo(durationSeconds: number | null | undefined): boolean | null {
-  const isShort = isYoutubeShortVideo(durationSeconds);
-  return isShort === null ? null : !isShort;
-}
-
 export function normalizeYoutubeContext(context: YoutubeChannelContext): YoutubeChannelContext {
   return {
     ...context,

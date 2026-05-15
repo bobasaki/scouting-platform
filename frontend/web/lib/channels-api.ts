@@ -37,13 +37,13 @@ export class ApiRequestError extends Error {
   }
 }
 
-export type BatchChannelEnrichmentRequestSuccess = {
+type BatchChannelEnrichmentRequestSuccess = {
   channelId: string;
   ok: true;
   enrichment: ChannelEnrichmentDetail;
 };
 
-export type BatchChannelEnrichmentRequestFailure = {
+type BatchChannelEnrichmentRequestFailure = {
   channelId: string;
   ok: false;
   error: Error;

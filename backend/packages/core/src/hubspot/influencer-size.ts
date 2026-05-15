@@ -7,8 +7,6 @@ const INFLUENCER_SIZE_TIERS = [
   { min: 1_000, label: "Nano (1K - 5K)" },
 ] as const;
 
-export type InfluencerSizeTier = (typeof INFLUENCER_SIZE_TIERS)[number]["label"];
-
 export function computeInfluencerSizeTier(
   subscriberCount: bigint | number | null | undefined,
 ): string {

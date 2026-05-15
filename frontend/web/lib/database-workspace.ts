@@ -1,4 +1,4 @@
-export const DATABASE_TABS = ["catalog", "runs"] as const;
+const DATABASE_TABS = ["catalog", "runs"] as const;
 
 export type DatabaseTab = (typeof DATABASE_TABS)[number];
 

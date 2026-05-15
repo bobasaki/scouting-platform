@@ -4,7 +4,7 @@ import type {
   RunMonth,
 } from "@scouting-platform/contracts";
 
-export const RUN_MONTH_OPTIONS: ReadonlyArray<{ value: RunMonth; label: string }> = [
+const RUN_MONTH_OPTIONS: ReadonlyArray<{ value: RunMonth; label: string }> = [
   { value: "january", label: "January" },
   { value: "february", label: "February" },
   { value: "march", label: "March" },
@@ -44,7 +44,7 @@ export function formatCampaignManagerLabel(
   return campaignManager.name?.trim() || campaignManager.email;
 }
 
-export function formatRunMonthLabel(month: RunMonth | null | undefined): string {
+function formatRunMonthLabel(month: RunMonth | null | undefined): string {
   if (!month) {
     return "—";
   }

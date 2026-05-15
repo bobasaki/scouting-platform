@@ -215,7 +215,7 @@ function hasVisibleEnrichmentResult(
   );
 }
 
-export function shouldPollEnrichmentStatus(status: ChannelEnrichmentStatus): boolean {
+function shouldPollEnrichmentStatus(status: ChannelEnrichmentStatus): boolean {
   return status === "queued" || status === "running";
 }
 
@@ -223,7 +223,7 @@ function shouldPollChannelDetailStatus(channel: Pick<ChannelDetail, "enrichment"
   return shouldPollEnrichmentStatus(channel.enrichment.status);
 }
 
-export function getEnrichmentActionLabel(status: ChannelEnrichmentStatus): string {
+function getEnrichmentActionLabel(status: ChannelEnrichmentStatus): string {
   if (status === "missing") {
     return "Enrich now";
   }
@@ -243,7 +243,7 @@ export function getEnrichmentActionLabel(status: ChannelEnrichmentStatus): strin
   return "Refresh enrichment";
 }
 
-export function getEnrichmentStatusMessage(
+function getEnrichmentStatusMessage(
   enrichment: Pick<
     ChannelEnrichmentDetail,
     "status" | "lastError" | "summary" | "topics" | "brandFitNotes" | "confidence" | "structuredProfile"
@@ -357,7 +357,7 @@ function renderEnrichmentTopics(topics: readonly string[] | null): React.JSX.Ele
   );
 }
 
-export function mergeChannelEnrichment(
+function mergeChannelEnrichment(
   channel: ChannelDetail,
   enrichment: ChannelEnrichmentDetail,
 ): ChannelDetail {

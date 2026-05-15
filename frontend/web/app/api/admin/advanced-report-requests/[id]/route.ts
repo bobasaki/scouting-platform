@@ -1,13 +1,7 @@
-import { NextResponse } from "next/server";
+import { advancedReportApprovalsRetiredResponse } from "../../../_retired";
 
-export async function GET(request: Request): Promise<NextResponse> {
+export async function GET(request: Request): Promise<Response> {
   void request;
 
-  return NextResponse.json(
-    {
-      error:
-        "Advanced report approvals are retired from the active product surface.",
-    },
-    { status: 410 },
-  );
+  return advancedReportApprovalsRetiredResponse();
 }

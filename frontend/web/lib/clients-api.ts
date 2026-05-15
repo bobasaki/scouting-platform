@@ -1,11 +1,9 @@
 import {
   clientSummarySchema,
   createClientRequestSchema,
-  listClientsResponseSchema,
   updateClientRequestSchema,
   type ClientSummary,
   type CreateClientRequest,
-  type ListClientsResponse,
   type UpdateClientRequest,
 } from "@scouting-platform/contracts";
 
@@ -13,7 +11,7 @@ type ApiErrorBody = {
   error?: string;
 };
 
-export class ClientsApiError extends Error {
+class ClientsApiError extends Error {
   readonly status: number;
 
   constructor(message: string, status: number) {
@@ -41,30 +39,6 @@ function getApiErrorMessage(response: Response, payload: unknown): string {
   }
 
   return "Unable to complete the request. Please try again.";
-}
-
-export async function fetchClients(input?: {
-  active?: boolean;
-  signal?: AbortSignal;
-}): Promise<ListClientsResponse> {
-  const params = new URLSearchParams();
-
-  if (typeof input?.active === "boolean") {
-    params.set("active", input.active ? "true" : "false");
-  }
-
-  const response = await fetch(`/api/clients${params.size > 0 ? `?${params.toString()}` : ""}`, {
-    method: "GET",
-    cache: "no-store",
-    signal: input?.signal ?? null,
-  });
-  const payload = await readJsonPayload(response);
-
-  if (!response.ok) {
-    throw new ClientsApiError(getApiErrorMessage(response, payload), response.status);
-  }
-
-  return listClientsResponseSchema.parse(payload);
 }
 
 export async function createClientRequest(input: CreateClientRequest): Promise<ClientSummary> {

@@ -9,7 +9,7 @@ type ApiErrorBody = {
   error?: string;
 };
 
-export class HubspotObjectSyncApiError extends Error {
+class HubspotObjectSyncApiError extends Error {
   readonly status: number;
 
   constructor(message: string, status: number) {
