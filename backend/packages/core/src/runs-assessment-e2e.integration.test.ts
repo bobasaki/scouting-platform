@@ -1,4 +1,5 @@
 import {
+  ChannelEnrichmentStatus,
   Role,
   RunChannelAssessmentStatus,
   RunRequestStatus,
@@ -218,6 +219,43 @@ integration("run assessment end-to-end core integration", () => {
             channelId: channelB.id,
             rank: 2,
             source: RunResultSource.DISCOVERY,
+          },
+        ],
+      });
+      const enrichedAt = new Date("2026-04-15T10:00:00.000Z");
+      await tx.channelEnrichment.createMany({
+        data: [
+          {
+            channelId: channelA.id,
+            status: ChannelEnrichmentStatus.COMPLETED,
+            requestedByUserId: user.id,
+            requestedAt: enrichedAt,
+            completedAt: enrichedAt,
+            lastEnrichedAt: enrichedAt,
+            summary: "Nano classification for E2E Channel 1",
+            topics: ["gaming", "hardware"],
+            brandFitNotes: "Strong fit for gaming hardware campaigns.",
+            confidence: 0.8,
+            structuredProfile: {
+              primaryNiche: "gaming",
+              brandFitTags: ["gaming_hardware"],
+            },
+          },
+          {
+            channelId: channelB.id,
+            status: ChannelEnrichmentStatus.COMPLETED,
+            requestedByUserId: user.id,
+            requestedAt: enrichedAt,
+            completedAt: enrichedAt,
+            lastEnrichedAt: enrichedAt,
+            summary: "Nano classification for E2E Channel 2",
+            topics: ["gaming", "reviews"],
+            brandFitNotes: "Gaming audience with review-format sponsor angles.",
+            confidence: 0.76,
+            structuredProfile: {
+              primaryNiche: "gaming",
+              brandFitTags: ["gaming_hardware", "consumer_tech"],
+            },
           },
         ],
       });
