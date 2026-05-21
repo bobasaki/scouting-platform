@@ -1,11 +1,12 @@
 import {
   createAdminUserRequestSchema,
+  adminUserResponseSchema,
   listAdminUsersResponseSchema,
 } from "@scouting-platform/contracts";
 import { createUser, listUsers } from "@scouting-platform/core";
 import { NextResponse } from "next/server";
 
-import { requireAdminSession, toRouteErrorResponse } from "../../../../lib/api";
+import { readJsonRequestBody, requireAdminSession, toRouteErrorResponse } from "../../../../lib/api";
 
 export async function GET(): Promise<NextResponse> {
   const admin = await requireAdminSession();
@@ -31,7 +32,13 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    const parsedBody = createAdminUserRequestSchema.safeParse(await request.json());
+    const rawBody = await readJsonRequestBody(request);
+
+    if (!rawBody.ok) {
+      return rawBody.response;
+    }
+
+    const parsedBody = createAdminUserRequestSchema.safeParse(rawBody.body);
 
     if (!parsedBody.success) {
       return NextResponse.json(
@@ -47,8 +54,9 @@ export async function POST(request: Request): Promise<NextResponse> {
       ...parsedBody.data,
       actorUserId: admin.userId,
     });
+    const payload = adminUserResponseSchema.parse(user);
 
-    return NextResponse.json(user, { status: 201 });
+    return NextResponse.json(payload, { status: 201 });
   } catch (error) {
     return toRouteErrorResponse(error);
   }

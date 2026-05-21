@@ -100,6 +100,163 @@ integration("week 1 core integration", () => {
     expect(users).toHaveLength(2);
   });
 
+  it("locks repeated credential failures and clears lockout on admin password rotation", async () => {
+    const admin = await prisma.user.create({
+      data: {
+        email: "admin@example.com",
+        name: "Admin",
+        role: Role.ADMIN,
+        passwordHash: "bootstrap-hash",
+        isActive: true,
+      },
+    });
+
+    const user = await core.createUser({
+      actorUserId: admin.id,
+      email: "locked@example.com",
+      name: "Locked User",
+      role: "user",
+      userType: "campaign_manager",
+      password: "StrongPassword123",
+    });
+
+    const now = new Date("2026-05-21T10:00:00.000Z");
+
+    for (let attempt = 0; attempt < core.LOGIN_FAILURE_LOCK_THRESHOLD; attempt += 1) {
+      await expect(
+        core.authenticateUserCredentials({
+          email: "locked@example.com",
+          password: "WrongPassword123",
+          now,
+        }),
+      ).resolves.toBeNull();
+    }
+
+    const locked = await prisma.user.findUniqueOrThrow({
+      where: {
+        id: user.id,
+      },
+    });
+    expect(locked.failedLoginCount).toBe(core.LOGIN_FAILURE_LOCK_THRESHOLD);
+    expect(locked.lockedUntil?.getTime()).toBeGreaterThan(now.getTime());
+
+    await expect(
+      core.authenticateUserCredentials({
+        email: "locked@example.com",
+        password: "StrongPassword123",
+        now: new Date("2026-05-21T10:01:00.000Z"),
+      }),
+    ).resolves.toBeNull();
+
+    const lockAudit = await prisma.auditEvent.findFirst({
+      where: {
+        action: "user.login.locked",
+        entityId: user.id,
+      },
+    });
+    expect(lockAudit).not.toBeNull();
+
+    await core.updateUserPassword({
+      userId: user.id,
+      password: "RotatedPassword123",
+      actorUserId: admin.id,
+    });
+
+    const unlocked = await prisma.user.findUniqueOrThrow({
+      where: {
+        id: user.id,
+      },
+    });
+    expect(unlocked.failedLoginCount).toBe(0);
+    expect(unlocked.lockedUntil).toBeNull();
+    expect(unlocked.passwordChangedAt.getTime()).toBeGreaterThanOrEqual(locked.passwordChangedAt.getTime());
+
+    await expect(
+      core.authenticateUserCredentials({
+        email: "locked@example.com",
+        password: "RotatedPassword123",
+        now: new Date("2026-05-21T10:02:00.000Z"),
+      }),
+    ).resolves.toMatchObject({
+      id: user.id,
+      email: "locked@example.com",
+    });
+  });
+
+  it("uses current database state to validate JWT-backed sessions", async () => {
+    const user = await prisma.user.create({
+      data: {
+        email: "session-user@example.com",
+        name: "Session User",
+        role: Role.USER,
+        passwordHash: "bootstrap-hash",
+        isActive: true,
+      },
+    });
+    const passwordChangedAt = user.passwordChangedAt.toISOString();
+
+    await expect(
+      core.getSessionUserAccess({
+        userId: user.id,
+        passwordChangedAt,
+      }),
+    ).resolves.toEqual({
+      id: user.id,
+      role: "user",
+    });
+
+    await prisma.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        role: Role.ADMIN,
+      },
+    });
+
+    await expect(
+      core.getSessionUserAccess({
+        userId: user.id,
+        passwordChangedAt,
+      }),
+    ).resolves.toEqual({
+      id: user.id,
+      role: "admin",
+    });
+
+    await prisma.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        passwordChangedAt: new Date(user.passwordChangedAt.getTime() + 1_000),
+      },
+    });
+
+    await expect(
+      core.getSessionUserAccess({
+        userId: user.id,
+        passwordChangedAt,
+      }),
+    ).resolves.toBeNull();
+
+    await prisma.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        isActive: false,
+      },
+    });
+
+    await expect(
+      core.getSessionUserAccess({
+        userId: user.id,
+        sessionIssuedAt: Math.floor(Date.now() / 1000),
+      }),
+    ).resolves.toBeNull();
+  });
+
   it("stores encrypted youtube key and decrypts only server-side", async () => {
     const admin = await prisma.user.create({
       data: {
@@ -140,6 +297,27 @@ integration("week 1 core integration", () => {
 
     const decrypted = await core.getUserYoutubeApiKey(user.id);
     expect(decrypted).toBe("yt-secret-key");
+
+    await prisma.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        isActive: false,
+      },
+    });
+
+    await expect(core.getUserYoutubeApiKey(user.id)).resolves.toBeNull();
+    await expect(
+      core.setUserYoutubeApiKey({
+        userId: user.id,
+        rawKey: "replacement-key",
+        actorUserId: admin.id,
+      }),
+    ).rejects.toMatchObject({
+      code: "USER_INACTIVE",
+      status: 409,
+    });
   });
 
   it("returns an empty-safe channel list on clean database", async () => {

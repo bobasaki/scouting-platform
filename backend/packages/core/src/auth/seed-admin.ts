@@ -15,6 +15,7 @@ export async function seedInitialAdmin(input: {
   const email = normalizeEmail(input.email);
   const passwordHash = await hashPassword(input.password);
   const name = input.name?.trim() || "Initial Admin";
+  const passwordChangedAt = new Date();
 
   const user = await prisma.user.upsert({
     where: { email },
@@ -24,6 +25,7 @@ export async function seedInitialAdmin(input: {
       role: Role.ADMIN,
       userType: UserType.ADMIN,
       passwordHash,
+      passwordChangedAt,
       isActive: true,
     },
     update: {
@@ -31,6 +33,10 @@ export async function seedInitialAdmin(input: {
       role: Role.ADMIN,
       userType: UserType.ADMIN,
       passwordHash,
+      passwordChangedAt,
+      failedLoginCount: 0,
+      lastFailedLoginAt: null,
+      lockedUntil: null,
       isActive: true,
     },
   });

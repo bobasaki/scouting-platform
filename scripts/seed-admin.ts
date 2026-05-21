@@ -22,8 +22,10 @@ async function main(): Promise<void> {
   const password = requiredEnv("INITIAL_ADMIN_PASSWORD");
   const name = process.env.INITIAL_ADMIN_NAME?.trim() || "Initial Admin";
 
-  if (password.length < 8) {
-    throw new Error("INITIAL_ADMIN_PASSWORD must be at least 8 characters");
+  if (password.length < 12 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+    throw new Error(
+      "INITIAL_ADMIN_PASSWORD must be at least 12 characters and include at least one letter and one number",
+    );
   }
 
   try {

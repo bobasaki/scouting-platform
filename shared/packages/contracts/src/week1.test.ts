@@ -52,6 +52,24 @@ describe("week 1 and week 2 contracts", () => {
     expect(payload.email).toBe("user@example.com");
   });
 
+  it("rejects weak admin-created user passwords", () => {
+    expect(
+      createAdminUserRequestSchema.safeParse({
+        email: "user@example.com",
+        role: "user",
+        password: "short1",
+      }).success,
+    ).toBe(false);
+
+    expect(
+      createAdminUserRequestSchema.safeParse({
+        email: "user@example.com",
+        role: "user",
+        password: "NoDigitsHere",
+      }).success,
+    ).toBe(false);
+  });
+
   it("normalizes channel query defaults", () => {
     const payload = listChannelsQuerySchema.parse({});
 

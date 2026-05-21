@@ -1,9 +1,12 @@
-import { updateAdminUserPasswordRequestSchema } from "@scouting-platform/contracts";
+import {
+  adminUserResponseSchema,
+  updateAdminUserPasswordRequestSchema,
+} from "@scouting-platform/contracts";
 import { updateUserPassword } from "@scouting-platform/core";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { requireAdminSession, toRouteErrorResponse } from "../../../../../../lib/api";
+import { readJsonRequestBody, requireAdminSession, toRouteErrorResponse } from "../../../../../../lib/api";
 
 const paramsSchema = z.object({
   id: z.uuid(),
@@ -29,7 +32,13 @@ export async function PUT(
       );
     }
 
-    const body = updateAdminUserPasswordRequestSchema.safeParse(await request.json());
+    const rawBody = await readJsonRequestBody(request);
+
+    if (!rawBody.ok) {
+      return rawBody.response;
+    }
+
+    const body = updateAdminUserPasswordRequestSchema.safeParse(rawBody.body);
 
     if (!body.success) {
       return NextResponse.json(
@@ -46,8 +55,9 @@ export async function PUT(
       password: body.data.password,
       actorUserId: admin.userId,
     });
+    const payload = adminUserResponseSchema.parse(user);
 
-    return NextResponse.json(user);
+    return NextResponse.json(payload);
   } catch (error) {
     return toRouteErrorResponse(error);
   }

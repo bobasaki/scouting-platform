@@ -14,7 +14,7 @@ describe("week 0 bootstrap baseline", () => {
   });
 
   it("keeps root layout metadata and language stable", () => {
-    expect(metadata.title).toBe(APP_TITLE);
+    expect(metadata.title).toBe("ARCH. | Internal Scouting Platform");
     expect(metadata.description).toBe("Internal creator scouting platform.");
 
     const html = renderToStaticMarkup(RootLayout({ children: "bootstrap" }));

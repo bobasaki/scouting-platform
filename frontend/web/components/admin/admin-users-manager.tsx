@@ -305,7 +305,7 @@ function renderCreateModal(props: AdminUsersManagerViewProps): ReactElement | nu
               <span>Password</span>
               <input
                 autoComplete="new-password"
-                minLength={8}
+                minLength={12}
                 name="password"
                 onChange={(event) => {
                   onCreateUserFormChange("password", event.currentTarget.value);

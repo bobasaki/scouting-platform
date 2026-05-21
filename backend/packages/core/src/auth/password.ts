@@ -2,7 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 
-const PASSWORD_MIN_LENGTH = 8;
+export const PASSWORD_MIN_LENGTH = 12;
+export const PASSWORD_MAX_LENGTH = 128;
+export const PASSWORD_POLICY_MESSAGE =
+  "Password must be 12 to 128 characters and include at least one letter and one number";
 type Argon2Module = typeof import("argon2");
 type RuntimeRequire = (id: string) => unknown;
 const ARGON2_MODULE_ID = Buffer.from("YXJnb24y", "base64").toString("utf8");
@@ -45,8 +48,12 @@ async function loadArgon2(): Promise<Argon2Module> {
 }
 
 function validatePasswordInput(password: string): void {
-  if (password.length < PASSWORD_MIN_LENGTH) {
-    throw new Error(`Password must be at least ${PASSWORD_MIN_LENGTH} characters`);
+  if (password.length < PASSWORD_MIN_LENGTH || password.length > PASSWORD_MAX_LENGTH) {
+    throw new Error(PASSWORD_POLICY_MESSAGE);
+  }
+
+  if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+    throw new Error(PASSWORD_POLICY_MESSAGE);
   }
 }
 

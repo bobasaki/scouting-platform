@@ -60,6 +60,16 @@ function requireMinLength(name, length) {
   return value;
 }
 
+function requirePasswordPolicy(name) {
+  const value = requireMinLength(name, 12);
+
+  if (!/[A-Za-z]/.test(value) || !/\d/.test(value)) {
+    throw new Error(`${name} must include at least one letter and one number`);
+  }
+
+  return value;
+}
+
 function requireEmail(name) {
   const value = required(name).toLowerCase();
 
@@ -88,7 +98,7 @@ function validateBootstrapEnvironment() {
   requirePostgresUrl("DATABASE_URL_TEST");
   assertSafeTestDatabaseConfiguration();
   requireEmail("INITIAL_ADMIN_EMAIL");
-  requireMinLength("INITIAL_ADMIN_PASSWORD", 8);
+  requirePasswordPolicy("INITIAL_ADMIN_PASSWORD");
   required("INITIAL_ADMIN_NAME");
 }
 
