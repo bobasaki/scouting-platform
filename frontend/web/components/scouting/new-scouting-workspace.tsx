@@ -415,8 +415,7 @@ export function NewScoutingWorkspace({
       <form className="new-scouting-form" onSubmit={handleSubmit}>
         <section aria-labelledby="ns-brief-heading" className="new-scouting__panel new-scouting-section">
           <header className="new-scouting-section__header">
-            <p className="new-scouting-section__eyebrow">Step 1</p>
-            <h2 className="new-scouting-section__title" id="ns-brief-heading">Brief</h2>
+<h2 className="new-scouting-section__title" id="ns-brief-heading">Brief</h2>
             <p className="new-scouting-section__hint">
               Name the list, choose the campaign it belongs to, and assign the responsible manager.
             </p>
@@ -482,8 +481,7 @@ export function NewScoutingWorkspace({
 
         <section aria-labelledby="ns-reach-heading" className="new-scouting__panel new-scouting-section">
           <header className="new-scouting-section__header">
-            <p className="new-scouting-section__eyebrow">Step 2</p>
-            <h2 className="new-scouting-section__title" id="ns-reach-heading">Reach</h2>
+<h2 className="new-scouting-section__title" id="ns-reach-heading">Reach</h2>
             <p className="new-scouting-section__hint">
               Set subscriber and median view ranges. Use a preset or drag the handles for a custom range.
             </p>
@@ -550,13 +548,24 @@ export function NewScoutingWorkspace({
                   />
                 </div>
                 <div aria-hidden="true" className="new-scouting__range-ticks">
-                  {RANGE_TICK_INDEXES.map((tickIndex) => (
-                    <span key={`subs-tick-${tickIndex}`}>
-                      {tickIndex === LAST_METRIC_SLIDER_INDEX
-                        ? "1M+"
-                        : formatMetricStep(METRIC_SLIDER_STEPS[tickIndex] ?? 0)}
-                    </span>
-                  ))}
+                  {RANGE_TICK_INDEXES.map((tickIndex) => {
+                    const percent = (tickIndex / LAST_METRIC_SLIDER_INDEX) * 100;
+                    const isFirst = tickIndex === 0;
+                    const isLast = tickIndex === LAST_METRIC_SLIDER_INDEX;
+
+                    return (
+                      <span
+                        className="new-scouting__range-tick"
+                        data-position={isFirst ? "start" : isLast ? "end" : "mid"}
+                        key={`subs-tick-${tickIndex}`}
+                        style={{ left: `${percent}%` }}
+                      >
+                        <span className="new-scouting__range-tick-label">
+                          {isLast ? "1M+" : formatMetricStep(METRIC_SLIDER_STEPS[tickIndex] ?? 0)}
+                        </span>
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -621,13 +630,24 @@ export function NewScoutingWorkspace({
                   />
                 </div>
                 <div aria-hidden="true" className="new-scouting__range-ticks">
-                  {RANGE_TICK_INDEXES.map((tickIndex) => (
-                    <span key={`views-tick-${tickIndex}`}>
-                      {tickIndex === LAST_METRIC_SLIDER_INDEX
-                        ? "1M+"
-                        : formatMetricStep(METRIC_SLIDER_STEPS[tickIndex] ?? 0)}
-                    </span>
-                  ))}
+                  {RANGE_TICK_INDEXES.map((tickIndex) => {
+                    const percent = (tickIndex / LAST_METRIC_SLIDER_INDEX) * 100;
+                    const isFirst = tickIndex === 0;
+                    const isLast = tickIndex === LAST_METRIC_SLIDER_INDEX;
+
+                    return (
+                      <span
+                        className="new-scouting__range-tick"
+                        data-position={isFirst ? "start" : isLast ? "end" : "mid"}
+                        key={`views-tick-${tickIndex}`}
+                        style={{ left: `${percent}%` }}
+                      >
+                        <span className="new-scouting__range-tick-label">
+                          {isLast ? "1M+" : formatMetricStep(METRIC_SLIDER_STEPS[tickIndex] ?? 0)}
+                        </span>
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -636,8 +656,7 @@ export function NewScoutingWorkspace({
 
         <section aria-labelledby="ns-audience-heading" className="new-scouting__panel new-scouting-section">
           <header className="new-scouting-section__header">
-            <p className="new-scouting-section__eyebrow">Step 3</p>
-            <h2 className="new-scouting-section__title" id="ns-audience-heading">Audience & content</h2>
+<h2 className="new-scouting-section__title" id="ns-audience-heading">Audience & content</h2>
             <p className="new-scouting-section__hint">
               Narrow down the audience by region, language, vertical and freshness. Leave fields blank to keep them open.
             </p>
