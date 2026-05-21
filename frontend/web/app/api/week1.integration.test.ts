@@ -155,6 +155,24 @@ integration("week 1 API integration", () => {
     expect(response.status).toBe(409);
   });
 
+  it("returns 400 for malformed admin user JSON", async () => {
+    const admin = await createAdminUser();
+    currentSessionUser = { id: admin.id, role: "admin" };
+
+    const response = await adminUsersRoute.POST(
+      new Request("http://localhost/api/admin/users", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{",
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid request payload",
+    });
+  });
+
   it("blocks non-admin and unauthenticated access to admin endpoints", async () => {
     const admin = await createAdminUser();
     const campaignUser = await prisma.user.create({
@@ -177,6 +195,10 @@ integration("week 1 API integration", () => {
     currentSessionUser = { id: campaignUser.id, role: "user" };
     const forbidden = await adminUsersRoute.GET();
     expect(forbidden.status).toBe(403);
+
+    currentSessionUser = { id: campaignUser.id, role: "admin" };
+    const staleJwtRole = await adminUsersRoute.GET();
+    expect(staleJwtRole.status).toBe(403);
 
     currentSessionUser = { id: admin.id, role: "admin" };
     const allowed = await adminUsersRoute.GET();

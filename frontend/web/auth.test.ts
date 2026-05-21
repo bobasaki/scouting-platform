@@ -5,8 +5,7 @@ const {
   nextAuthFactoryMock,
   credentialsProviderMock,
   nextAuthExports,
-  findUserForCredentialsMock,
-  verifyPasswordMock
+  authenticateUserCredentialsMock
 } = vi.hoisted(() => {
   const captured = {
     authConfig: null as unknown,
@@ -37,14 +36,12 @@ const {
       };
     }),
     nextAuthExports,
-    findUserForCredentialsMock: vi.fn(),
-    verifyPasswordMock: vi.fn()
+    authenticateUserCredentialsMock: vi.fn()
   };
 });
 
 vi.mock("@scouting-platform/core", () => ({
-  findUserForCredentials: findUserForCredentialsMock,
-  verifyPassword: verifyPasswordMock
+  authenticateUserCredentials: authenticateUserCredentialsMock
 }));
 
 vi.mock("next-auth", () => ({
@@ -58,17 +55,22 @@ vi.mock("next-auth/providers/credentials", () => ({
 import { authConfig, auth, handlers, resolveAuthSecret, signIn, signOut } from "./auth";
 
 type JwtCallbackParams = {
-  token: { role?: unknown; sub?: string };
-  user?: { id?: string; role?: unknown } | undefined;
+  token: { role?: unknown; sub?: string; passwordChangedAt?: unknown; sessionIssuedAt?: unknown; iat?: unknown };
+  user?: { id?: string; role?: unknown; passwordChangedAt?: unknown } | undefined;
 };
 
 type SessionCallbackParams = {
   session: { user?: Record<string, unknown> };
-  token: { role?: unknown; sub?: string };
+  token: { role?: unknown; sub?: string; passwordChangedAt?: unknown; sessionIssuedAt?: unknown; iat?: unknown };
 };
 
 type AuthCallbacks = {
-  jwt: (params: JwtCallbackParams) => { role?: unknown; sub?: string };
+  jwt: (params: JwtCallbackParams) => {
+    role?: unknown;
+    sub?: string;
+    passwordChangedAt?: unknown;
+    sessionIssuedAt?: unknown;
+  };
   session: (params: SessionCallbackParams) => { user?: Record<string, unknown> };
 };
 
@@ -86,17 +88,15 @@ describe("auth configuration", () => {
     expect(signOut).toBe(nextAuthExports.signOut);
   });
 
-  it("authorizes active users with persisted credentials and rejects invalid/inactive accounts", async () => {
+  it("authorizes active users with persisted credentials and rejects invalid or locked accounts", async () => {
     const providerOptions = captured.credentialsOptions as {
       authorize: (credentials: { email?: unknown; password?: unknown } | undefined) => Promise<unknown>;
     };
 
-    findUserForCredentialsMock.mockReset();
-    verifyPasswordMock.mockReset();
+    authenticateUserCredentialsMock.mockReset();
 
     expect(await providerOptions.authorize(undefined)).toBeNull();
-    expect(findUserForCredentialsMock).not.toHaveBeenCalled();
-    expect(verifyPasswordMock).not.toHaveBeenCalled();
+    expect(authenticateUserCredentialsMock).not.toHaveBeenCalled();
 
     expect(
       await providerOptions.authorize({
@@ -104,59 +104,25 @@ describe("auth configuration", () => {
         password: "   "
       })
     ).toBeNull();
-    expect(findUserForCredentialsMock).not.toHaveBeenCalled();
-    expect(verifyPasswordMock).not.toHaveBeenCalled();
+    expect(authenticateUserCredentialsMock).not.toHaveBeenCalled();
 
-    findUserForCredentialsMock.mockResolvedValueOnce(null);
+    authenticateUserCredentialsMock.mockResolvedValueOnce(null);
     expect(
       await providerOptions.authorize({
         email: "missing@example.com",
         password: "StrongPassword123"
       })
     ).toBeNull();
-    expect(verifyPasswordMock).not.toHaveBeenCalled();
 
-    findUserForCredentialsMock.mockResolvedValueOnce({
-      id: "inactive-user",
-      email: "inactive@example.com",
-      name: "Inactive",
-      role: "user",
-      passwordHash: "hashed-password",
-      isActive: false
-    });
-    expect(
-      await providerOptions.authorize({
-        email: "inactive@example.com",
-        password: "StrongPassword123"
-      })
-    ).toBeNull();
-    expect(verifyPasswordMock).not.toHaveBeenCalled();
-
-    findUserForCredentialsMock.mockResolvedValueOnce({
-      id: "wrong-password-user",
-      email: "wrong@example.com",
-      name: "Wrong Password",
-      role: "user",
-      passwordHash: "hashed-password",
-      isActive: true
-    });
-    verifyPasswordMock.mockResolvedValueOnce(false);
-    expect(
-      await providerOptions.authorize({
-        email: "wrong@example.com",
-        password: "WrongPassword123"
-      })
-    ).toBeNull();
-
-    findUserForCredentialsMock.mockResolvedValueOnce({
+    authenticateUserCredentialsMock.mockResolvedValueOnce({
       id: "user-1",
       email: "active@example.com",
       name: "Active User",
       role: "admin",
       passwordHash: "valid-hash",
+      passwordChangedAt: new Date("2026-05-21T10:00:00.000Z"),
       isActive: true
     });
-    verifyPasswordMock.mockResolvedValueOnce(true);
 
     await expect(
       providerOptions.authorize({
@@ -167,11 +133,34 @@ describe("auth configuration", () => {
       id: "user-1",
       name: "Active User",
       email: "active@example.com",
-      role: "admin"
+      role: "admin",
+      passwordChangedAt: "2026-05-21T10:00:00.000Z"
     });
 
-    expect(findUserForCredentialsMock).toHaveBeenCalledWith("active@example.com");
-    expect(verifyPasswordMock).toHaveBeenCalledWith("StrongPassword123", "valid-hash");
+    expect(authenticateUserCredentialsMock).toHaveBeenCalledWith({
+      email: "active@example.com",
+      password: "StrongPassword123",
+    });
+
+    authenticateUserCredentialsMock.mockResolvedValueOnce({
+      id: "spaced-password-user",
+      email: "space@example.com",
+      name: "Space User",
+      role: "user",
+      passwordHash: "valid-hash",
+      passwordChangedAt: new Date("2026-05-21T11:00:00.000Z"),
+      isActive: true
+    });
+
+    await providerOptions.authorize({
+      email: "space@example.com",
+      password: "  KeepPasswordSpaces123  "
+    });
+
+    expect(authenticateUserCredentialsMock).toHaveBeenLastCalledWith({
+      email: "space@example.com",
+      password: "  KeepPasswordSpaces123  ",
+    });
   });
 
   it("normalizes role and id into JWT and session callbacks", () => {
@@ -179,21 +168,43 @@ describe("auth configuration", () => {
     const jwtCallback = callbacks.jwt;
     const sessionCallback = callbacks.session;
 
-    expect(jwtCallback({ token: {}, user: { id: "user-1", role: "admin" } })).toMatchObject({
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-21T12:00:00.000Z"));
+
+    expect(
+      jwtCallback({
+        token: {},
+        user: {
+          id: "user-1",
+          role: "admin",
+          passwordChangedAt: "2026-05-21T10:00:00.000Z"
+        }
+      })
+    ).toMatchObject({
       role: "admin",
-      sub: "user-1"
+      sub: "user-1",
+      passwordChangedAt: "2026-05-21T10:00:00.000Z",
+      sessionIssuedAt: 1779364800
     });
+    vi.useRealTimers();
     expect(jwtCallback({ token: { role: "owner" } })).toMatchObject({ role: "user" });
     const sessionWithId = sessionCallback({
       session: { user: { email: "user@example.com" } },
-      token: { role: "admin", sub: "user-1" }
+      token: {
+        role: "admin",
+        sub: "user-1",
+        passwordChangedAt: "2026-05-21T10:00:00.000Z",
+        sessionIssuedAt: 1779364800
+      }
     });
 
     expect(sessionWithId).toMatchObject({
       user: {
         email: "user@example.com",
         id: "user-1",
-        role: "admin"
+        role: "admin",
+        passwordChangedAt: "2026-05-21T10:00:00.000Z",
+        sessionIssuedAt: 1779364800
       }
     });
     expect(sessionWithId.user?.id).toBe("user-1");

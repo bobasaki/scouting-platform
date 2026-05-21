@@ -3,7 +3,7 @@ import { setUserYoutubeApiKey } from "@scouting-platform/core";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { requireAdminSession, toRouteErrorResponse } from "../../../../../../lib/api";
+import { readJsonRequestBody, requireAdminSession, toRouteErrorResponse } from "../../../../../../lib/api";
 
 const paramsSchema = z.object({
   id: z.uuid(),
@@ -29,7 +29,13 @@ export async function PUT(
       );
     }
 
-    const body = updateAdminUserYoutubeKeyRequestSchema.safeParse(await request.json());
+    const rawBody = await readJsonRequestBody(request);
+
+    if (!rawBody.ok) {
+      return rawBody.response;
+    }
+
+    const body = updateAdminUserYoutubeKeyRequestSchema.safeParse(rawBody.body);
 
     if (!body.success) {
       return NextResponse.json(

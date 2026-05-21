@@ -5,13 +5,21 @@ import { roleSchema, userTypeSchema } from "./auth";
 import { csvImportBatchSummarySchema } from "./csv-imports";
 
 const isoDatetimeSchema = z.string().datetime();
+const accountPasswordSchema = z
+  .string()
+  .min(12)
+  .max(128)
+  .refine(
+    (value) => /[A-Za-z]/.test(value) && /\d/.test(value),
+    "Password must include at least one letter and one number",
+  );
 
 export const createAdminUserRequestSchema = z.object({
   email: z.string().email(),
   name: z.string().trim().min(1).max(200).optional(),
   role: roleSchema.default("user"),
   userType: userTypeSchema.default("campaign_manager"),
-  password: z.string().min(8).max(128),
+  password: accountPasswordSchema,
 });
 
 export const updateAdminUserProfileRequestSchema = z.object({
@@ -20,7 +28,7 @@ export const updateAdminUserProfileRequestSchema = z.object({
 });
 
 export const updateAdminUserPasswordRequestSchema = z.object({
-  password: z.string().min(8).max(128),
+  password: accountPasswordSchema,
 });
 
 export const updateAdminUserYoutubeKeyRequestSchema = z.object({

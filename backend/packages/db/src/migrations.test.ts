@@ -102,6 +102,10 @@ const channelEnrichmentRetryStateMigrationPath = path.resolve(
   currentDir,
   "../prisma/migrations/20260505090000_channel_enrichment_retry_state/migration.sql",
 );
+const userAccountSecurityHardeningMigrationPath = path.resolve(
+  currentDir,
+  "../prisma/migrations/20260521120000_user_account_security_hardening/migration.sql",
+);
 
 describe("pg-boss migration", () => {
   it("installs the pgboss schema and version table", () => {
@@ -391,6 +395,20 @@ describe("channel enrichment retry state migration", () => {
     expect(migrationSql).toContain('"channel_enrichments_status_next_retry_at_idx"');
     expect(migrationSql).toContain('"channel_enrichments_status_started_at_idx"');
     expect(migrationSql).toContain('"run_results_channel_id_idx"');
+  });
+});
+
+describe("user account security hardening migration", () => {
+  it("adds login lockout and password-change invalidation fields", () => {
+    const migrationSql = readFileSync(userAccountSecurityHardeningMigrationPath, "utf-8");
+
+    expect(migrationSql).toContain('ALTER TABLE "users"');
+    expect(migrationSql).toContain('"password_changed_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP');
+    expect(migrationSql).toContain('"failed_login_count" INTEGER NOT NULL DEFAULT 0');
+    expect(migrationSql).toContain('"last_failed_login_at" TIMESTAMP(3)');
+    expect(migrationSql).toContain('"locked_until" TIMESTAMP(3)');
+    expect(migrationSql).toContain('"last_login_at" TIMESTAMP(3)');
+    expect(migrationSql).toContain('CREATE INDEX "users_locked_until_idx"');
   });
 });
 
