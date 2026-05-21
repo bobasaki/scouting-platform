@@ -508,9 +508,7 @@ export function AdminCsvImportManagerView(props: AdminCsvImportManagerViewProps)
               <ul className="admin-csv-imports__quick-facts">
                 <li>
                   <span className="admin-csv-imports__fact-label">Template</span>
-                  <span className="admin-csv-imports__fact-value">
-                    v<strong>{CSV_IMPORT_TEMPLATE_VERSION}</strong>
-                  </span>
+                  <span className="admin-csv-imports__fact-value">{CSV_IMPORT_TEMPLATE_VERSION}</span>
                 </li>
                 <li>
                   <span className="admin-csv-imports__fact-label">Max size</span>
