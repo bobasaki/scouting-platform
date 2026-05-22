@@ -1,4 +1,4 @@
-import { findUserForCredentials, verifyPassword } from "@scouting-platform/core";
+import { authenticateUserCredentials } from "@scouting-platform/core";
 import NextAuth, { type NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { resolveAppRole, type AppRole } from "./lib/navigation";
@@ -14,6 +14,10 @@ function normalizeCredential(value: unknown): string {
   }
 
   return value.trim();
+}
+
+function normalizePasswordCredential(value: unknown): string {
+  return typeof value === "string" ? value : "";
 }
 
 export function resolveAuthSecret(env: AuthEnv = process.env): string | undefined {
@@ -54,21 +58,18 @@ export const authConfig = {
       },
       async authorize(credentials) {
         const email = normalizeCredential(credentials?.email).toLowerCase();
-        const password = normalizeCredential(credentials?.password);
+        const password = normalizePasswordCredential(credentials?.password);
 
         if (!email || !password) {
           return null;
         }
 
-        const user = await findUserForCredentials(email);
+        const user = await authenticateUserCredentials({
+          email,
+          password,
+        });
 
-        if (!user || !user.isActive) {
-          return null;
-        }
-
-        const isPasswordValid = await verifyPassword(password, user.passwordHash);
-
-        if (!isPasswordValid) {
+        if (!user) {
           return null;
         }
 
@@ -76,7 +77,8 @@ export const authConfig = {
           id: user.id,
           name: user.name ?? user.email,
           email: user.email,
-          role: resolveAppRole(user.role, DEFAULT_APP_ROLE)
+          role: resolveAppRole(user.role, DEFAULT_APP_ROLE),
+          passwordChangedAt: user.passwordChangedAt.toISOString()
         };
       }
     })
@@ -85,9 +87,14 @@ export const authConfig = {
     jwt({ token, user }) {
       if (user) {
         token.role = resolveAppRole(user.role, DEFAULT_APP_ROLE);
+        token.sessionIssuedAt = Math.floor(Date.now() / 1000);
 
         if (typeof user.id === "string" && user.id.length > 0) {
           token.sub = user.id;
+        }
+
+        if (typeof user.passwordChangedAt === "string" && user.passwordChangedAt.length > 0) {
+          token.passwordChangedAt = user.passwordChangedAt;
         }
       } else {
         token.role = resolveAppRole(token.role, DEFAULT_APP_ROLE);
@@ -96,10 +103,21 @@ export const authConfig = {
       return token;
     },
     session({ session, token }) {
+      const passwordChangedAt =
+        typeof token.passwordChangedAt === "string" ? token.passwordChangedAt : undefined;
+      const sessionIssuedAt =
+        typeof token.sessionIssuedAt === "number"
+          ? token.sessionIssuedAt
+          : typeof token.iat === "number"
+            ? token.iat
+            : undefined;
+
       session.user = {
         ...session.user,
         id: typeof token.sub === "string" ? token.sub : "",
-        role: resolveAppRole(token.role, DEFAULT_APP_ROLE)
+        role: resolveAppRole(token.role, DEFAULT_APP_ROLE),
+        ...(passwordChangedAt ? { passwordChangedAt } : {}),
+        ...(typeof sessionIssuedAt === "number" ? { sessionIssuedAt } : {})
       };
 
       return session;

@@ -29,6 +29,7 @@ import {
   toRunChannelAssessmentItem,
   toRunMetadata,
 } from "./repository";
+import { executeChannelLlmEnrichment } from "../enrichment";
 
 function formatErrorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -97,6 +98,64 @@ function buildMinimalYoutubeContext(channel: {
       warnings: [],
     },
   };
+}
+
+function hasCompletedClassification(
+  enrichment: {
+    status: PrismaChannelEnrichmentStatus;
+    summary: string | null;
+  } | null,
+): boolean {
+  return enrichment?.status === PrismaChannelEnrichmentStatus.COMPLETED
+    && Boolean(enrichment.summary?.trim());
+}
+
+async function ensureChannelClassificationForAssessment(input: {
+  channelId: string;
+  requestedByUserId: string;
+}): Promise<void> {
+  const existing = await prisma.channelEnrichment.findUnique({
+    where: {
+      channelId: input.channelId,
+    },
+    select: {
+      status: true,
+      summary: true,
+    },
+  });
+
+  if (hasCompletedClassification(existing)) {
+    return;
+  }
+
+  const requestedAt = new Date();
+
+  await prisma.channelEnrichment.upsert({
+    where: {
+      channelId: input.channelId,
+    },
+    create: {
+      channelId: input.channelId,
+      status: PrismaChannelEnrichmentStatus.QUEUED,
+      requestedByUserId: input.requestedByUserId,
+      requestedAt,
+      retryCount: 0,
+      nextRetryAt: null,
+    },
+    update: {
+      status: PrismaChannelEnrichmentStatus.QUEUED,
+      requestedByUserId: input.requestedByUserId,
+      requestedAt,
+      startedAt: null,
+      retryCount: 0,
+      nextRetryAt: null,
+      lastError: null,
+      youtubeFetchedAt: null,
+      rawOpenaiPayloadFetchedAt: null,
+    },
+  });
+
+  await executeChannelLlmEnrichment(input);
 }
 
 function extractTokenUsage(
@@ -373,16 +432,26 @@ export async function executeRunChannelFitAssessment(input: {
       return;
     }
 
-    const [youtubeContextRow, enrichmentRow] = await Promise.all([
-      prisma.channelYoutubeContext.findUnique({
-        where: {
-          channelId: input.channelId,
-        },
-        select: {
-          context: true,
-        },
-      }),
-      prisma.channelEnrichment.findUnique({
+    let enrichmentRow = await prisma.channelEnrichment.findUnique({
+      where: {
+        channelId: input.channelId,
+      },
+      select: {
+        status: true,
+        summary: true,
+        topics: true,
+        brandFitNotes: true,
+        structuredProfile: true,
+      },
+    });
+
+    if (!hasCompletedClassification(enrichmentRow)) {
+      await ensureChannelClassificationForAssessment({
+        channelId: input.channelId,
+        requestedByUserId: input.requestedByUserId,
+      });
+
+      enrichmentRow = await prisma.channelEnrichment.findUnique({
         where: {
           channelId: input.channelId,
         },
@@ -391,9 +460,19 @@ export async function executeRunChannelFitAssessment(input: {
           summary: true,
           topics: true,
           brandFitNotes: true,
+          structuredProfile: true,
         },
-      }),
-    ]);
+      });
+    }
+
+    const youtubeContextRow = await prisma.channelYoutubeContext.findUnique({
+      where: {
+        channelId: input.channelId,
+      },
+      select: {
+        context: true,
+      },
+    });
 
     const brief = {
       client: row.runRequest.client,
@@ -447,6 +526,7 @@ export async function executeRunChannelFitAssessment(input: {
                   summary: enrichmentRow.summary,
                   topics: parseStringArrayOrNull(enrichmentRow.topics) ?? [],
                   brandFitNotes: enrichmentRow.brandFitNotes ?? "",
+                  structuredProfile: enrichmentRow.structuredProfile,
                 }
               : null,
           campaignBrief: brief,

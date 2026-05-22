@@ -43,6 +43,7 @@ const inputSchema = z.object({
       summary: z.string(),
       topics: z.array(z.string()),
       brandFitNotes: z.string(),
+      structuredProfile: z.unknown().nullable().optional(),
     })
     .nullable(),
   campaignBrief: campaignBriefSchema,
@@ -162,6 +163,8 @@ function buildPrompt(input: z.output<typeof inputSchema>): string {
     channel: input.channel,
     youtubeContext: slimYoutubeContext(input.youtubeContext),
     enrichmentProfile: input.enrichmentProfile,
+    classificationSource:
+      "enrichmentProfile is the prior nano creator classification. Use it as the primary classification signal, then use YouTube context and the campaign brief to judge fit.",
     instructions: {
       fitScore:
         "Return a number from 0 to 1 scoring how well this creator fits THIS specific campaign brief. 0 = clearly wrong fit, 1 = perfect fit. Weight: audience match, content style alignment, brand safety for this client's industry, presence of campaign-required themes.",

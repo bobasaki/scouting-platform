@@ -5,6 +5,7 @@ const {
   prismaMock,
   enqueueJobMock,
   enrichCampaignFitWithOpenAiMock,
+  executeChannelLlmEnrichmentMock,
   extractOpenAiCampaignFitFromRawPayloadMock,
   toRunChannelAssessmentItemMock,
   toRunMetadataMock,
@@ -29,6 +30,7 @@ const {
       },
       channelEnrichment: {
         findUnique: vi.fn(),
+        upsert: vi.fn(),
       },
       $transaction: vi.fn(async (callback: (tx: typeof prismaMock) => Promise<unknown>) =>
         callback(prismaMock),
@@ -36,6 +38,7 @@ const {
     },
     enqueueJobMock: vi.fn(),
     enrichCampaignFitWithOpenAiMock: vi.fn(),
+    executeChannelLlmEnrichmentMock: vi.fn(),
     extractOpenAiCampaignFitFromRawPayloadMock: vi.fn(),
     toRunChannelAssessmentItemMock: vi.fn((row: { id: string; runRequestId: string; channelId: string; status: string }) => ({
       id: row.id,
@@ -70,6 +73,10 @@ vi.mock("@scouting-platform/db", () => ({
 
 vi.mock("../queue", () => ({
   enqueueJob: enqueueJobMock,
+}));
+
+vi.mock("../enrichment", () => ({
+  executeChannelLlmEnrichment: executeChannelLlmEnrichmentMock,
 }));
 
 vi.mock("@scouting-platform/integrations", () => ({
@@ -266,6 +273,9 @@ describe("run assessment core service", () => {
       summary: "Gaming creator",
       topics: ["gaming"],
       brandFitNotes: "Fits gaming hardware",
+      structuredProfile: {
+        primaryNiche: "gaming",
+      },
     });
     enrichCampaignFitWithOpenAiMock.mockResolvedValueOnce({
       profile: {
@@ -287,6 +297,18 @@ describe("run assessment core service", () => {
     });
 
     expect(enrichCampaignFitWithOpenAiMock).toHaveBeenCalled();
+    expect(enrichCampaignFitWithOpenAiMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enrichmentProfile: expect.objectContaining({
+          summary: "Gaming creator",
+          topics: ["gaming"],
+          brandFitNotes: "Fits gaming hardware",
+          structuredProfile: {
+            primaryNiche: "gaming",
+          },
+        }),
+      }),
+    );
     expect(prismaMock.runChannelAssessment.update).toHaveBeenCalledTimes(2);
     expect(prismaMock.runChannelAssessment.update.mock.calls[1]?.[0]).toMatchObject({
       data: expect.objectContaining({
@@ -295,6 +317,97 @@ describe("run assessment core service", () => {
         fitScore: 0.9,
       }),
     });
+  });
+
+  it("runs nano channel classification before mini campaign fit when classification is missing", async () => {
+    prismaMock.runChannelAssessment.updateMany.mockResolvedValueOnce({ count: 1 });
+    prismaMock.runChannelAssessment.findUnique.mockResolvedValueOnce({
+      id: "assessment-1",
+      runRequestId: "run-1",
+      channelId: "channel-1",
+      rawOpenaiPayload: null,
+      rawOpenaiPayloadFetchedAt: null,
+      runRequest: {
+        client: "NVIDIA",
+        campaignName: "RTX Launch",
+        clientIndustry: "Gaming Hardware",
+        campaignObjective: "Drive awareness",
+        targetAudienceAge: "18-34",
+        targetAudienceGender: "All",
+        targetGeographies: ["Germany"],
+        contentRestrictions: ["No politics"],
+        budgetTier: "mid",
+        deliverables: ["Dedicated video"],
+      },
+      channel: {
+        youtubeChannelId: "UC-1",
+        title: "Channel",
+        handle: "@channel",
+        description: "desc",
+        thumbnailUrl: null,
+        contentLanguage: "en",
+      },
+    });
+    prismaMock.channelEnrichment.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        status: "COMPLETED",
+        summary: "Nano classified gaming creator",
+        topics: ["gaming"],
+        brandFitNotes: "Strong gaming hardware fit",
+        structuredProfile: {
+          primaryNiche: "gaming",
+        },
+      });
+    prismaMock.channelEnrichment.upsert.mockResolvedValueOnce({});
+    executeChannelLlmEnrichmentMock.mockResolvedValueOnce(undefined);
+    prismaMock.channelYoutubeContext.findUnique.mockResolvedValueOnce({ context: null });
+    enrichCampaignFitWithOpenAiMock.mockResolvedValueOnce({
+      profile: {
+        fitScore: 0.82,
+        fitReasons: ["Nano classification aligns with the campaign"],
+        fitConcerns: [],
+        recommendedAngles: ["Benchmark breakdown"],
+        avoidTopics: [],
+      },
+      rawPayload: { id: "resp-1" },
+      model: "gpt-4.1-mini",
+    });
+    prismaMock.runChannelAssessment.update.mockResolvedValue({});
+
+    await executeRunChannelFitAssessment({
+      runRequestId: "run-1",
+      channelId: "channel-1",
+      requestedByUserId: "user-1",
+    });
+
+    expect(prismaMock.channelEnrichment.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          channelId: "channel-1",
+        },
+        create: expect.objectContaining({
+          channelId: "channel-1",
+          status: "QUEUED",
+          requestedByUserId: "user-1",
+        }),
+      }),
+    );
+    expect(executeChannelLlmEnrichmentMock).toHaveBeenCalledWith({
+      channelId: "channel-1",
+      requestedByUserId: "user-1",
+    });
+    expect(enrichCampaignFitWithOpenAiMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enrichmentProfile: expect.objectContaining({
+          summary: "Nano classified gaming creator",
+          structuredProfile: {
+            primaryNiche: "gaming",
+          },
+        }),
+      }),
+    );
   });
 
   it("updates the run brief and returns mapped metadata", async () => {

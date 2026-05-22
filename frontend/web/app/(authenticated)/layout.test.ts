@@ -1,14 +1,19 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { authMock, prefetchMock, redirectMock } = vi.hoisted(() => ({
+const { authMock, getSessionUserAccessMock, prefetchMock, redirectMock } = vi.hoisted(() => ({
   authMock: vi.fn(),
+  getSessionUserAccessMock: vi.fn(),
   prefetchMock: vi.fn(),
   redirectMock: vi.fn()
 }));
 
 vi.mock("../../auth", () => ({
   auth: authMock
+}));
+
+vi.mock("@scouting-platform/core", () => ({
+  getSessionUserAccess: getSessionUserAccessMock,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -24,6 +29,10 @@ import AuthenticatedLayout from "./layout";
 describe("authenticated app layout", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getSessionUserAccessMock.mockImplementation(async ({ userId, role }: { userId: string; role?: "admin" | "user" }) => ({
+      id: userId,
+      role: role ?? "user",
+    }));
   });
 
   it("redirects unauthenticated users to login", async () => {
@@ -49,9 +58,11 @@ describe("authenticated app layout", () => {
   it("renders shared shell links for user role", async () => {
     authMock.mockResolvedValueOnce({
       user: {
+        id: "user-1",
         role: "user"
       }
     });
+    getSessionUserAccessMock.mockResolvedValueOnce({ id: "user-1", role: "user" });
 
     const html = renderToStaticMarkup(await AuthenticatedLayout({ children: "catalog" }));
 
@@ -64,9 +75,11 @@ describe("authenticated app layout", () => {
   it("renders admin navigation for admin role", async () => {
     authMock.mockResolvedValueOnce({
       user: {
+        id: "admin-1",
         role: "admin"
       }
     });
+    getSessionUserAccessMock.mockResolvedValueOnce({ id: "admin-1", role: "admin" });
 
     const html = renderToStaticMarkup(await AuthenticatedLayout({ children: "admin" }));
 
@@ -76,9 +89,11 @@ describe("authenticated app layout", () => {
   it("falls back to user navigation when session role is unknown", async () => {
     authMock.mockResolvedValueOnce({
       user: {
+        id: "user-1",
         role: "owner"
       }
     });
+    getSessionUserAccessMock.mockResolvedValueOnce({ id: "user-1", role: "user" });
 
     const html = renderToStaticMarkup(await AuthenticatedLayout({ children: "catalog" }));
 

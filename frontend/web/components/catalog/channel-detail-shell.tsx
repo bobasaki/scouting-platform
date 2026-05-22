@@ -481,34 +481,75 @@ function renderReadyState(
     shouldPollEnrichmentStatus(channel.enrichment.status);
   const youtubeUrl = resolveYoutubeUrl(channel);
   const socialMediaUrl = resolveSocialMediaUrl(channel);
+  const handleLabel = getChannelHandle(channel);
+  const descriptionText = getChannelDescription(channel);
 
   return (
     <>
-      <section aria-labelledby="channel-detail-shell-heading" className="channel-detail-shell__hero">
-        <div className="channel-detail-shell__identity">
-          {channel.thumbnailUrl ? (
-            <Image
-              alt={`${channel.title} thumbnail`}
-              className="channel-detail-shell__thumbnail"
-              height={96}
-              src={channel.thumbnailUrl}
-              width={96}
-            />
-          ) : (
-            <div
-              aria-hidden="true"
-              className="channel-detail-shell__thumbnail channel-detail-shell__thumbnail--fallback"
-            >
-              {getIdentityFallback(channel.title)}
-            </div>
-          )}
+      <section aria-labelledby="channel-detail-shell-heading" className="creator-profile__hero channel-detail-shell__hero">
+        <div className="creator-profile__hero-main">
+          <div className="creator-profile__avatar-wrap">
+            {channel.thumbnailUrl ? (
+              <Image
+                alt={`${channel.title} thumbnail`}
+                className="creator-profile__avatar channel-detail-shell__thumbnail"
+                height={120}
+                src={channel.thumbnailUrl}
+                width={120}
+              />
+            ) : (
+              <div
+                aria-hidden="true"
+                className="creator-profile__avatar creator-profile__avatar--fallback channel-detail-shell__thumbnail channel-detail-shell__thumbnail--fallback"
+              >
+                {getIdentityFallback(channel.title)}
+              </div>
+            )}
+          </div>
 
-          <div className="channel-detail-shell__identity-copy">
-            <p className="channel-detail-shell__eyebrow">Catalog influencer profile</p>
-            <h2 id="channel-detail-shell-heading">{channel.title}</h2>
-            <p className="channel-detail-shell__handle">{getChannelHandle(channel)}</p>
-            <p className="channel-detail-shell__description">{getChannelDescription(channel)}</p>
-            <div className="channel-detail-shell__hero-controls">
+          <div className="creator-profile__identity channel-detail-shell__identity-copy">
+            <p className="creator-profile__eyebrow channel-detail-shell__eyebrow">Catalog influencer profile</p>
+            <h2 className="creator-profile__title" id="channel-detail-shell-heading">{channel.title}</h2>
+            <p className="creator-profile__handle channel-detail-shell__handle">{handleLabel}</p>
+
+            <div className="creator-profile__chips">
+              {channel.countryRegion ? (
+                <span className="creator-chip">
+                  <span aria-hidden="true" className="creator-chip__icon">◎</span>
+                  {channel.countryRegion}
+                </span>
+              ) : null}
+              {channel.contentLanguage ? (
+                <span className="creator-chip">
+                  <span aria-hidden="true" className="creator-chip__icon">¶</span>
+                  {channel.contentLanguage}
+                </span>
+              ) : null}
+              {channel.influencerVertical ? (
+                <span className="creator-chip creator-chip--accent">{channel.influencerVertical}</span>
+              ) : null}
+              {channel.influencerType ? (
+                <span className="creator-chip">{channel.influencerType}</span>
+              ) : null}
+              {channel.platforms && channel.platforms.length > 0 ? (
+                <span className="creator-chip creator-chip--muted">
+                  Platforms: {formatPlatforms(channel.platforms)}
+                </span>
+              ) : null}
+            </div>
+
+            <div className="creator-profile__hero-actions channel-detail-shell__hero-controls">
+              <a className="workspace-button creator-profile__primary-action" href={youtubeUrl} rel="noreferrer" target="_blank">
+                Open on YouTube
+              </a>
+              <a
+                className="workspace-button workspace-button--secondary"
+                href={socialMediaUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                View socials
+              </a>
               <div className="channel-detail-shell__status-row">
                 <StatusPopoverTag
                   actionLabel={getEnrichmentActionLabel(channel.enrichment.status)}
@@ -527,193 +568,245 @@ function renderReadyState(
           </div>
         </div>
 
-        <div className="channel-detail-shell__hero-side">
-          <dl className="channel-detail-shell__route-meta">
-            <div>
-              <dt>Catalog record ID</dt>
-              <dd>
-                <code>{channel.id}</code>
-              </dd>
-            </div>
-            <div>
-              <dt>YouTube channel ID</dt>
-              <dd>
-                <code>{channel.youtubeChannelId}</code>
-              </dd>
-            </div>
-          </dl>
-
-          <dl className="channel-detail-shell__details channel-detail-shell__details--compact">
-            <div>
-              <dt>Created</dt>
-              <dd>{formatIsoTimestamp(channel.createdAt)}</dd>
-            </div>
-            <div>
-              <dt>Last updated</dt>
-              <dd>{formatIsoTimestamp(channel.updatedAt)}</dd>
-            </div>
-            <div>
-              <dt>Enrichment confidence</dt>
-              <dd>{formatConfidence(channel.enrichment.confidence)}</dd>
-            </div>
-          </dl>
-        </div>
+        <dl className="creator-profile__hero-meta channel-detail-shell__route-meta">
+          <article className="creator-meta-card">
+            <dt>Catalog record ID</dt>
+            <dd>
+              <code>{channel.id}</code>
+            </dd>
+          </article>
+          <article className="creator-meta-card">
+            <dt>YouTube channel ID</dt>
+            <dd>
+              <code>{channel.youtubeChannelId}</code>
+            </dd>
+          </article>
+          <article className="creator-meta-card">
+            <dt>Last updated</dt>
+            <dd>{formatIsoTimestamp(channel.updatedAt)}</dd>
+          </article>
+        </dl>
       </section>
 
-      <section aria-labelledby="channel-detail-shell-profile-heading" className="channel-detail-shell__panel">
-        <header>
+      <section aria-label="Creator headline metrics" className="creator-profile__kpis">
+        <article className="creator-kpi">
+          <p className="creator-kpi__label">YouTube Followers</p>
+          <p className="creator-kpi__value">{formatMetric(channel.youtubeFollowers)}</p>
+          <p className="creator-kpi__hint">Subscribers</p>
+        </article>
+        <article className="creator-kpi creator-kpi--accent">
+          <p className="creator-kpi__label">YouTube Engagement Rate</p>
+          <p className="creator-kpi__value">{formatEngagementRate(channel.youtubeEngagementRate)}</p>
+          <p className="creator-kpi__hint">Audience interaction</p>
+        </article>
+        <article className="creator-kpi">
+          <p className="creator-kpi__label">YouTube Video Median Views</p>
+          <p className="creator-kpi__value">{formatMetric(channel.youtubeVideoMedianViews)}</p>
+          <p className="creator-kpi__hint">Per long-form</p>
+        </article>
+        <article className="creator-kpi">
+          <p className="creator-kpi__label">YouTube Shorts Median Views</p>
+          <p className="creator-kpi__value">{formatMetric(channel.youtubeShortsMedianViews)}</p>
+          <p className="creator-kpi__hint">Per Short</p>
+        </article>
+      </section>
+
+      <section
+        aria-labelledby="channel-detail-shell-profile-heading"
+        className="creator-profile__body channel-detail-shell__panel"
+      >
+        <header className="creator-profile__body-header">
           <h2 id="channel-detail-shell-profile-heading">Creator profile</h2>
-          <p>
-            Catalog facts and metrics for this influencer profile are shown in one place, together
-            with the current enrichment status.
-          </p>
+          <p>Catalog facts, performance metrics and enrichment intelligence in one place.</p>
         </header>
 
-        <div className="channel-detail-shell__profile-grid">
-          <div className="channel-detail-shell__profile-block">
-            <h3 className="channel-detail-shell__subheading">Catalog facts</h3>
-            <dl className="channel-detail-shell__details">
-              <div>
-                <dt>Channel name/title</dt>
-                <dd>{channel.title}</dd>
+        <div className="creator-profile__layout">
+          <div className="creator-profile__main">
+            <article className="creator-card">
+              <header className="creator-card__header">
+                <h3 className="creator-card__title channel-detail-shell__subheading">About</h3>
+              </header>
+              <div className="creator-card__body">
+                <dl className="creator-detail-list">
+                  <div>
+                    <dt>Description</dt>
+                    <dd>{descriptionText}</dd>
+                  </div>
+                </dl>
               </div>
-              <div>
-                <dt>YouTube channel ID</dt>
-                <dd>
-                  <code>{channel.youtubeChannelId}</code>
-                </dd>
-              </div>
-              <div>
-                <dt>YouTube handle</dt>
-                <dd>{getChannelHandle(channel)}</dd>
-              </div>
-              <div>
-                <dt>YouTube URL</dt>
-                <dd>
-                  <a className="catalog-table__link" href={youtubeUrl} rel="noreferrer" target="_blank">
-                    {youtubeUrl}
-                  </a>
-                </dd>
-              </div>
-              <div>
-                <dt>Social media URL</dt>
-                <dd>
-                  <a
-                    className="catalog-table__link"
-                    href={socialMediaUrl}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    {socialMediaUrl}
-                  </a>
-                </dd>
-              </div>
-              <div>
-                <dt>Platforms</dt>
-                <dd>{formatPlatforms(channel.platforms)}</dd>
-              </div>
-              <div>
-                <dt>Country/Region</dt>
-                <dd>{channel.countryRegion ?? EMPTY_VALUE}</dd>
-              </div>
-              <div>
-                <dt>Email</dt>
-                <dd>{channel.email ?? EMPTY_VALUE}</dd>
-              </div>
-              <div>
-                <dt>Influencer type</dt>
-                <dd>{channel.influencerType ?? EMPTY_VALUE}</dd>
-              </div>
-              <div>
-                <dt>Influencer vertical</dt>
-                <dd>{channel.influencerVertical ?? EMPTY_VALUE}</dd>
-              </div>
-              <div>
-                <dt>Content language</dt>
-                <dd>{channel.contentLanguage ?? EMPTY_VALUE}</dd>
-              </div>
-              <div>
-                <dt>Thumbnail</dt>
-                <dd>
-                  {channel.thumbnailUrl ? (
-                    <a
-                      className="catalog-table__link"
-                      href={channel.thumbnailUrl}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      Open thumbnail
-                    </a>
-                  ) : (
-                    EMPTY_VALUE
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt>Description</dt>
-                <dd>{getChannelDescription(channel)}</dd>
-              </div>
-            </dl>
-          </div>
+            </article>
 
-          <div className="channel-detail-shell__profile-block">
-            <h3 className="channel-detail-shell__subheading">Performance metrics</h3>
-            <dl className="channel-detail-shell__details">
-              <div>
-                <dt>YouTube Followers</dt>
-                <dd>{formatMetric(channel.youtubeFollowers)}</dd>
+            <article className="creator-card">
+              <header className="creator-card__header">
+                <h3 className="creator-card__title channel-detail-shell__subheading">Channel details</h3>
+                <p className="creator-card__hint">Catalog facts captured for this creator.</p>
+              </header>
+              <div className="creator-card__body">
+                <dl className="creator-detail-list channel-detail-shell__details">
+                  <div>
+                    <dt>Channel name/title</dt>
+                    <dd>{channel.title}</dd>
+                  </div>
+                  <div>
+                    <dt>YouTube handle</dt>
+                    <dd>{handleLabel}</dd>
+                  </div>
+                  <div>
+                    <dt>Country/Region</dt>
+                    <dd>{channel.countryRegion ?? EMPTY_VALUE}</dd>
+                  </div>
+                  <div>
+                    <dt>Content language</dt>
+                    <dd>{channel.contentLanguage ?? EMPTY_VALUE}</dd>
+                  </div>
+                  <div>
+                    <dt>Influencer type</dt>
+                    <dd>{channel.influencerType ?? EMPTY_VALUE}</dd>
+                  </div>
+                  <div>
+                    <dt>Influencer vertical</dt>
+                    <dd>{channel.influencerVertical ?? EMPTY_VALUE}</dd>
+                  </div>
+                  <div>
+                    <dt>Platforms</dt>
+                    <dd>{formatPlatforms(channel.platforms)}</dd>
+                  </div>
+                  <div>
+                    <dt>Email</dt>
+                    <dd>
+                      {channel.email ? (
+                        <a className="catalog-table__link" href={`mailto:${channel.email}`}>{channel.email}</a>
+                      ) : (
+                        EMPTY_VALUE
+                      )}
+                    </dd>
+                  </div>
+                </dl>
               </div>
-              <div>
-                <dt>YouTube Engagement Rate</dt>
-                <dd>{formatEngagementRate(channel.youtubeEngagementRate)}</dd>
-              </div>
-              <div>
-                <dt>YouTube Video Median Views</dt>
-                <dd>{formatMetric(channel.youtubeVideoMedianViews)}</dd>
-              </div>
-              <div>
-                <dt>YouTube Shorts Median Views</dt>
-                <dd>{formatMetric(channel.youtubeShortsMedianViews)}</dd>
-              </div>
-            </dl>
-          </div>
+            </article>
 
-          <div className="channel-detail-shell__profile-block">
-            <h3 className="channel-detail-shell__subheading">Enrichment summary</h3>
-            <dl className="channel-detail-shell__details">
-              <div>
-                <dt>Status</dt>
-                <dd>{getEnrichmentStatusLabel(channel.enrichment.status)}</dd>
-              </div>
-              <div>
-                <dt>Updated</dt>
-                <dd>{formatIsoTimestamp(channel.enrichment.updatedAt)}</dd>
-              </div>
-              <div>
-                <dt>Completed</dt>
-                <dd>{formatIsoTimestamp(channel.enrichment.completedAt)}</dd>
-              </div>
-              {channel.enrichment.lastError ? (
+            <article className="creator-card creator-card--enrichment">
+              <header className="creator-card__header creator-card__header--row">
                 <div>
-                  <dt>Last error</dt>
-                  <dd>{channel.enrichment.lastError}</dd>
+                  <p className="creator-card__eyebrow">AI Enrichment summary</p>
+                  <h3 className="creator-card__title channel-detail-shell__subheading">Enrichment summary</h3>
                 </div>
-              ) : null}
-            </dl>
+                <span className={`channel-detail-shell__status channel-detail-shell__status--${channel.enrichment.status} channel-detail-shell__status--inline`}>
+                  Enrichment: {getEnrichmentStatusLabel(channel.enrichment.status)}
+                </span>
+              </header>
+              <div className="creator-card__body creator-card__body--stack">
+                <dl className="creator-detail-list creator-detail-list--inline channel-detail-shell__details">
+                  <div>
+                    <dt>Status</dt>
+                    <dd>{getEnrichmentStatusLabel(channel.enrichment.status)}</dd>
+                  </div>
+                  <div>
+                    <dt>Updated</dt>
+                    <dd>{formatIsoTimestamp(channel.enrichment.updatedAt)}</dd>
+                  </div>
+                  <div>
+                    <dt>Completed</dt>
+                    <dd>{formatIsoTimestamp(channel.enrichment.completedAt)}</dd>
+                  </div>
+                  <div>
+                    <dt>Confidence</dt>
+                    <dd>{formatConfidence(channel.enrichment.confidence)}</dd>
+                  </div>
+                  {channel.enrichment.lastError ? (
+                    <div className="creator-detail-list__full">
+                      <dt>Last error</dt>
+                      <dd>{channel.enrichment.lastError}</dd>
+                    </div>
+                  ) : null}
+                </dl>
 
-            <div className="channel-detail-shell__stack">
-              <div>
-                <h4 className="channel-detail-shell__subheading">Summary</h4>
-                <p className="channel-detail-shell__body-copy">
-                  {channel.enrichment.summary ?? "No enrichment summary is available yet."}
-                </p>
+                <div className="creator-card__section">
+                  <h4 className="creator-card__subheading channel-detail-shell__subheading">Summary</h4>
+                  <p className="creator-card__copy channel-detail-shell__body-copy">
+                    {channel.enrichment.summary ?? "No enrichment summary is available yet."}
+                  </p>
+                </div>
+                <div className="creator-card__section">
+                  <h4 className="creator-card__subheading channel-detail-shell__subheading">Topics</h4>
+                  {renderEnrichmentTopics(channel.enrichment.topics)}
+                </div>
               </div>
-              <div>
-                <h4 className="channel-detail-shell__subheading">Topics</h4>
-                {renderEnrichmentTopics(channel.enrichment.topics)}
-              </div>
-            </div>
+            </article>
           </div>
+
+          <aside className="creator-profile__rail">
+            <article className="creator-card creator-card--rail">
+              <header className="creator-card__header">
+                <h3 className="creator-card__title channel-detail-shell__subheading">Performance metrics</h3>
+                <p className="creator-card__hint">Latest cached numbers for this creator.</p>
+              </header>
+              <div className="creator-card__body">
+                <dl className="creator-detail-list channel-detail-shell__details">
+                  <div>
+                    <dt>YouTube Followers</dt>
+                    <dd>{formatMetric(channel.youtubeFollowers)}</dd>
+                  </div>
+                  <div>
+                    <dt>YouTube Engagement Rate</dt>
+                    <dd>{formatEngagementRate(channel.youtubeEngagementRate)}</dd>
+                  </div>
+                  <div>
+                    <dt>YouTube Video Median Views</dt>
+                    <dd>{formatMetric(channel.youtubeVideoMedianViews)}</dd>
+                  </div>
+                  <div>
+                    <dt>YouTube Shorts Median Views</dt>
+                    <dd>{formatMetric(channel.youtubeShortsMedianViews)}</dd>
+                  </div>
+                </dl>
+              </div>
+            </article>
+
+            <article className="creator-card creator-card--rail">
+              <header className="creator-card__header">
+                <h3 className="creator-card__title channel-detail-shell__subheading">Links & identifiers</h3>
+              </header>
+              <div className="creator-card__body">
+                <dl className="creator-detail-list channel-detail-shell__details">
+                  <div>
+                    <dt>YouTube channel ID</dt>
+                    <dd>
+                      <code>{channel.youtubeChannelId}</code>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>YouTube URL</dt>
+                    <dd>
+                      <a className="catalog-table__link" href={youtubeUrl} rel="noreferrer" target="_blank">
+                        {youtubeUrl}
+                      </a>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Social media URL</dt>
+                    <dd>
+                      <a className="catalog-table__link" href={socialMediaUrl} rel="noreferrer" target="_blank">
+                        {socialMediaUrl}
+                      </a>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Thumbnail</dt>
+                    <dd>
+                      {channel.thumbnailUrl ? (
+                        <a className="catalog-table__link" href={channel.thumbnailUrl} rel="noreferrer" target="_blank">
+                          Open thumbnail
+                        </a>
+                      ) : (
+                        EMPTY_VALUE
+                      )}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            </article>
+          </aside>
         </div>
       </section>
     </>

@@ -21,11 +21,15 @@ export async function setUserYoutubeApiKey(input: {
   await withDbTransaction(async (tx) => {
     const existing = await tx.user.findUnique({
       where: { id: input.userId },
-      select: { id: true },
+      select: { id: true, isActive: true },
     });
 
     if (!existing) {
       throw new ServiceError("USER_NOT_FOUND", 404, "User not found");
+    }
+
+    if (!existing.isActive) {
+      throw new ServiceError("USER_INACTIVE", 409, "Cannot assign credentials to an inactive user");
     }
 
     await tx.userProviderCredential.upsert({
@@ -63,11 +67,12 @@ export async function setUserYoutubeApiKey(input: {
 }
 
 export async function getUserYoutubeApiKey(userId: string): Promise<string | null> {
-  const credential = await prisma.userProviderCredential.findUnique({
+  const credential = await prisma.userProviderCredential.findFirst({
     where: {
-      userId_provider: {
-        userId,
-        provider: CredentialProvider.YOUTUBE_DATA_API,
+      userId,
+      provider: CredentialProvider.YOUTUBE_DATA_API,
+      user: {
+        isActive: true,
       },
     },
   });
