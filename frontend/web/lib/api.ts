@@ -1,4 +1,4 @@
-import { ServiceError } from "@scouting-platform/core";
+import { getSessionUserAccess, ServiceError } from "@scouting-platform/core";
 import { NextResponse } from "next/server";
 
 import { auth } from "../auth";
@@ -38,36 +38,82 @@ export function toRouteErrorResponse(error: unknown): NextResponse {
   return jsonError("Internal server error", 500);
 }
 
+type VerifiedSession = {
+  userId: string;
+  role: "admin" | "user";
+};
+
+async function getVerifiedSession(): Promise<VerifiedSession | null> {
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  if (!userId) {
+    return null;
+  }
+
+  const access = await getSessionUserAccess({
+    userId,
+    passwordChangedAt: session.user.passwordChangedAt ?? null,
+    sessionIssuedAt: session.user.sessionIssuedAt ?? null,
+  });
+
+  if (!access) {
+    return null;
+  }
+
+  return {
+    userId: access.id,
+    role: access.role,
+  };
+}
+
+export async function readJsonRequestBody(request: Request): Promise<
+  | { ok: true; body: unknown }
+  | { ok: false; response: NextResponse }
+> {
+  try {
+    return {
+      ok: true,
+      body: await request.json(),
+    };
+  } catch {
+    return {
+      ok: false,
+      response: jsonError("Invalid request payload", 400),
+    };
+  }
+}
+
 export async function requireAdminSession(): Promise<
   | { ok: true; userId: string }
   | { ok: false; response: NextResponse }
 > {
-  const session = await auth();
+  const session = await getVerifiedSession();
 
-  if (!session?.user?.id) {
+  if (!session) {
     return { ok: false, response: jsonError("Unauthorized", 401) };
   }
 
-  if (session.user.role !== "admin") {
+  if (session.role !== "admin") {
     return { ok: false, response: jsonError("Forbidden", 403) };
   }
 
-  return { ok: true, userId: session.user.id };
+  return { ok: true, userId: session.userId };
 }
 
 export async function requireAuthenticatedSession(): Promise<
   | { ok: true; userId: string; role: "admin" | "user" }
   | { ok: false; response: NextResponse }
 > {
-  const session = await auth();
+  const session = await getVerifiedSession();
 
-  if (!session?.user?.id) {
+  if (!session) {
     return { ok: false, response: jsonError("Unauthorized", 401) };
   }
 
   return {
     ok: true,
-    userId: session.user.id,
-    role: session.user.role,
+    userId: session.userId,
+    role: session.role,
   };
 }

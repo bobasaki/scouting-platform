@@ -3,7 +3,31 @@ import { randomUUID } from "node:crypto";
 import { PrismaClient, Role } from "@prisma/client";
 import { createPrismaClient } from "@scouting-platform/db";
 import { hashPassword } from "@scouting-platform/core";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+const { credentialsProviderMock, nextAuthFactoryMock } = vi.hoisted(() => ({
+  credentialsProviderMock: vi.fn((options: Record<string, unknown>) => ({
+    id: "credentials",
+    ...options,
+  })),
+  nextAuthFactoryMock: vi.fn(() => ({
+    handlers: {
+      GET: vi.fn(),
+      POST: vi.fn(),
+    },
+    auth: vi.fn(),
+    signIn: vi.fn(),
+    signOut: vi.fn(),
+  })),
+}));
+
+vi.mock("next-auth", () => ({
+  default: nextAuthFactoryMock,
+}));
+
+vi.mock("next-auth/providers/credentials", () => ({
+  default: credentialsProviderMock,
+}));
 
 const databaseUrl = process.env.DATABASE_URL_TEST?.trim() ?? "";
 const integration = databaseUrl ? describe.sequential : describe.skip;
@@ -110,6 +134,7 @@ integration("credentials auth flow", () => {
       id: activeUser.id,
       email: "active@example.com",
       role: "user",
+      passwordChangedAt: activeUser.passwordChangedAt.toISOString(),
     });
 
     const wrongPasswordResult = await authorize(
@@ -140,6 +165,48 @@ integration("credentials auth flow", () => {
       new Request("http://localhost/api/auth/callback/credentials"),
     );
     expect(inactiveResult).toBeNull();
+  });
+
+  it("locks repeated failed credential attempts before allowing another sign-in", async () => {
+    const authorize = getCredentialsAuthorize();
+    const password = "StrongPassword123";
+    const user = await prisma.user.create({
+      data: {
+        email: "lockout@example.com",
+        name: "Lockout User",
+        role: Role.USER,
+        passwordHash: await hashPassword(password),
+        isActive: true,
+      },
+    });
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const result = await authorize(
+        {
+          email: "lockout@example.com",
+          password: "WrongPassword123",
+        },
+        new Request("http://localhost/api/auth/callback/credentials"),
+      );
+      expect(result).toBeNull();
+    }
+
+    const lockedUser = await prisma.user.findUniqueOrThrow({
+      where: {
+        id: user.id,
+      },
+    });
+    expect(lockedUser.failedLoginCount).toBe(5);
+    expect(lockedUser.lockedUntil).not.toBeNull();
+
+    const result = await authorize(
+      {
+        email: "lockout@example.com",
+        password,
+      },
+      new Request("http://localhost/api/auth/callback/credentials"),
+    );
+    expect(result).toBeNull();
   });
 
   it("authorizes the seeded initial admin credentials", async () => {

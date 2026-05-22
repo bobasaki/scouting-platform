@@ -43,7 +43,9 @@ describe("password hashing", () => {
     await expect(verifyPassword("DirectoryIndependentPass123", hash)).resolves.toBe(true);
   });
 
-  it("rejects short passwords", async () => {
-    await expect(hashPassword("short")).rejects.toThrow("at least 8 characters");
+  it("rejects passwords that do not meet the account policy", async () => {
+    await expect(hashPassword("short1")).rejects.toThrow("12 to 128 characters");
+    await expect(hashPassword("NoDigitsHere")).rejects.toThrow("one letter and one number");
+    await expect(hashPassword("1234567890123")).rejects.toThrow("one letter and one number");
   });
 });

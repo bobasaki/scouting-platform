@@ -27,6 +27,7 @@ docs/
 ├── ADR-001-architecture.md
 ├── ADR-002-data-ownership-and-precedence.md
 ├── ADR-003-repository-layout-simplification.md
+├── ADR-004-account-security-hardening.md
 ├── patterns/
 ├── plans/
 └── setup/
@@ -49,6 +50,7 @@ Create an ADR when changing:
 | ADR-001 | Original monorepo shape and service boundaries | Accepted, historical |
 | ADR-002 | Catalog canonical model and data precedence | Accepted |
 | ADR-003 | Repository layout simplification | Accepted |
+| ADR-004 | Account security hardening | Accepted |
 
 Use ADR-003 for current repository paths. Treat ADR-001 as historical context rather than the living source of truth for the current layout.
 

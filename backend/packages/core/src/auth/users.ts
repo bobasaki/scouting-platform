@@ -9,13 +9,19 @@ import type {
 import { prisma, withDbTransaction } from "@scouting-platform/db";
 
 import { ServiceError } from "../errors";
-import { hashPassword } from "./password";
+import { hashPassword, verifyPassword } from "./password";
 import {
   fromPrismaRole,
   fromPrismaUserType,
   toPrismaRole,
   toPrismaUserType,
 } from "./roles";
+
+export const LOGIN_FAILURE_LOCK_THRESHOLD = 5;
+export const LOGIN_LOCK_DURATION_MS = 15 * 60 * 1000;
+
+const DUMMY_PASSWORD_HASH =
+  "$argon2id$v=19$m=19456,t=2,p=1$ErxqKPOrPNy2Q6MOjBTetQ$PkqfSFEB+UKOWlxkUkXqlbajphpT81w4YVUB7Fv5NvE";
 
 type UserWithYoutubeCredential = {
   id: string;
@@ -97,26 +103,183 @@ export type CredentialsUserRecord = {
   name: string | null;
   role: "admin" | "user";
   passwordHash: string;
+  passwordChangedAt: Date;
   isActive: boolean;
 };
 
-export async function findUserForCredentials(email: string): Promise<CredentialsUserRecord | null> {
-  const normalizedEmail = normalizeEmail(email);
+type CredentialLoginUserRecord = CredentialsUserRecord & {
+  failedLoginCount: number;
+  lockedUntil: Date | null;
+};
+
+function addMilliseconds(date: Date, milliseconds: number): Date {
+  return new Date(date.getTime() + milliseconds);
+}
+
+function isLocked(user: { lockedUntil: Date | null }, now: Date): boolean {
+  return Boolean(user.lockedUntil && user.lockedUntil.getTime() > now.getTime());
+}
+
+async function verifyAgainstDummyHash(password: string): Promise<void> {
+  try {
+    await verifyPassword(password || "invalid-password", DUMMY_PASSWORD_HASH);
+  } catch {
+    // Keep rejected credential paths generic even if the local argon2 binding fails.
+  }
+}
+
+async function recordFailedLogin(user: CredentialLoginUserRecord, now: Date): Promise<void> {
+  await withDbTransaction(async (tx) => {
+    const updated = await tx.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        failedLoginCount: {
+          increment: 1,
+        },
+        lastFailedLoginAt: now,
+      },
+      select: {
+        failedLoginCount: true,
+      },
+    });
+
+    if (updated.failedLoginCount < LOGIN_FAILURE_LOCK_THRESHOLD) {
+      return;
+    }
+
+    const lockedUntil = addMilliseconds(now, LOGIN_LOCK_DURATION_MS);
+
+    await tx.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        lockedUntil,
+      },
+    });
+
+    await tx.auditEvent.create({
+      data: {
+        actorUserId: user.id,
+        action: "user.login.locked",
+        entityType: "user",
+        entityId: user.id,
+        metadata: {
+          failedLoginCount: updated.failedLoginCount,
+          lockedUntil: lockedUntil.toISOString(),
+        },
+      },
+    });
+  });
+}
+
+async function recordSuccessfulLogin(userId: string, now: Date): Promise<void> {
+  await prisma.user.update({
+    where: {
+      id: userId,
+    },
+    data: {
+      failedLoginCount: 0,
+      lastFailedLoginAt: null,
+      lockedUntil: null,
+      lastLoginAt: now,
+    },
+  });
+}
+
+export async function authenticateUserCredentials(input: {
+  email: string;
+  password: string;
+  now?: Date;
+}): Promise<CredentialsUserRecord | null> {
+  const normalizedEmail = normalizeEmail(input.email);
+  const now = input.now ?? new Date();
   const user = await prisma.user.findUnique({
-    where: { email: normalizedEmail },
+    where: {
+      email: normalizedEmail,
+    },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      passwordHash: true,
+      passwordChangedAt: true,
+      isActive: true,
+      failedLoginCount: true,
+      lockedUntil: true,
+    },
   });
 
-  if (!user) {
+  if (!user || !user.isActive || isLocked(user, now)) {
+    await verifyAgainstDummyHash(input.password);
     return null;
   }
 
-  return {
+  const isPasswordValid = await verifyPassword(input.password, user.passwordHash);
+  const credentialUser: CredentialLoginUserRecord = {
     id: user.id,
     email: user.email,
     name: user.name,
     role: fromPrismaRole(user.role),
     passwordHash: user.passwordHash,
+    passwordChangedAt: user.passwordChangedAt,
     isActive: user.isActive,
+    failedLoginCount: user.failedLoginCount,
+    lockedUntil: user.lockedUntil,
+  };
+
+  if (!isPasswordValid) {
+    await recordFailedLogin(credentialUser, now);
+    return null;
+  }
+
+  await recordSuccessfulLogin(user.id, now);
+
+  return credentialUser;
+}
+
+export async function getSessionUserAccess(input: {
+  userId: string;
+  passwordChangedAt?: string | null;
+  sessionIssuedAt?: number | null;
+}): Promise<{ id: string; role: "admin" | "user" } | null> {
+  const user = await prisma.user.findUnique({
+    where: {
+      id: input.userId,
+    },
+    select: {
+      id: true,
+      role: true,
+      isActive: true,
+      passwordChangedAt: true,
+    },
+  });
+
+  if (!user || !user.isActive) {
+    return null;
+  }
+
+  const tokenPasswordChangedAt =
+    typeof input.passwordChangedAt === "string" ? Date.parse(input.passwordChangedAt) : Number.NaN;
+
+  if (Number.isFinite(tokenPasswordChangedAt) && user.passwordChangedAt.getTime() > tokenPasswordChangedAt) {
+    return null;
+  }
+
+  if (!Number.isFinite(tokenPasswordChangedAt) && typeof input.sessionIssuedAt === "number") {
+    const issuedAtMs = input.sessionIssuedAt * 1000;
+
+    if (user.passwordChangedAt.getTime() > issuedAtMs) {
+      return null;
+    }
+  }
+
+  return {
+    id: user.id,
+    role: fromPrismaRole(user.role),
   };
 }
 
@@ -150,12 +313,12 @@ export async function createUser(
           action: "user.created",
           entityType: "user",
           entityId: user.id,
-        metadata: {
+          metadata: {
             role: normalizedRole,
             userType: fromPrismaUserType(normalizedUserType),
+          },
         },
-      },
-    });
+      });
 
       return user.id;
     });
@@ -218,6 +381,10 @@ export async function updateUserPassword(input: {
       },
       data: {
         passwordHash,
+        passwordChangedAt: new Date(),
+        failedLoginCount: 0,
+        lastFailedLoginAt: null,
+        lockedUntil: null,
       },
     });
 
