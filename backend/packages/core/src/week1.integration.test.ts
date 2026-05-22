@@ -202,6 +202,7 @@ integration("week 1 core integration", () => {
       }),
     ).resolves.toEqual({
       id: user.id,
+      email: "session-user@example.com",
       role: "user",
     });
 
@@ -221,6 +222,7 @@ integration("week 1 core integration", () => {
       }),
     ).resolves.toEqual({
       id: user.id,
+      email: "session-user@example.com",
       role: "admin",
     });
 

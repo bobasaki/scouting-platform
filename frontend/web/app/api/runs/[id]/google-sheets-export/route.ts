@@ -55,6 +55,7 @@ export async function POST(
     const result = await exportHubspotRunToGoogleSheets({
       runId: params.data.id,
       userId: session.userId,
+      userEmail: session.userEmail,
       role: session.role,
       request: body.data,
     });

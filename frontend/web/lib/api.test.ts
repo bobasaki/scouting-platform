@@ -72,7 +72,11 @@ describe("api route auth guards", () => {
         sessionIssuedAt: 1_779_357_600,
       },
     });
-    getSessionUserAccessMock.mockResolvedValueOnce({ id: "user-1", role: "user" });
+    getSessionUserAccessMock.mockResolvedValueOnce({
+      id: "user-1",
+      email: "user-1@example.com",
+      role: "user",
+    });
 
     const result = await requireAdminSession();
 
@@ -94,11 +98,36 @@ describe("api route auth guards", () => {
         role: "user",
       },
     });
-    getSessionUserAccessMock.mockResolvedValueOnce({ id: "admin-1", role: "admin" });
+    getSessionUserAccessMock.mockResolvedValueOnce({
+      id: "admin-1",
+      email: "admin-1@example.com",
+      role: "admin",
+    });
 
     await expect(requireAdminSession()).resolves.toEqual({
       ok: true,
       userId: "admin-1",
+    });
+  });
+
+  it("returns the database email alongside the role for authenticated sessions", async () => {
+    authMock.mockResolvedValueOnce({
+      user: {
+        id: "user-2",
+        role: "user",
+      },
+    });
+    getSessionUserAccessMock.mockResolvedValueOnce({
+      id: "user-2",
+      email: "user-2@example.com",
+      role: "user",
+    });
+
+    await expect(requireAuthenticatedSession()).resolves.toEqual({
+      ok: true,
+      userId: "user-2",
+      userEmail: "user-2@example.com",
+      role: "user",
     });
   });
 });

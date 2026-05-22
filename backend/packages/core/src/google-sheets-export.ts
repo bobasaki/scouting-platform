@@ -491,10 +491,21 @@ function parseGoogleSheetsExportRequest(request: ExportRunToGoogleSheetsRequest)
 export async function exportHubspotRunToGoogleSheets(input: {
   runId: string;
   userId: string;
+  userEmail: string;
   role: "admin" | "user";
   request: ExportRunToGoogleSheetsRequest;
 }): Promise<ExportRunToGoogleSheetsResponse> {
   const { parsedRequest, spreadsheetId } = parseGoogleSheetsExportRequest(input.request);
+
+  const subjectEmail = input.userEmail.trim();
+
+  if (!subjectEmail) {
+    throw new ServiceError(
+      "GOOGLE_SHEETS_IMPERSONATION_EMAIL_MISSING",
+      500,
+      "Cannot export to Google Sheets: the signed-in user has no email on record",
+    );
+  }
 
   const preview = await getHubspotExportPreview({
     runId: input.runId,
@@ -511,7 +522,7 @@ export async function exportHubspotRunToGoogleSheets(input: {
   }
 
   try {
-    const accessToken = await getGoogleSheetsAccessToken();
+    const accessToken = await getGoogleSheetsAccessToken({ subjectEmail });
     const headerRow = await readGoogleSheetsHeaderRow({
       spreadsheetId,
       sheetName: parsedRequest.sheetName,

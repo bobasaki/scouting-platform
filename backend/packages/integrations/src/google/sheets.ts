@@ -118,18 +118,21 @@ function createSignedJwt(input: {
   clientEmail: string;
   privateKey: string;
   tokenUrl: string;
+  subjectEmail?: string;
 }): string {
   const issuedAtSeconds = Math.floor(Date.now() / 1000);
   const header = encodeJwtPart({
     alg: "RS256",
     typ: "JWT",
   });
+  const subject = input.subjectEmail?.trim();
   const claimSet = encodeJwtPart({
     iss: input.clientEmail,
     scope: GOOGLE_SHEETS_SCOPE,
     aud: input.tokenUrl,
     exp: issuedAtSeconds + 3600,
     iat: issuedAtSeconds,
+    ...(subject ? { sub: subject } : {}),
   });
   const unsignedToken = `${header}.${claimSet}`;
   const signer = createSign("RSA-SHA256");
@@ -207,6 +210,7 @@ function toGoogleSheetsError(
 export async function getGoogleSheetsAccessToken(input?: {
   clientEmail?: string;
   privateKey?: string;
+  subjectEmail?: string;
   fetchFn?: FetchLike;
   tokenUrl?: string;
 }): Promise<string> {
@@ -217,6 +221,7 @@ export async function getGoogleSheetsAccessToken(input?: {
     clientEmail: credentials.clientEmail,
     privateKey: credentials.privateKey,
     tokenUrl,
+    ...(input?.subjectEmail ? { subjectEmail: input.subjectEmail } : {}),
   });
 
   const response = await fetchFn(tokenUrl, {

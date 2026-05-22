@@ -62,6 +62,58 @@ describe("google sheets adapter", () => {
     expect(String(fetchFn.mock.calls[0]?.[0] ?? "")).toBe("https://oauth2.googleapis.com/token");
   });
 
+  it("includes the impersonated user as the JWT subject when subjectEmail is provided", async () => {
+    let capturedAssertion = "";
+    const fetchFn = vi.fn(async (...args: Parameters<typeof fetch>) => {
+      const init = args[1] as RequestInit | undefined;
+      const body = typeof init?.body === "string" ? init.body : "";
+      capturedAssertion = new URLSearchParams(body).get("assertion") ?? "";
+
+      return new Response(JSON.stringify({ access_token: "impersonated-token" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
+
+    await getGoogleSheetsAccessToken({
+      clientEmail: "service-account@example.iam.gserviceaccount.com",
+      privateKey: createPrivateKey(),
+      subjectEmail: "real-user@arch.agency",
+      fetchFn,
+    });
+
+    const [, claimSet] = capturedAssertion.split(".");
+    const claims = JSON.parse(Buffer.from(claimSet ?? "", "base64url").toString("utf8"));
+
+    expect(claims.iss).toBe("service-account@example.iam.gserviceaccount.com");
+    expect(claims.sub).toBe("real-user@arch.agency");
+  });
+
+  it("omits the JWT subject claim when no subjectEmail is provided", async () => {
+    let capturedAssertion = "";
+    const fetchFn = vi.fn(async (...args: Parameters<typeof fetch>) => {
+      const init = args[1] as RequestInit | undefined;
+      const body = typeof init?.body === "string" ? init.body : "";
+      capturedAssertion = new URLSearchParams(body).get("assertion") ?? "";
+
+      return new Response(JSON.stringify({ access_token: "google-token" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
+
+    await getGoogleSheetsAccessToken({
+      clientEmail: "service-account@example.iam.gserviceaccount.com",
+      privateKey: createPrivateKey(),
+      fetchFn,
+    });
+
+    const [, claimSet] = capturedAssertion.split(".");
+    const claims = JSON.parse(Buffer.from(claimSet ?? "", "base64url").toString("utf8"));
+
+    expect(claims.sub).toBeUndefined();
+  });
+
   it("names the required environment variables when credentials are missing", async () => {
     vi.stubEnv("GOOGLE_SERVICE_ACCOUNT_EMAIL", "");
     vi.stubEnv("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY", "");

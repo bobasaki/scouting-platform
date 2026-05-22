@@ -40,6 +40,7 @@ export function toRouteErrorResponse(error: unknown): NextResponse {
 
 type VerifiedSession = {
   userId: string;
+  userEmail: string;
   role: "admin" | "user";
 };
 
@@ -63,6 +64,7 @@ async function getVerifiedSession(): Promise<VerifiedSession | null> {
 
   return {
     userId: access.id,
+    userEmail: access.email,
     role: access.role,
   };
 }
@@ -102,7 +104,7 @@ export async function requireAdminSession(): Promise<
 }
 
 export async function requireAuthenticatedSession(): Promise<
-  | { ok: true; userId: string; role: "admin" | "user" }
+  | { ok: true; userId: string; userEmail: string; role: "admin" | "user" }
   | { ok: false; response: NextResponse }
 > {
   const session = await getVerifiedSession();
@@ -114,6 +116,7 @@ export async function requireAuthenticatedSession(): Promise<
   return {
     ok: true,
     userId: session.userId,
+    userEmail: session.userEmail,
     role: session.role,
   };
 }

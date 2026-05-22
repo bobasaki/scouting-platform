@@ -245,13 +245,14 @@ export async function getSessionUserAccess(input: {
   userId: string;
   passwordChangedAt?: string | null;
   sessionIssuedAt?: number | null;
-}): Promise<{ id: string; role: "admin" | "user" } | null> {
+}): Promise<{ id: string; email: string; role: "admin" | "user" } | null> {
   const user = await prisma.user.findUnique({
     where: {
       id: input.userId,
     },
     select: {
       id: true,
+      email: true,
       role: true,
       isActive: true,
       passwordChangedAt: true,
@@ -279,6 +280,7 @@ export async function getSessionUserAccess(input: {
 
   return {
     id: user.id,
+    email: user.email,
     role: fromPrismaRole(user.role),
   };
 }

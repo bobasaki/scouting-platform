@@ -293,6 +293,7 @@ describe("google sheets export core service", () => {
     const result = await exportHubspotRunToGoogleSheets({
       runId: "11111111-1111-4111-8111-111111111111",
       userId: "user-1",
+      userEmail: "user-1@arch.agency",
       role: "user",
       request: {
         spreadsheetIdOrUrl: "https://docs.google.com/spreadsheets/d/spreadsheet-1/edit",
@@ -300,6 +301,9 @@ describe("google sheets export core service", () => {
       },
     });
 
+    expect(getGoogleSheetsAccessTokenMock).toHaveBeenCalledWith({
+      subjectEmail: "user-1@arch.agency",
+    });
     expect(getHubspotExportPreviewMock).toHaveBeenCalledWith({
       runId: "11111111-1111-4111-8111-111111111111",
       userId: "user-1",
@@ -568,6 +572,7 @@ describe("google sheets export core service", () => {
       exportHubspotRunToGoogleSheets({
         runId: "11111111-1111-4111-8111-111111111111",
         userId: "user-1",
+        userEmail: "user-1@arch.agency",
         role: "user",
         request: {
           spreadsheetIdOrUrl: "not-a-sheet",
@@ -577,6 +582,24 @@ describe("google sheets export core service", () => {
     ).rejects.toMatchObject({
       code: "GOOGLE_SHEETS_SPREADSHEET_INVALID",
       status: 400,
+    } satisfies Partial<ServiceError>);
+  });
+
+  it("rejects exports when the signed-in user has no email on record", async () => {
+    await expect(
+      exportHubspotRunToGoogleSheets({
+        runId: "11111111-1111-4111-8111-111111111111",
+        userId: "user-1",
+        userEmail: "   ",
+        role: "user",
+        request: {
+          spreadsheetIdOrUrl: "https://docs.google.com/spreadsheets/d/spreadsheet-1/edit",
+          sheetName: "Scouting Export",
+        },
+      }),
+    ).rejects.toMatchObject({
+      code: "GOOGLE_SHEETS_IMPERSONATION_EMAIL_MISSING",
+      status: 500,
     } satisfies Partial<ServiceError>);
   });
 });
