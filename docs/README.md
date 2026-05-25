@@ -2,16 +2,19 @@
 
 ## Quick Start for AI Agents
 
-1. Read [`/CODEX_QUICKREF.md`](../CODEX_QUICKREF.md) first
-2. Check [`/TASKS.md`](../TASKS.md) for current work
-3. Copy from [`/docs/patterns/`](./patterns/README.md) when writing new code
+1. Read [`/AGENTS.md`](../AGENTS.md) for full agent policy
+2. Read [`/docs/CODEX_QUICKREF.md`](./CODEX_QUICKREF.md) for the condensed rules
+3. Check [`/docs/TASKS.md`](./TASKS.md) for current work
+4. Copy from [`/docs/patterns/`](./patterns/README.md) when writing new code
 
 ## Living Docs
 
 These files should reflect the current implementation:
 - [`/README.md`](../README.md)
-- [`/PROJECTS_SPECS.md`](../PROJECTS_SPECS.md)
-- [`/ARCHITECTURE.md`](../ARCHITECTURE.md)
+- [`/AGENTS.md`](../AGENTS.md)
+- [`/docs/PROJECT_SPEC.md`](./PROJECT_SPEC.md)
+- [`/docs/ARCHITECTURE.md`](./ARCHITECTURE.md)
+- [`/docs/CODEX_QUICKREF.md`](./CODEX_QUICKREF.md)
 - [`/docs/EVALUATION.md`](./EVALUATION.md)
 - this file
 
@@ -21,8 +24,11 @@ Files under [`/docs/plans/`](./plans/) are future-work documents, not current-st
 
 ```text
 docs/
-├── AGENTS.md
 ├── README.md
+├── ARCHITECTURE.md
+├── CODEX_QUICKREF.md
+├── PROJECT_SPEC.md
+├── TASKS.md
 ├── EVALUATION.md
 ├── ADR-001-architecture.md
 ├── ADR-002-data-ownership-and-precedence.md
@@ -32,6 +38,8 @@ docs/
 ├── plans/
 └── setup/
 ```
+
+The top-level [`/AGENTS.md`](../AGENTS.md) governs agent and contributor policy.
 
 ## ADRs
 

@@ -80,6 +80,55 @@ Set these on `scouting-worker`:
 - `HYPEAUDITOR_API_KEY` if advanced reports are enabled
 - `HUBSPOT_API_KEY` if HubSpot flows are enabled
 
+### HubSpot client/campaign custom object sync
+
+The "Sync from HubSpot" flow on the Database page reads/writes HubSpot custom
+objects and needs the following identifiers in addition to `HUBSPOT_API_KEY`.
+The sync job runs in `scouting-worker`, so these MUST be set on the worker.
+Set the same values on `scouting-web` too so admin UI validation paths stay
+consistent.
+
+Required:
+
+- `HUBSPOT_CLIENT_OBJECT_TYPE`
+- `HUBSPOT_CLIENT_NAME_PROPERTY`
+- `HUBSPOT_CAMPAIGN_OBJECT_TYPE`
+- `HUBSPOT_CAMPAIGN_NAME_PROPERTY`
+- exactly one of `HUBSPOT_CAMPAIGN_CLIENT_OBJECT_ID_PROPERTY` or
+  `HUBSPOT_CAMPAIGN_CLIENT_ASSOCIATION_TYPE_ID` (setting both raises
+  `HUBSPOT_OBJECT_SYNC_CONFIG_AMBIGUOUS`)
+
+Optional (set only the properties your HubSpot portal actually exposes):
+
+- `HUBSPOT_CLIENT_DOMAIN_PROPERTY`
+- `HUBSPOT_CLIENT_COUNTRY_REGION_PROPERTY`
+- `HUBSPOT_CLIENT_CITY_PROPERTY`
+- `HUBSPOT_CLIENT_ACTIVE_PROPERTY`
+- `HUBSPOT_CAMPAIGN_MARKET_PROPERTY`
+- `HUBSPOT_CAMPAIGN_BRIEF_LINK_PROPERTY`
+- `HUBSPOT_CAMPAIGN_MONTH_PROPERTY`
+- `HUBSPOT_CAMPAIGN_YEAR_PROPERTY`
+- `HUBSPOT_CAMPAIGN_ACTIVE_PROPERTY`
+
+Missing a required value surfaces in the UI as
+`HubSpot sync failed: <NAME> is required for HubSpot Client/Campaign custom
+object sync`. The fastest way to recover an existing deploy is to copy the
+values from a known-good environment:
+
+```bash
+# inspect what staging has set
+ssh dokku@<staging-host> -- config:export scouting-worker | grep ^HUBSPOT_
+
+# then apply the same values on the broken host
+ssh dokku@<prod-host> -- config:set --no-restart scouting-worker \
+  HUBSPOT_CLIENT_OBJECT_TYPE='...' \
+  HUBSPOT_CLIENT_NAME_PROPERTY='...' \
+  HUBSPOT_CAMPAIGN_OBJECT_TYPE='...' \
+  HUBSPOT_CAMPAIGN_NAME_PROPERTY='...' \
+  HUBSPOT_CAMPAIGN_CLIENT_OBJECT_ID_PROPERTY='...'
+# repeat for scouting-web, drop --no-restart on the last call
+```
+
 Notes:
 
 - quote secrets if they contain `$`, `:`, spaces, or other shell-sensitive characters

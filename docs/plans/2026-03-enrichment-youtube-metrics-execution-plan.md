@@ -69,7 +69,7 @@ This plan therefore **extends the current enrichment model**. It does not introd
 
 # Relationship to Backlog
 
-`/TASKS.md` remains authoritative.
+`/docs/TASKS.md` remains authoritative.
 
 Week 6 backend work is complete on Ivan's side. Week 6 still has open UI work on Marin's side.
 

@@ -32,9 +32,9 @@ The repository currently defines resolved field precedence as:
 
 This order appears in:
 
-- [PROJECTS_SPECS.md](/Users/ivanbobas/Projects/scouting-platform/PROJECTS_SPECS.md)
-- [ARCHITECTURE.md](/Users/ivanbobas/Projects/scouting-platform/ARCHITECTURE.md)
-- [AGENTS.md](/Users/ivanbobas/Projects/scouting-platform/AGENTS.md)
+- [PROJECT_SPEC.md](../PROJECT_SPEC.md)
+- [ARCHITECTURE.md](../ARCHITECTURE.md)
+- [AGENTS.md](../../AGENTS.md)
 
 Under the current rules, CSV imports are intentionally authoritative over all automated/provider
 sources except manual admin edits.

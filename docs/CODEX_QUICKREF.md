@@ -89,12 +89,12 @@ See `docs/patterns/` for working examples:
 
 | Need | Document |
 |------|----------|
-| Full architecture | `/ARCHITECTURE.md` |
-| Product scope | `/PROJECTS_SPECS.md` |
-| Current tasks | `/TASKS.md` |
-| Agent rules (full) | `/docs/AGENTS.md` |
-| ADR template | `/docs/README.md` |
-| Local setup | `/docs/setup/local.md` |
+| Full architecture | [`/docs/ARCHITECTURE.md`](./ARCHITECTURE.md) |
+| Product scope | [`/docs/PROJECT_SPEC.md`](./PROJECT_SPEC.md) |
+| Current tasks | [`/docs/TASKS.md`](./TASKS.md) |
+| Agent rules (full) | [`/AGENTS.md`](../AGENTS.md) |
+| ADR template | [`/docs/README.md`](./README.md) |
+| Local setup | [`/docs/setup/local.md`](./setup/local.md) |
 
 ---
 

@@ -3,8 +3,8 @@
 Current-state architecture for `scouting-platform` as of 2026-04-01.
 
 Historical note:
-- [docs/ADR-001-architecture.md](./docs/ADR-001-architecture.md) preserves the original monorepo/service-boundary decision.
-- [docs/ADR-003-repository-layout-simplification.md](./docs/ADR-003-repository-layout-simplification.md) is the accepted ADR that governs the current repository layout.
+- [ADR-001-architecture.md](./ADR-001-architecture.md) preserves the original monorepo/service-boundary decision.
+- [ADR-003-repository-layout-simplification.md](./ADR-003-repository-layout-simplification.md) is the accepted ADR that governs the current repository layout.
 
 ## 1. System Shape
 
@@ -30,7 +30,7 @@ The following rules remain architectural constraints, not implementation prefere
 9. Every async workflow persists status, timestamps, and `lastError`.
 10. Every privileged action emits an audit event.
 
-Any change to these rules requires an ADR in [`/docs`](./docs/README.md).
+Any change to these rules requires an ADR in [`/docs`](./README.md).
 
 ## 3. Repository Layout
 
@@ -307,7 +307,7 @@ Current job names are:
 - `hubspot.push.batch`
 - `maintenance.refresh-stale`
 
-Every job family uses stable payload contracts in [`shared/packages/contracts/src/jobs.ts`](./shared/packages/contracts/src/jobs.ts), and every persisted workflow stores status/timestamps/`lastError`.
+Every job family uses stable payload contracts in [`shared/packages/contracts/src/jobs.ts`](../shared/packages/contracts/src/jobs.ts), and every persisted workflow stores status/timestamps/`lastError`.
 
 ## 12. Security Rules
 

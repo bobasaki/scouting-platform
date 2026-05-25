@@ -71,7 +71,7 @@ architecture.
 
 # Relationship to Backlog
 
-`/TASKS.md` remains authoritative.
+`/docs/TASKS.md` remains authoritative.
 
 This plan should be treated as an additive backend hardening slice after the delivered Week 3-6
 backend foundations. It should not be treated as a user-visible scope expansion.

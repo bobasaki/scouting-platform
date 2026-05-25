@@ -5,9 +5,10 @@ Internal creator scouting platform organized around active campaigns, run snapsh
 ## Quick Start for AI Agents
 
 ```text
-1. Read /CODEX_QUICKREF.md
-2. Read /TASKS.md
-3. Copy from /docs/patterns/
+1. Read /AGENTS.md
+2. Read /docs/CODEX_QUICKREF.md
+3. Read /docs/TASKS.md
+4. Copy from /docs/patterns/
 ```
 
 ## Current Product Summary
@@ -72,26 +73,33 @@ shared/
     contracts/
     config/
 docs/
-  AGENTS.md
+  ARCHITECTURE.md
+  CODEX_QUICKREF.md
+  PROJECT_SPEC.md
+  TASKS.md
+  README.md
+  EVALUATION.md
   ADR-001-architecture.md
   ADR-002-data-ownership-and-precedence.md
   ADR-003-repository-layout-simplification.md
-  EVALUATION.md
-  README.md
+  ADR-004-account-security-hardening.md
   patterns/
   plans/
   setup/
-CODEX_QUICKREF.md
+AGENTS.md
+README.md
 ```
 
 ## Primary Docs
 
 | Document | Purpose |
 |----------|---------|
-| [`/CODEX_QUICKREF.md`](./CODEX_QUICKREF.md) | Condensed contributor rules |
 | [`/README.md`](./README.md) | Project overview and onboarding |
-| [`/PROJECTS_SPECS.md`](./PROJECTS_SPECS.md) | Current product behavior |
-| [`/ARCHITECTURE.md`](./ARCHITECTURE.md) | Current technical architecture |
+| [`/AGENTS.md`](./AGENTS.md) | Agent and contributor policy |
+| [`/docs/CODEX_QUICKREF.md`](./docs/CODEX_QUICKREF.md) | Condensed contributor rules |
+| [`/docs/PROJECT_SPEC.md`](./docs/PROJECT_SPEC.md) | Current product behavior |
+| [`/docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Current technical architecture |
+| [`/docs/TASKS.md`](./docs/TASKS.md) | Milestone plan and historical work split |
 | [`/docs/EVALUATION.md`](./docs/EVALUATION.md) | Evidence-based repo evaluation |
 | [`/docs/ADR-003-repository-layout-simplification.md`](./docs/ADR-003-repository-layout-simplification.md) | Accepted current repo layout ADR |
 | [`/docs/ADR-001-architecture.md`](./docs/ADR-001-architecture.md) | Historical original repo-shape/service-boundary ADR |

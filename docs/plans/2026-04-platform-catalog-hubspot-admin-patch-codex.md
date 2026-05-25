@@ -24,7 +24,7 @@ This is a multi-run patch. Do not try to land it as one giant PR unless the code
 
 ## Important Constraints
 
-Follow `docs/AGENTS.md` and `CODEX_QUICKREF.md`.
+Follow `/AGENTS.md` and `/docs/CODEX_QUICKREF.md`.
 
 - Provider calls stay in `backend/packages/integrations`.
 - Domain logic stays in `backend/packages/core`.
