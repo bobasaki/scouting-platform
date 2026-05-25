@@ -10937,3 +10937,418 @@ textarea:focus-visible,
     min-height: 2.5rem;
   }
 }
+
+/* ============================================================
+   Responsive — Comprehensive page-by-page overrides
+   Catches every multi-column grid, side-by-side hero, and flex-
+   row toolbar in the app and collapses/stacks them at small
+   widths. Ordered last so it wins the cascade without !important.
+   ============================================================ */
+
+/* ----- Mobile (≤640px): collapse ALL multi-column grids ----- */
+@media (max-width: 640px) {
+  .run-create__highlights,
+  .run-detail__meta-grid,
+  .recent-runs__meta-grid,
+  .new-scouting__grid--two,
+  .new-scouting__grid--three,
+  .dashboard-workspace__filters,
+  .dashboard-workspace__summary,
+  .dashboard-workspace__quick-filters,
+  .database-runs__meta-grid,
+  .admin-users__form-grid,
+  .admin-csv-imports__toolbar,
+  .admin-csv-imports__layout,
+  .admin-csv-imports__details,
+  .admin-csv-imports__quick-facts,
+  .admin-csv-imports__column-list,
+  .admin-dashboard__toolbar,
+  .admin-dashboard__card-grid,
+  .admin-dashboard__panel-grid,
+  .admin-dashboard__shortcut-grid,
+  .user-account-detail__grid,
+  .channel-detail-shell__hero,
+  .channel-detail-shell__grid,
+  .channel-detail-shell__insights-grid,
+  .channel-detail-shell__details--compact,
+  .channel-detail-shell__manual-edit-list,
+  .channel-detail-shell__manual-edit-actions,
+  .channel-detail-shell__profile-grid,
+  .csv-export__layout,
+  .csv-export__details,
+  .csv-export__form-grid,
+  .hubspot-push__layout,
+  .hubspot-push__details,
+  .campaigns-workspace__filters,
+  .export-prep__defaults-grid,
+  .export-prep__defaults-summary,
+  .catalog-layout,
+  .catalog-card-grid,
+  .catalog-card,
+  .catalog-table__filters,
+  .catalog-table__filters-grid,
+  .database-records__filters,
+  .creator-profile__hero,
+  .creator-profile__hero-main,
+  .creator-profile__hero-meta,
+  .creator-profile__layout,
+  .creator-profile__kpis,
+  .creator-detail-list,
+  .creator-detail-list--inline,
+  .page-section__header,
+  .page-section__header-inner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Force ALL run-detail / recent-runs / database-runs result cards
+     (image + body two-column) to stack image above text */
+  .run-detail__result-card,
+  .database-runs__result-card,
+  .recent-runs__result-card {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
+  }
+
+  /* Stacks ALL toolbar / hero / detail-header flex rows */
+  .channel-detail-shell__feedback,
+  .channel-detail-shell__toolbar,
+  .channel-detail-shell__status-row,
+  .channel-detail-shell__manual-edit-actions,
+  .recent-runs__header,
+  .recent-runs__item-header,
+  .recent-runs__actions,
+  .run-create__actions,
+  .run-detail__panel-header,
+  .run-detail__panel-actions,
+  .catalog-table__segments-actions,
+  .catalog-table__segments-header,
+  .catalog-table__filters-header,
+  .catalog-table__filter-actions,
+  .catalog-table__toolbar,
+  .catalog-table__toolbar-copy,
+  .catalog-table__selection,
+  .catalog-table__selection-actions,
+  .catalog-table__pagination,
+  .catalog-table__segment-item,
+  .catalog-table__segment-item-actions,
+  .database-workspace__tabs,
+  .database-workspace__panel-header,
+  .database-runs__panel-header,
+  .database-runs__detail-hero,
+  .database-runs__header-actions,
+  .database-runs__row-actions,
+  .database-runs__result-header,
+  .database-runs__feedback,
+  .dashboard-workspace__table-header,
+  .dashboard-workspace__row-actions,
+  .new-scouting__actions,
+  .admin-csv-imports__list-item-header,
+  .admin-csv-imports__detail-header,
+  .admin-csv-imports__actions,
+  .admin-csv-imports__pagination,
+  .admin-csv-imports__panel-header,
+  .admin-dashboard__list-item-header,
+  .admin-dashboard__panel-header,
+  .admin-dashboard__toolbar-actions,
+  .csv-export__detail-header,
+  .csv-export__list-item-header,
+  .csv-export__actions,
+  .hubspot-push__list-item-header,
+  .hubspot-push__detail-header,
+  .export-prep__actions,
+  .export-prep__defaults-header,
+  .campaigns-workspace__toolbar,
+  .creator-profile__hero-actions,
+  .creator-profile__chips {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+
+  /* Buttons and links inside stacked rows go full width */
+  .recent-runs__actions > *,
+  .run-create__actions > *,
+  .run-detail__panel-actions > *,
+  .database-runs__header-actions > *,
+  .database-runs__row-actions > *,
+  .dashboard-workspace__row-actions > *,
+  .new-scouting__actions > *,
+  .admin-csv-imports__actions > *,
+  .admin-dashboard__toolbar-actions > *,
+  .csv-export__actions > *,
+  .csv-export__toolbar-actions > *,
+  .hubspot-push__toolbar-actions > *,
+  .export-prep__actions > *,
+  .catalog-table__selection-actions > *,
+  .channel-detail-shell__feedback > *,
+  .channel-detail-shell__manual-edit-actions > * {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  /* Sticky rails / sidebars un-stick on mobile */
+  .catalog-layout__rail,
+  .creator-profile__rail,
+  .channel-detail-shell__rail,
+  .admin-csv-imports__sidebar {
+    position: static;
+    top: auto;
+    width: 100%;
+    max-height: none;
+  }
+
+  /* Make tables scroll horizontally and keep their min-widths */
+  .catalog-table__table-wrap,
+  .admin-users__table-shell,
+  .admin-csv-imports__table-wrap,
+  .database-runs__table-shell,
+  .dashboard-workspace__table-shell,
+  .hubspot-push__table-wrap,
+  .export-prep__table-wrap,
+  .database-records__table-shell,
+  .clients-workspace,
+  .campaigns-workspace {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Give all data tables a sensible min-width so columns don't squish
+     to char-by-char wrapping. The shell scrolls horizontally. */
+  .database-records__table,
+  .admin-csv-imports__table,
+  .hubspot-push__table,
+  .catalog-table__table,
+  .export-prep__table {
+    min-width: 36rem;
+  }
+
+  /* Wider tables (5+ columns) need more room so headers don't stack
+     letter-by-letter in narrow columns. */
+  .admin-users__table,
+  .database-runs__table,
+  .dashboard-workspace__table {
+    min-width: 48rem;
+  }
+
+  /* Reduce letter-spacing on table headers at mobile so caps headers
+     don't wrap unnecessarily. */
+  .admin-users__table th,
+  .database-records__table th,
+  .admin-csv-imports__table th,
+  .catalog-table__table th,
+  .database-runs__table th,
+  .hubspot-push__table th,
+  .dashboard-workspace__table th {
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+
+  /* Compact stat cards, KPI tiles */
+  .stat-card,
+  .creator-kpi {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  /* Form inputs and selects full-width on mobile */
+  .new-scouting__field input,
+  .new-scouting__field textarea,
+  .new-scouting__field select,
+  .csv-export__field input,
+  .csv-export__field select,
+  .admin-users__field input,
+  .admin-users__field select,
+  .admin-csv-imports__field input,
+  .channel-detail-shell__manual-edit-field input,
+  .channel-detail-shell__manual-edit-field textarea {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  /* Breadcrumb / eyebrow tightening */
+  .workspace-eyebrow,
+  .new-scouting-section__eyebrow,
+  .page-section__eyebrow,
+  .page-header__eyebrow {
+    font-size: 0.68rem;
+  }
+
+  /* Filter chip rows wrap better and don't overflow */
+  .catalog-filter-bar,
+  .catalog-filter-bar__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    width: 100%;
+  }
+
+  .catalog-filter-chip,
+  .catalog-filter-chip__trigger {
+    max-width: 100%;
+  }
+
+  /* Searchable selects: full width and proper trigger sizing */
+  .searchable-select,
+  .searchable-multi-select {
+    width: 100%;
+  }
+
+  .searchable-select__trigger,
+  .searchable-multi-select__trigger,
+  .searchable-select__popover,
+  .searchable-multi-select__popover {
+    max-width: 100%;
+  }
+
+  /* Pop-up panels (filter / status / segments) inline on mobile so they
+     never escape the viewport */
+  .catalog-table__filter-popover,
+  .catalog-table__combobox-popover,
+  .catalog-table__segments-popover,
+  .channel-detail-shell__status-popover-panel,
+  .searchable-select__popover,
+  .searchable-multi-select__popover {
+    position: static;
+    width: 100%;
+    margin-top: var(--space-2);
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+
+  /* Page-level section padding and gap */
+  .runs-page,
+  .run-create,
+  .run-detail,
+  .recent-runs,
+  .database-workspace,
+  .database-runs,
+  .new-scouting,
+  .dashboard-workspace,
+  .admin-dashboard,
+  .admin-csv-imports,
+  .admin-users,
+  .csv-export,
+  .hubspot-push,
+  .catalog-table,
+  .catalog-layout,
+  .creator-profile,
+  .channel-detail-shell,
+  .export-prep {
+    gap: var(--space-3);
+  }
+
+  /* Hero/identity blocks: stack avatar + copy */
+  .channel-detail-shell__identity,
+  .creator-profile__identity {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
+
+  .channel-detail-shell__thumbnail,
+  .creator-profile__avatar {
+    width: 4.5rem;
+    height: 4.5rem;
+  }
+
+  /* Eyebrow + h1 spacing */
+  .page-section__header,
+  .channel-detail-shell__hero,
+  .creator-profile__hero {
+    padding: var(--space-4);
+  }
+
+  /* Make all `.page-header__actions` rows wrap cleanly */
+  .page-header__actions {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: var(--space-2);
+  }
+
+  .page-header__actions > * {
+    width: 100%;
+  }
+
+  /* Login brand panel — hidden when the brand split isn't useful at <640 */
+  .login-page--with-brand {
+    grid-template-columns: 1fr;
+  }
+  .login-brand-panel {
+    display: none;
+  }
+
+  /* Avoid horizontal page overflow caused by long words / URLs */
+  .auth-shell__content,
+  .auth-shell__content p,
+  .auth-shell__content h1,
+  .auth-shell__content h2,
+  .auth-shell__content h3,
+  .auth-shell__content code {
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+
+  /* Prevent empty horizontal scrollbar at the document level */
+  html,
+  body {
+    overflow-x: hidden;
+  }
+}
+
+/* ----- Tablet (641–1024px): 3-column grids drop to 2 ----- */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .run-detail__meta-grid,
+  .recent-runs__meta-grid,
+  .database-runs__meta-grid,
+  .new-scouting__grid--three,
+  .admin-csv-imports__layout,
+  .csv-export__layout,
+  .hubspot-push__layout,
+  .channel-detail-shell__hero,
+  .channel-detail-shell__grid,
+  .channel-detail-shell__insights-grid,
+  .channel-detail-shell__profile-grid,
+  .creator-profile__layout,
+  .creator-profile__hero,
+  .catalog-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .csv-export__details,
+  .hubspot-push__details,
+  .admin-csv-imports__details,
+  .admin-dashboard__card-grid,
+  .admin-dashboard__panel-grid,
+  .admin-dashboard__shortcut-grid,
+  .dashboard-workspace__summary,
+  .dashboard-workspace__filters,
+  .channel-detail-shell__details--compact,
+  .channel-detail-shell__manual-edit-list,
+  .creator-profile__kpis,
+  .creator-profile__hero-meta,
+  .creator-detail-list,
+  .creator-detail-list--inline,
+  .campaigns-workspace__filters,
+  .export-prep__defaults-grid,
+  .admin-users__form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Toolbars that were absolutely justified — let them stack neatly */
+  .admin-csv-imports__toolbar,
+  .admin-dashboard__toolbar,
+  .page-section__header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Sticky rails un-stick on tablet too (often too narrow at <=1024) */
+  .catalog-layout__rail,
+  .creator-profile__rail {
+    position: static;
+    width: 100%;
+  }
+}
