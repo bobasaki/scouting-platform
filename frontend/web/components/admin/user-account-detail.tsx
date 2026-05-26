@@ -4,7 +4,11 @@ import type { AdminUserResponse, UserType } from "@scouting-platform/contracts";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
-import { updateAdminUserProfile, updateAdminUserYoutubeKey } from "../../lib/admin-users-api";
+import {
+  updateAdminUserPassword,
+  updateAdminUserProfile,
+  updateAdminUserYoutubeKey,
+} from "../../lib/admin-users-api";
 import { SearchableSelect, type SearchableSelectOption } from "../ui/searchable-select";
 
 type OperationStatus = {
@@ -42,6 +46,22 @@ function formatUserType(userType: UserType): string {
   }
 }
 
+function getPasswordValidationMessage(password: string, passwordConfirmation: string): string | null {
+  if (!password) {
+    return "Password is required.";
+  }
+
+  if (password.length < 12 || password.length > 128 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+    return "Password must be 12 to 128 characters and include at least one letter and one number.";
+  }
+
+  if (password !== passwordConfirmation) {
+    return "Passwords do not match.";
+  }
+
+  return null;
+}
+
 type UserAccountDetailProps = Readonly<{
   user: AdminUserResponse;
 }>;
@@ -55,6 +75,10 @@ export function UserAccountDetail({ user }: UserAccountDetailProps) {
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [profileStatus, setProfileStatus] = useState<OperationStatus>(IDLE_OPERATION_STATUS);
   const [updateStatus, setUpdateStatus] = useState<OperationStatus>(IDLE_OPERATION_STATUS);
+  const [password, setPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [passwordStatus, setPasswordStatus] = useState<OperationStatus>(IDLE_OPERATION_STATUS);
   const userTypeOptions: SearchableSelectOption[] = [
     { value: "campaign_manager", label: "Campaign Manager" },
     { value: "campaign_lead", label: "Campaign Lead" },
@@ -125,6 +149,43 @@ export function UserAccountDetail({ user }: UserAccountDetailProps) {
       });
     } finally {
       setIsUpdatingKey(false);
+    }
+  }
+
+  async function handlePasswordSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+
+    const validationMessage = getPasswordValidationMessage(password, passwordConfirmation);
+
+    if (validationMessage) {
+      setPasswordStatus({
+        type: "error",
+        message: validationMessage,
+      });
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    setPasswordStatus(IDLE_OPERATION_STATUS);
+
+    try {
+      await updateAdminUserPassword(user.id, {
+        password,
+      });
+
+      setPassword("");
+      setPasswordConfirmation("");
+      setPasswordStatus({
+        type: "success",
+        message: "Password updated.",
+      });
+    } catch (error) {
+      setPasswordStatus({
+        type: "error",
+        message: getErrorMessage(error),
+      });
+    } finally {
+      setIsUpdatingPassword(false);
     }
   }
 
@@ -273,6 +334,76 @@ export function UserAccountDetail({ user }: UserAccountDetailProps) {
               role={updateStatus.type === "error" ? "alert" : undefined}
             >
               {updateStatus.message}
+            </p>
+          </form>
+        </section>
+
+        <section
+          aria-labelledby="user-account-detail-password-heading"
+          className="admin-users__panel user-account-detail__panel"
+        >
+          <header>
+            <h2 id="user-account-detail-password-heading">Account password</h2>
+          </header>
+
+          <form
+            className="user-account-detail__form"
+            onSubmit={handlePasswordSubmit}
+            suppressHydrationWarning
+          >
+            <label className="admin-users__field">
+              <span>New password</span>
+              <input
+                autoComplete="new-password"
+                maxLength={128}
+                minLength={12}
+                name="password"
+                onChange={(event) => {
+                  setPassword(event.currentTarget.value);
+                }}
+                required
+                suppressHydrationWarning
+                type="password"
+                value={password}
+              />
+            </label>
+
+            <label className="admin-users__field">
+              <span>Confirm password</span>
+              <input
+                autoComplete="new-password"
+                maxLength={128}
+                minLength={12}
+                name="passwordConfirmation"
+                onChange={(event) => {
+                  setPasswordConfirmation(event.currentTarget.value);
+                }}
+                required
+                suppressHydrationWarning
+                type="password"
+                value={passwordConfirmation}
+              />
+            </label>
+
+            <p className="user-account-detail__helper">
+              Use 12 to 128 characters with at least one letter and one number.
+            </p>
+
+            <button
+              className="admin-users__button"
+              disabled={isUpdatingPassword}
+              suppressHydrationWarning
+              type="submit"
+            >
+              {isUpdatingPassword ? "Updating..." : "Update password"}
+            </button>
+
+            <p
+              aria-live="polite"
+              className={`admin-users__inline-status admin-users__inline-status--${passwordStatus.type}`}
+              role={passwordStatus.type === "error" ? "alert" : undefined}
+            >
+              {passwordStatus.message}
             </p>
           </form>
         </section>

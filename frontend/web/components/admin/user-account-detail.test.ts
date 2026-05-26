@@ -7,8 +7,14 @@ type OperationStatus = {
   message: string;
 };
 
-const { useStateMock, updateAdminUserProfileMock, updateAdminUserYoutubeKeyMock } = vi.hoisted(() => ({
+const {
+  useStateMock,
+  updateAdminUserPasswordMock,
+  updateAdminUserProfileMock,
+  updateAdminUserYoutubeKeyMock,
+} = vi.hoisted(() => ({
   useStateMock: vi.fn(),
+  updateAdminUserPasswordMock: vi.fn(),
   updateAdminUserProfileMock: vi.fn(),
   updateAdminUserYoutubeKeyMock: vi.fn(),
 }));
@@ -39,6 +45,7 @@ vi.mock("next/link", async () => {
 });
 
 vi.mock("../../lib/admin-users-api", () => ({
+  updateAdminUserPassword: updateAdminUserPasswordMock,
   updateAdminUserProfile: updateAdminUserProfileMock,
   updateAdminUserYoutubeKey: updateAdminUserYoutubeKeyMock,
 }));
@@ -66,6 +73,10 @@ function mockComponentState(overrides: {
   profileStatus?: OperationStatus;
   isUpdatingKey?: boolean;
   updateStatus?: OperationStatus;
+  password?: string;
+  passwordConfirmation?: string;
+  isUpdatingPassword?: boolean;
+  passwordStatus?: OperationStatus;
 } = {}) {
   const setName = vi.fn();
   const setUserType = vi.fn();
@@ -75,6 +86,10 @@ function mockComponentState(overrides: {
   const setProfileStatus = vi.fn();
   const setIsUpdatingKey = vi.fn();
   const setUpdateStatus = vi.fn();
+  const setPassword = vi.fn();
+  const setPasswordConfirmation = vi.fn();
+  const setIsUpdatingPassword = vi.fn();
+  const setPasswordStatus = vi.fn();
 
   useStateMock.mockReset();
   useStateMock.mockReturnValueOnce([overrides.name ?? user.name, setName]);
@@ -100,6 +115,22 @@ function mockComponentState(overrides: {
     },
     setUpdateStatus,
   ]);
+  useStateMock.mockReturnValueOnce([overrides.password ?? "", setPassword]);
+  useStateMock.mockReturnValueOnce([
+    overrides.passwordConfirmation ?? "",
+    setPasswordConfirmation,
+  ]);
+  useStateMock.mockReturnValueOnce([
+    overrides.isUpdatingPassword ?? false,
+    setIsUpdatingPassword,
+  ]);
+  useStateMock.mockReturnValueOnce([
+    overrides.passwordStatus ?? {
+      type: "idle",
+      message: "",
+    },
+    setPasswordStatus,
+  ]);
 
   return {
     setName,
@@ -110,6 +141,10 @@ function mockComponentState(overrides: {
     setProfileStatus,
     setIsUpdatingKey,
     setUpdateStatus,
+    setPassword,
+    setPasswordConfirmation,
+    setIsUpdatingPassword,
+    setPasswordStatus,
   };
 }
 
@@ -140,6 +175,16 @@ function findYoutubeKeyForm(
   return forms[1] ?? null;
 }
 
+function findPasswordForm(
+  tree: ReactNode,
+): ReactElement<{ onSubmit: (event: { preventDefault: () => void }) => Promise<void> | void }> | null {
+  const forms = findElementsByType(tree, "form") as Array<
+    ReactElement<{ onSubmit: (event: { preventDefault: () => void }) => Promise<void> | void }>
+  >;
+
+  return forms[2] ?? null;
+}
+
 describe("user account detail", () => {
   const secretSentinel = "AIzaStoredSecretSentinel123";
 
@@ -162,9 +207,11 @@ describe("user account detail", () => {
     );
 
     expect(html).toContain("Account identity");
+    expect(html).toContain("Account password");
     expect(html).toContain("campaign@example.com");
     expect(html).toContain("Missing");
     expect(html).toContain("Assign YouTube API key");
+    expect(html).toContain("Update password");
     expect(html).toContain("The stored key is never shown here.");
     expect(html).toContain("/admin/users");
     expect(html).not.toContain(secretSentinel);
@@ -346,6 +393,100 @@ describe("user account detail", () => {
     expect(JSON.stringify(setters.setUpdateStatus.mock.calls)).not.toContain("yt-secret-123");
     expect(setters.setYoutubeKeyAssigned).not.toHaveBeenCalled();
     expect(setters.setIsUpdatingKey).toHaveBeenLastCalledWith(false);
+  });
+
+  it("submits a password update without exposing the new password", async () => {
+    const nextPassword = "NewStrongPassword123";
+    const setters = mockComponentState({
+      password: nextPassword,
+      passwordConfirmation: nextPassword,
+    });
+    updateAdminUserPasswordMock.mockResolvedValueOnce({
+      ...user,
+      updatedAt: "2026-03-06T10:05:00.000Z",
+    });
+
+    const tree = UserAccountDetail({
+      user,
+    });
+    const form = findPasswordForm(tree);
+
+    expect(form).not.toBeNull();
+
+    await form?.props.onSubmit({
+      preventDefault: vi.fn(),
+    });
+
+    expect(updateAdminUserPasswordMock).toHaveBeenCalledWith(user.id, {
+      password: nextPassword,
+    });
+    expect(setters.setIsUpdatingPassword).toHaveBeenNthCalledWith(1, true);
+    expect(setters.setPasswordStatus).toHaveBeenNthCalledWith(1, {
+      type: "idle",
+      message: "",
+    });
+    expect(setters.setPassword).toHaveBeenCalledWith("");
+    expect(setters.setPasswordConfirmation).toHaveBeenCalledWith("");
+    expect(setters.setPasswordStatus).toHaveBeenNthCalledWith(2, {
+      type: "success",
+      message: "Password updated.",
+    });
+    expect(JSON.stringify(setters.setPasswordStatus.mock.calls)).not.toContain(nextPassword);
+    expect(setters.setIsUpdatingPassword).toHaveBeenLastCalledWith(false);
+  });
+
+  it("rejects mismatched password confirmation before calling the API", async () => {
+    const setters = mockComponentState({
+      password: "NewStrongPassword123",
+      passwordConfirmation: "DifferentPassword123",
+    });
+
+    const tree = UserAccountDetail({
+      user,
+    });
+    const form = findPasswordForm(tree);
+
+    expect(form).not.toBeNull();
+
+    await form?.props.onSubmit({
+      preventDefault: vi.fn(),
+    });
+
+    expect(updateAdminUserPasswordMock).not.toHaveBeenCalled();
+    expect(setters.setPasswordStatus).toHaveBeenCalledWith({
+      type: "error",
+      message: "Passwords do not match.",
+    });
+    expect(setters.setIsUpdatingPassword).not.toHaveBeenCalled();
+  });
+
+  it("surfaces password update failures without echoing the password", async () => {
+    const nextPassword = "NewStrongPassword123";
+    const setters = mockComponentState({
+      password: nextPassword,
+      passwordConfirmation: nextPassword,
+    });
+    updateAdminUserPasswordMock.mockRejectedValueOnce(new Error("User not found"));
+
+    const tree = UserAccountDetail({
+      user,
+    });
+    const form = findPasswordForm(tree);
+
+    expect(form).not.toBeNull();
+
+    await form?.props.onSubmit({
+      preventDefault: vi.fn(),
+    });
+
+    expect(setters.setPasswordStatus).toHaveBeenNthCalledWith(2, {
+      type: "error",
+      message: "User not found",
+    });
+    expect(JSON.stringify(setters.setPasswordStatus.mock.calls)).not.toContain(nextPassword);
+    expect(setters.setPassword).not.toHaveBeenCalled();
+    expect(setters.setPasswordConfirmation).not.toHaveBeenCalled();
+    expect(setters.setIsUpdatingPassword).toHaveBeenLastCalledWith(false);
   });
 
   it("suppresses hydration warnings on the YouTube key form, input, and submit button", () => {
