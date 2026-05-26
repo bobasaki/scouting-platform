@@ -1805,6 +1805,13 @@ async function requestEnrichmentForImportedUrlOnlyChannels(input: {
 // under the limit while keeping the number of round-trips small for big imports.
 const CSV_IMPORT_ROW_INSERT_CHUNK_SIZE = 800;
 
+// Prisma's default interactive transaction timeout is 5s, which is too tight
+// for large imports (10k rows × multiple chunked INSERTs can exceed that on
+// modest hardware). 60s leaves plenty of headroom for the documented 10k-row
+// upper bound while still failing fast on truly stuck transactions.
+const CSV_IMPORT_TRANSACTION_TIMEOUT_MS = 60_000;
+const CSV_IMPORT_TRANSACTION_MAX_WAIT_MS = 10_000;
+
 export async function createCsvImportBatch(input: {
   requestedByUserId: string;
   fileName: string;
@@ -1981,13 +1988,16 @@ export async function createCsvImportBatch(input: {
         },
       });
     }
+    }, {
+      timeout: CSV_IMPORT_TRANSACTION_TIMEOUT_MS,
+      maxWait: CSV_IMPORT_TRANSACTION_MAX_WAIT_MS,
     });
   } catch (error) {
     if (error instanceof ServiceError) {
       throw error;
     }
 
-    // Persist failure (DB outage, constraint violation, statement too large,
+    // Persist failure (DB outage, constraint violation, transaction timeout,
     // etc.). Surface a clear ServiceError so the route returns a labelled
     // 500 instead of a bare "Internal server error". The transaction rolled
     // back, so no partial batch was created.
