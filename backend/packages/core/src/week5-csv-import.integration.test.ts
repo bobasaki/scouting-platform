@@ -564,6 +564,22 @@ integration("week 5 csv import core integration", () => {
     expect(channel.handle).toBe("@urlonlycreator");
     expect(channel.youtubeUrl).toBe("https://www.youtube.com/@urlonlycreator");
 
+    await prisma.channel.update({
+      where: {
+        id: channel.id,
+      },
+      data: {
+        title: "URL Only Creator",
+      },
+    });
+
+    const detail = await imports.getCsvImportBatchById({
+      importBatchId: batch.id,
+      page: 1,
+      pageSize: 100,
+    });
+    expect(detail.rows[0]?.channelTitle).toBe("URL Only Creator");
+
     const enrichment = await prisma.channelEnrichment.findUniqueOrThrow({
       where: {
         channelId: channel.id,
@@ -578,6 +594,42 @@ integration("week 5 csv import core integration", () => {
       WHERE name = 'channels.enrich.llm'
     `;
     expect(enrichmentJobs[0]?.count).toBe(1);
+  });
+
+  it("fails malformed YouTube URL-only rows instead of queueing import work", async () => {
+    const imports = await loadImports();
+    const admin = await createUser("admin@example.com");
+
+    const batch = await imports.createCsvImportBatch({
+      requestedByUserId: admin.id,
+      fileName: "malformed-youtube-url-only.csv",
+      fileSize: 128,
+      csvText: [
+        "YouTube URL",
+        "https://www.youtube.com/channel/UCSkK-qENLho-q-6x1PKu7VgUCPJ61cXBMjpjyCcb5OhUzEg",
+      ].join("\n"),
+    });
+
+    expect(batch.status).toBe("completed");
+    expect(batch.importedRowCount).toBe(0);
+    expect(batch.failedRowCount).toBe(1);
+
+    const row = await prisma.csvImportRow.findFirstOrThrow({
+      where: {
+        batchId: batch.id,
+      },
+      select: {
+        errorMessage: true,
+      },
+    });
+    expect(row.errorMessage).toContain("YouTube URL is invalid");
+
+    const jobs = await prisma.$queryRaw<Array<{ count: number }>>`
+      SELECT COUNT(*)::int AS count
+      FROM pgboss.job
+      WHERE name IN ('imports.csv.process', 'channels.enrich.llm')
+    `;
+    expect(jobs[0]?.count).toBe(0);
   });
 
   it("reuses a channel when the same youtube channel is imported with different url formats", async () => {

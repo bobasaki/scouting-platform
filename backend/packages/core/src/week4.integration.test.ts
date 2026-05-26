@@ -1487,6 +1487,48 @@ integration("week 4 core integration", () => {
     expect(enrichment.rawOpenaiPayloadFetchedAt).toBeNull();
   });
 
+  it("replaces URL-only placeholder channel titles with the YouTube channel name during enrichment", async () => {
+    const user = await createUser("url-title@example.com");
+    const channel = await createChannel("UC-ENRICH-1", "@channel-name");
+    await assignYoutubeKey(user.id);
+
+    await prisma.channel.update({
+      where: {
+        id: channel.id,
+      },
+      data: {
+        handle: "@channel-name",
+        youtubeUrl: "https://www.youtube.com/@channel-name",
+      },
+    });
+    await prisma.channelEnrichment.create({
+      data: {
+        channelId: channel.id,
+        status: PrismaChannelEnrichmentStatus.QUEUED,
+        requestedByUserId: user.id,
+        requestedAt: new Date(),
+      },
+    });
+
+    fetchYoutubeChannelContextMock.mockResolvedValue(CACHED_CONTEXT);
+    enrichChannelWithOpenAiMock.mockResolvedValue(ENRICHMENT_RESULT);
+
+    await getCore().executeChannelLlmEnrichment({
+      channelId: channel.id,
+      requestedByUserId: user.id,
+    });
+
+    const updatedChannel = await prisma.channel.findUniqueOrThrow({
+      where: {
+        id: channel.id,
+      },
+      select: {
+        title: true,
+      },
+    });
+    expect(updatedChannel.title).toBe("Channel Name");
+  });
+
   it("sets rawOpenaiPayloadFetchedAt even when the final transaction fails", async () => {
     const user = await createUser();
     const channel = await createChannel("UC-ENRICH-TX-FAIL", "Transaction Failure");

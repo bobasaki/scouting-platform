@@ -159,6 +159,11 @@ const csvImportRowSelect = {
   countryRegion: true,
   language: true,
   channelId: true,
+  channel: {
+    select: {
+      title: true,
+    },
+  },
   errorMessage: true,
 } as const;
 
@@ -293,7 +298,7 @@ function toCsvImportRow(row: CsvImportBatchDetailRecord["rows"][number]): CsvImp
     rowNumber: row.rowNumber,
     status: toCsvImportRowStatus(row.status),
     youtubeChannelId: row.youtubeChannelId,
-    channelTitle: row.channelTitle,
+    channelTitle: row.channel?.title ?? row.channelTitle,
     hubspotRecordId: row.hubspotRecordId,
     timestampImported: row.timestampImported,
     channelUrl: row.channelUrl,
@@ -687,7 +692,38 @@ function isValidYoutubeUrlField(value: string): boolean {
   try {
     const parsedUrl = new URL(normalizedValue);
     const host = parsedUrl.hostname.replace(/^www\./i, "").toLowerCase();
-    return host.endsWith("youtube.com") || host.endsWith("youtu.be");
+
+    if (!host.endsWith("youtube.com")) {
+      return false;
+    }
+
+    const pathParts = parsedUrl.pathname
+      .split("/")
+      .filter(Boolean)
+      .map((part) => {
+        try {
+          return decodeURIComponent(part);
+        } catch {
+          return part;
+        }
+      });
+    const first = pathParts[0] ?? "";
+    const second = pathParts[1] ?? "";
+    const firstLower = first.toLowerCase();
+
+    if (first.startsWith("@")) {
+      return pathParts.length === 1;
+    }
+
+    if (firstLower === "channel") {
+      return pathParts.length === 2 && isLikelyCanonicalYoutubeChannelId(second);
+    }
+
+    if ((firstLower === "c" || firstLower === "user") && second) {
+      return pathParts.length === 2;
+    }
+
+    return Boolean(first) && !["watch", "shorts", "playlist", "results", "feed"].includes(firstLower);
   } catch {
     return false;
   }
