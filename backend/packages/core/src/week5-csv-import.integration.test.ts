@@ -1,5 +1,9 @@
 import { PrismaClient, Role } from "@prisma/client";
-import { CSV_IMPORT_HEADER, CSV_IMPORT_LEGACY_V3_HEADER } from "@scouting-platform/contracts";
+import {
+  CSV_IMPORT_HEADER,
+  CSV_IMPORT_LEGACY_V3_HEADER,
+  CSV_IMPORT_YOUTUBE_URL_ONLY_TEMPLATE_VERSION,
+} from "@scouting-platform/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const databaseUrl = process.env.DATABASE_URL_TEST?.trim() ?? "";
@@ -13,12 +17,14 @@ const CSV_CHANNEL_NINE_ID = "UCcsvimport0000000000009";
 const DUPLICATE_URL_FORMAT_CHANNEL_ID = "UCdupeurls00000000000001";
 const SAME_TITLE_CHANNEL_ONE_ID = "UCsametitle0000000000001";
 const SAME_TITLE_CHANNEL_TWO_ID = "UCsametitle0000000000002";
+const URL_ONLY_CHANNEL_ID = "UCurlonlyimport000000001";
 
 integration("week 5 csv import core integration", () => {
   let prisma: PrismaClient;
 
   beforeAll(async () => {
     process.env.DATABASE_URL = databaseUrl;
+    process.env.APP_ENCRYPTION_KEY = "12345678901234567890123456789012";
 
     const db = await import("@scouting-platform/db");
     prisma = db.createPrismaClient({ databaseUrl });
@@ -28,6 +34,7 @@ integration("week 5 csv import core integration", () => {
 
   beforeEach(async () => {
     process.env.DATABASE_URL = databaseUrl;
+    process.env.APP_ENCRYPTION_KEY = "12345678901234567890123456789012";
     vi.resetModules();
     vi.doUnmock("./imports/queue");
     vi.doUnmock("@scouting-platform/integrations");
@@ -59,7 +66,7 @@ integration("week 5 csv import core integration", () => {
     `);
 
     await prisma.$executeRawUnsafe(`
-      DELETE FROM pgboss.job WHERE name = 'imports.csv.process'
+      DELETE FROM pgboss.job WHERE name IN ('imports.csv.process', 'channels.enrich.llm')
     `);
 
     const db = await import("@scouting-platform/db");
@@ -481,6 +488,96 @@ integration("week 5 csv import core integration", () => {
 
     const retriedContacts = await prisma.channelContact.count();
     expect(retriedContacts).toBe(2);
+  });
+
+  it("accepts a YouTube URL-only CSV, imports channels without dropdown configuration, and queues enrichment", async () => {
+    vi.resetModules();
+    vi.doUnmock("./imports/queue");
+    vi.doMock("@scouting-platform/integrations", async () => {
+      const actual = await vi.importActual<typeof import("@scouting-platform/integrations")>(
+        "@scouting-platform/integrations",
+      );
+
+      return {
+        ...actual,
+        resolveYoutubeChannelForEnrichment: vi.fn(async () => ({
+          channelId: URL_ONLY_CHANNEL_ID,
+          canonicalUrl: "https://www.youtube.com/@urlonlycreator",
+        })),
+      };
+    });
+
+    const imports = await loadImports();
+    const credentials = await import("./auth/credentials");
+    const admin = await createUser("admin@example.com");
+
+    await credentials.setUserYoutubeApiKey({
+      userId: admin.id,
+      rawKey: "youtube-api-key",
+      actorUserId: admin.id,
+    });
+
+    const batch = await imports.createCsvImportBatch({
+      requestedByUserId: admin.id,
+      fileName: "youtube-url-only.csv",
+      fileSize: 128,
+      csvText: [
+        "YouTube URL",
+        "https://www.youtube.com/@urlonlycreator",
+      ].join("\n"),
+    });
+
+    expect(batch.status).toBe("queued");
+    expect(batch.templateVersion).toBe(CSV_IMPORT_YOUTUBE_URL_ONLY_TEMPLATE_VERSION);
+    expect(batch.failedRowCount).toBe(0);
+
+    await prisma.$executeRawUnsafe(`
+      DELETE FROM pgboss.job WHERE name = 'imports.csv.process'
+    `);
+
+    await imports.executeCsvImportBatch({
+      importBatchId: batch.id,
+      requestedByUserId: admin.id,
+    });
+
+    const updatedBatch = await prisma.csvImportBatch.findUniqueOrThrow({
+      where: {
+        id: batch.id,
+      },
+    });
+    expect(updatedBatch.status).toBe("COMPLETED");
+    expect(updatedBatch.importedRowCount).toBe(1);
+    expect(updatedBatch.failedRowCount).toBe(0);
+
+    const channel = await prisma.channel.findUniqueOrThrow({
+      where: {
+        youtubeChannelId: URL_ONLY_CHANNEL_ID,
+      },
+      select: {
+        id: true,
+        title: true,
+        handle: true,
+        youtubeUrl: true,
+      },
+    });
+    expect(channel.title).toBe("@urlonlycreator");
+    expect(channel.handle).toBe("@urlonlycreator");
+    expect(channel.youtubeUrl).toBe("https://www.youtube.com/@urlonlycreator");
+
+    const enrichment = await prisma.channelEnrichment.findUniqueOrThrow({
+      where: {
+        channelId: channel.id,
+      },
+    });
+    expect(enrichment.status).toBe("QUEUED");
+    expect(enrichment.requestedByUserId).toBe(admin.id);
+
+    const enrichmentJobs = await prisma.$queryRaw<Array<{ count: number }>>`
+      SELECT COUNT(*)::int AS count
+      FROM pgboss.job
+      WHERE name = 'channels.enrich.llm'
+    `;
+    expect(enrichmentJobs[0]?.count).toBe(1);
   });
 
   it("reuses a channel when the same youtube channel is imported with different url formats", async () => {

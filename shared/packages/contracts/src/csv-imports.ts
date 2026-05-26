@@ -8,8 +8,10 @@ import {
 const isoDatetimeSchema = z.string().datetime();
 
 export const CSV_IMPORT_TEMPLATE_VERSION = "v3" as const;
+export const CSV_IMPORT_YOUTUBE_URL_ONLY_TEMPLATE_VERSION = "youtube_url_only_v1" as const;
 export const CSV_IMPORT_MAX_DATA_ROWS = 10_000;
 export const CSV_IMPORT_HEADER = CREATOR_LIST_HUBSPOT_IMPORT_HEADER;
+export const CSV_IMPORT_YOUTUBE_URL_ONLY_HEADER = ["YouTube URL"] as const;
 export const CSV_IMPORT_LEGACY_V3_HEADER = CREATOR_LIST_HUBSPOT_HANDOFF_HEADER;
 export const CSV_IMPORT_LEGACY_V2_HEADER = [
   "youtubeChannelId",

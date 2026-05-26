@@ -10,6 +10,8 @@ import {
   CSV_IMPORT_HEADER,
   CSV_IMPORT_MAX_DATA_ROWS,
   CSV_IMPORT_TEMPLATE_VERSION,
+  CSV_IMPORT_YOUTUBE_URL_ONLY_HEADER,
+  CSV_IMPORT_YOUTUBE_URL_ONLY_TEMPLATE_VERSION,
 } from "@scouting-platform/contracts";
 import { useEffect, useState, type FormEvent, type ReactElement } from "react";
 
@@ -58,6 +60,7 @@ type AdminCsvImportManagerViewProps = Readonly<{
 
 const ACTIVE_POLLING_STATUSES = new Set<CsvImportBatchStatus>(["queued", "running"]);
 const CSV_IMPORT_HEADER_LINE = CSV_IMPORT_HEADER.join(",");
+const CSV_IMPORT_YOUTUBE_URL_ONLY_HEADER_LINE = CSV_IMPORT_YOUTUBE_URL_ONLY_HEADER.join(",");
 const INITIAL_LIST_STATE: AdminCsvImportListState = {
   status: "loading",
   items: [],
@@ -500,7 +503,8 @@ export function AdminCsvImportManagerView(props: AdminCsvImportManagerViewProps)
               <h2 id="admin-csv-imports-upload-heading">Upload CSV</h2>
               <p>
                 Use the Creator List / HubSpot export CSV format for YouTube, Instagram, TikTok,
-                Twitch, Kick, and X fields. The backend remains the sole import mutation path.
+                Twitch, Kick, and X fields, or upload a one-column YouTube URL CSV. The backend
+                remains the sole import mutation path.
               </p>
             </header>
 
@@ -508,7 +512,9 @@ export function AdminCsvImportManagerView(props: AdminCsvImportManagerViewProps)
               <ul className="admin-csv-imports__quick-facts">
                 <li>
                   <span className="admin-csv-imports__fact-label">Template</span>
-                  <span className="admin-csv-imports__fact-value">{CSV_IMPORT_TEMPLATE_VERSION}</span>
+                  <span className="admin-csv-imports__fact-value">
+                    {CSV_IMPORT_TEMPLATE_VERSION} / {CSV_IMPORT_YOUTUBE_URL_ONLY_TEMPLATE_VERSION}
+                  </span>
                 </li>
                 <li>
                   <span className="admin-csv-imports__fact-label">Max size</span>
@@ -537,6 +543,8 @@ export function AdminCsvImportManagerView(props: AdminCsvImportManagerViewProps)
                   <p className="admin-csv-imports__header-guide-hint">
                     Header must exactly match. `influencerType`, `influencerVertical`,
                     `countryRegion`, and `language` must match the saved creator profile values.
+                    For URL-only imports, use a single `YouTube URL` column; imported channels are
+                    queued for enrichment automatically.
                   </p>
                   <ol className="admin-csv-imports__column-list">
                     {CSV_IMPORT_HEADER.map((columnName, index) => (
@@ -548,6 +556,9 @@ export function AdminCsvImportManagerView(props: AdminCsvImportManagerViewProps)
                   </ol>
                   <code className="admin-csv-imports__header-guide-raw">
                     {CSV_IMPORT_HEADER_LINE}
+                  </code>
+                  <code className="admin-csv-imports__header-guide-raw">
+                    {CSV_IMPORT_YOUTUBE_URL_ONLY_HEADER_LINE}
                   </code>
                 </div>
               </details>
