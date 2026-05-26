@@ -11287,15 +11287,15 @@ textarea:focus-visible,
     display: none;
   }
 
-  /* Avoid horizontal page overflow caused by long words / URLs */
-  .auth-shell__content,
-  .auth-shell__content p,
-  .auth-shell__content h1,
-  .auth-shell__content h2,
-  .auth-shell__content h3,
+  /* Avoid horizontal page overflow caused by long words / URLs but
+     DO NOT break words char-by-char inside table cells, where it
+     turns short labels into vertical letter columns. break-word only
+     breaks if an unbreakable string would overflow. */
+  .auth-shell__content {
+    overflow-wrap: break-word;
+  }
   .auth-shell__content code {
     overflow-wrap: anywhere;
-    word-break: normal;
   }
 
   /* Prevent empty horizontal scrollbar at the document level */
@@ -11403,5 +11403,205 @@ textarea:focus-visible,
 
   .auth-shell__nav-region .app-nav__list {
     height: auto;
+  }
+}
+
+/* ============================================================
+   Table sanity — mobile + tablet
+   - Every table-shell scrolls horizontally inside its container
+     and never pushes the outer layout wider than the viewport.
+   - Headers stay on one line; numeric/status/date cells stay on
+     one line; identity cells (avatar + title + handle) keep the
+     title to one line with ellipsis.
+   - Each table gets a sensible min-width so columns aren't
+     squeezed to char-wrap.
+   ============================================================ */
+@media (max-width: 900px) {
+  /* Containers that hold tables must let their content overflow
+     horizontally (the inner *__scroll/wrap element handles scrolling). */
+  .database-admin,
+  .database-admin__panel,
+  .database-records,
+  .clients-workspace,
+  .campaigns-workspace,
+  .dashboard-workspace,
+  .dashboard-workspace__table-panel,
+  .database-workspace,
+  .database-workspace__panel,
+  .database-runs,
+  .database-runs__panel,
+  .catalog-table,
+  .new-scouting,
+  .new-scouting__panel,
+  .run-detail__panel,
+  .admin-users,
+  .admin-users__panel,
+  .admin-csv-imports,
+  .admin-csv-imports__panel,
+  .hubspot-push,
+  .hubspot-push__panel,
+  .export-prep,
+  .export-prep__panel,
+  .page-container,
+  .page-section,
+  .page-section__body {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* The actual scrolling shell for every data table */
+  .data-table__scroll,
+  .database-records__table-shell,
+  .admin-users__table-shell,
+  .admin-csv-imports__table-wrap,
+  .database-runs__table-shell,
+  .dashboard-workspace__table-shell,
+  .hubspot-push__table-wrap,
+  .export-prep__table-wrap,
+  .catalog-table__table-wrap {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Min widths per table so columns are wide enough to be readable
+     without char-by-char wrap. The shell scrolls horizontally. */
+  .data-table {
+    min-width: 56rem;
+  }
+  .data-table--compact {
+    min-width: 52rem;
+  }
+  .database-records__table,
+  .admin-csv-imports__table,
+  .hubspot-push__table,
+  .export-prep__table {
+    min-width: 40rem;
+  }
+  .admin-users__table {
+    min-width: 52rem;
+  }
+  .catalog-table__table {
+    min-width: 56rem;
+  }
+
+  /* Headers always single-line and tight */
+  table th {
+    white-space: nowrap;
+    letter-spacing: 0.04em;
+  }
+
+  /* Tighten cell padding so each row stays a reasonable height */
+  .data-table tbody td,
+  .data-table--compact tbody td {
+    padding: 0.55rem 0.7rem;
+  }
+  .data-table thead th,
+  .data-table--compact thead th {
+    padding: 0.45rem 0.7rem;
+  }
+  .database-records__table th,
+  .database-records__table td,
+  .admin-users__table th,
+  .admin-users__table td,
+  .admin-csv-imports__table th,
+  .admin-csv-imports__table td {
+    padding: 0.6rem 0.7rem;
+  }
+
+  /* Status pills, numbers, dates, and code never wrap */
+  td .status-pill,
+  td .status-pill-button,
+  td .creator-chip,
+  td .database-runs__status,
+  td .database-runs__source,
+  td .catalog-table__status,
+  td .csv-export__status,
+  td .hubspot-push__status,
+  td .admin-users__status,
+  td .admin-csv-imports__status,
+  td .admin-dashboard__status,
+  td code,
+  td time,
+  .data-table td .stat-card__value {
+    white-space: nowrap;
+  }
+
+  /* Numeric / short-label columns: never wrap */
+  td.numeric,
+  td .numeric-cell,
+  .data-table td .data-table__numeric {
+    white-space: nowrap;
+  }
+
+  /* Identity cells (thumbnail + name + handle) — keep title and
+     handle each on a single line with ellipsis so the row stays
+     two lines tall at most. */
+  .catalog-table__identity,
+  .channel-detail-shell__identity,
+  .creator-profile__identity {
+    min-width: 0;
+  }
+  .catalog-table__identity-copy {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  /* Child elements inside a cell — these are safe to set display:block */
+  .catalog-table__title,
+  .catalog-table__meta,
+  .data-table__primary {
+    display: block;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* Classes that may BE the td element — keep table-cell display so
+     columns stay side-by-side; truncate via max-width + ellipsis. */
+  td.database-records__strong-cell,
+  td.database-records__muted-cell,
+  td.admin-users__primary-cell,
+  td.admin-users__table-name,
+  td.admin-users__muted-cell {
+    max-width: 14rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Date / timestamp cells: never wrap regardless of column width */
+  td.database-runs__updated-cell,
+  td.dashboard-workspace__planned-cell,
+  td.csv-export__list-item-meta,
+  td:has(> time) {
+    white-space: nowrap;
+  }
+
+  /* Long URLs / handles: allow them to break softly inside their cell */
+  td a[href^="http"]:not(.button):not([class*="__button"]) {
+    overflow-wrap: anywhere;
+  }
+
+  /* Hover row tint stays normal — but make sure no row gets crazy tall
+     because of an oversized inline image. */
+  table img {
+    max-height: 2.5rem;
+    max-width: 2.5rem;
+  }
+}
+
+/* On phones the cards layout is often easier to read than the table.
+   Keep the table option visible but with even tighter padding. */
+@media (max-width: 640px) {
+  .data-table tbody td,
+  .data-table--compact tbody td {
+    padding: 0.5rem 0.65rem;
+    font-size: var(--font-size-200);
+  }
+  .data-table thead th,
+  .data-table--compact thead th {
+    padding: 0.4rem 0.65rem;
+    font-size: var(--font-size-100);
   }
 }
