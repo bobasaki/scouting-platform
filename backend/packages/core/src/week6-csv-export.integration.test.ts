@@ -4,6 +4,7 @@ import {
   PrismaClient,
   Role,
 } from "@prisma/client";
+import { parse } from "csv-parse/sync";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const databaseUrl = process.env.DATABASE_URL_TEST?.trim() ?? "";
@@ -299,17 +300,25 @@ integration("week 6 csv export core integration", () => {
       requestedByUserId: manager.id,
     });
     expect(detail.status).toBe("completed");
-    expect(detail.rowCount).toBe(1);
+    expect(detail.schemaVersion).toBe("v2");
+    expect(detail.rowCount).toBe(2);
 
     const download = await exportsModule.downloadCsvExportBatch({
       exportBatchId: batch.id,
       requestedByUserId: manager.id,
     });
     expect(download.fileName).toMatch(/\.csv$/);
-    expect(download.csvContent).toContain("channelId,youtubeChannelId,youtubeChannelUrl");
-    expect(download.csvContent).toContain(channel.id);
-    expect(download.csvContent).toContain("creator@example.com;sales@example.com");
-    expect(download.csvContent).toContain("space;rockets");
+
+    const rows = parse(download.csvContent, {
+      columns: true,
+      skip_empty_lines: true,
+    }) as Array<Record<string, string>>;
+    expect(rows).toHaveLength(2);
+    expect(rows.map((row) => row.Email)).toEqual(["creator@example.com", "sales@example.com"]);
+    expect(rows[0]?.["Contact Type"]).toBe("Influencer");
+    expect(rows[0]?.["YouTube URL"]).toBe("https://www.youtube.com/channel/UC-EXPORT-RUN");
+    expect(rows[1]?.["Contact Type"]).toBe("Influencer");
+    expect(rows[1]?.["YouTube URL"]).toBe("https://www.youtube.com/channel/UC-EXPORT-RUN");
 
     const completedAudit = await prisma.auditEvent.findFirst({
       where: {
