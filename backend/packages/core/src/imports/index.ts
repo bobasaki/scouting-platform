@@ -13,6 +13,8 @@ import {
   CSV_IMPORT_LEGACY_V2_HEADER,
   CSV_IMPORT_MAX_DATA_ROWS,
   CSV_IMPORT_TEMPLATE_VERSION,
+  CSV_IMPORT_YOUTUBE_URL_ONLY_HEADER,
+  CSV_IMPORT_YOUTUBE_URL_ONLY_TEMPLATE_VERSION,
   normalizeCreatorListHubspotHeader,
   type CsvImportBatchDetail,
   type CsvImportBatchStatus,
@@ -27,6 +29,7 @@ import { parse } from "csv-parse/sync";
 import { getUserYoutubeApiKey } from "../auth/credentials";
 import { ServiceError } from "../errors";
 import { listDropdownOptions } from "../dropdown-values";
+import { requestChannelLlmEnrichment } from "../enrichment";
 import { enqueueCsvImportJob } from "./queue";
 export { stopCsvImportsQueue } from "./queue";
 
@@ -54,7 +57,10 @@ const CSV_IMPORT_LEGACY_FIELD_LABELS = {
   countryRegion: "Country/Region",
   language: "Language",
 } as const;
-type CsvImportTemplateVersion = typeof CSV_IMPORT_TEMPLATE_VERSION | typeof CSV_IMPORT_LEGACY_TEMPLATE_VERSION;
+type CsvImportTemplateVersion =
+  | typeof CSV_IMPORT_TEMPLATE_VERSION
+  | typeof CSV_IMPORT_YOUTUBE_URL_ONLY_TEMPLATE_VERSION
+  | typeof CSV_IMPORT_LEGACY_TEMPLATE_VERSION;
 type ParsedCsvHeaderTemplate = {
   templateVersion: CsvImportTemplateVersion;
   indexByHeader: Map<string, number>;
@@ -410,6 +416,13 @@ const CSV_IMPORT_LEGACY_V3_HEADER_NORMALIZED = CSV_IMPORT_LEGACY_V3_HEADER.map(
 const CSV_IMPORT_LEGACY_V2_HEADER_NORMALIZED = CSV_IMPORT_LEGACY_V2_HEADER.map(
   normalizeCreatorListHubspotHeader,
 );
+const CSV_IMPORT_YOUTUBE_URL_ONLY_HEADER_NORMALIZED = CSV_IMPORT_YOUTUBE_URL_ONLY_HEADER.map(
+  normalizeCreatorListHubspotHeader,
+);
+const CSV_IMPORT_YOUTUBE_URL_ONLY_ALTERNATE_HEADERS_NORMALIZED = [
+  ["Channel URL"],
+  ["YouTube Channel URL"],
+].map((header) => header.map(normalizeCreatorListHubspotHeader));
 const CSV_IMPORT_V3_LABEL_BY_HEADER = CREATOR_LIST_HUBSPOT_IMPORT_HEADER_BY_NORMALIZED;
 const CSV_IMPORT_V2_LABEL_BY_HEADER = new Map(
   CSV_IMPORT_LEGACY_V2_HEADER.map((header) => [
@@ -440,7 +453,7 @@ function parseHeaderTemplate(headerRow: string[] | undefined): ParsedCsvHeaderTe
     throw new ServiceError(
       "CSV_IMPORT_HEADER_INVALID",
       400,
-      "CSV header does not match the supported v3 template or legacy compatibility templates",
+      "CSV header does not match the supported v3 template, YouTube URL-only template, or legacy compatibility templates",
     );
   }
 
@@ -475,10 +488,22 @@ function parseHeaderTemplate(headerRow: string[] | undefined): ParsedCsvHeaderTe
     };
   }
 
+  if (
+    hasExactHeaderMatch(normalizedHeader, CSV_IMPORT_YOUTUBE_URL_ONLY_HEADER_NORMALIZED)
+    || CSV_IMPORT_YOUTUBE_URL_ONLY_ALTERNATE_HEADERS_NORMALIZED.some((expectedHeader) =>
+      hasExactHeaderMatch(normalizedHeader, expectedHeader)
+    )
+  ) {
+    return {
+      templateVersion: CSV_IMPORT_YOUTUBE_URL_ONLY_TEMPLATE_VERSION,
+      indexByHeader: toHeaderIndexMap(headerRow),
+    };
+  }
+
   throw new ServiceError(
     "CSV_IMPORT_HEADER_INVALID",
     400,
-    "CSV header does not match the supported v3 template or legacy compatibility templates",
+    "CSV header does not match the supported v3 template, YouTube URL-only template, or legacy compatibility templates",
   );
 }
 
@@ -652,6 +677,22 @@ function isValidUrlField(value: string): boolean {
   }
 }
 
+function isValidYoutubeUrlField(value: string): boolean {
+  if (!isValidUrlField(value)) {
+    return false;
+  }
+
+  const normalizedValue = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+
+  try {
+    const parsedUrl = new URL(normalizedValue);
+    const host = parsedUrl.hostname.replace(/^www\./i, "").toLowerCase();
+    return host.endsWith("youtube.com") || host.endsWith("youtu.be");
+  } catch {
+    return false;
+  }
+}
+
 function isValidNotes(value: string): boolean {
   return value.length <= 5000;
 }
@@ -750,6 +791,46 @@ function extractYoutubeHandleFromUrl(value: string | null): string | null {
   }
 }
 
+function deriveYoutubeUrlOnlyChannelTitle(value: string): string {
+  const normalizedValue = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+
+  try {
+    const parsedUrl = new URL(normalizedValue);
+    const pathParts = parsedUrl.pathname
+      .split("/")
+      .filter(Boolean)
+      .map((part) => {
+        try {
+          return decodeURIComponent(part);
+        } catch {
+          return part;
+        }
+      });
+    const first = pathParts[0] ?? "";
+    const second = pathParts[1] ?? "";
+
+    if (first.startsWith("@")) {
+      return first;
+    }
+
+    if (first.toLowerCase() === "channel" && second) {
+      return second;
+    }
+
+    if (second && ["c", "user"].includes(first.toLowerCase())) {
+      return second;
+    }
+
+    if (first) {
+      return first;
+    }
+  } catch {
+    // Fall through to the trimmed URL as a last-resort display label.
+  }
+
+  return value.trim().slice(0, 500) || "Imported YouTube channel";
+}
+
 function getYoutubeHandleLookupVariants(value: string | null): string[] {
   const normalized = normalizeYoutubeHandle(value);
 
@@ -792,6 +873,98 @@ function parseRateToNumber(value: string | null): number | null {
   }
 
   return Number(normalized);
+}
+
+function toParsedCsvImportRowFromYoutubeUrlOnly(
+  rowNumber: number,
+  rawRow: string[],
+  template: ParsedCsvHeaderTemplate,
+): ParsedCsvImportRow {
+  const errors: string[] = [];
+  const youtubeUrl = validateRequiredField(
+    "YouTube URL",
+    toNullableTrimmed(getCsvFieldValue(rawRow, template.indexByHeader, [
+      "YouTube URL",
+      "Channel URL",
+      "YouTube Channel URL",
+    ])),
+    isValidYoutubeUrlField,
+    errors,
+  );
+  const derivedYoutubeChannelId = extractYoutubeChannelIdFromUrl(youtubeUrl);
+  const channelTitle = youtubeUrl ? deriveYoutubeUrlOnlyChannelTitle(youtubeUrl) : "";
+  const youtubeHandle = normalizeYoutubeHandle(extractYoutubeHandleFromUrl(youtubeUrl));
+
+  return {
+    rowNumber,
+    status: errors.length > 0 ? PrismaCsvImportRowStatus.FAILED : PrismaCsvImportRowStatus.PENDING,
+    youtubeChannelId: derivedYoutubeChannelId ?? "",
+    channelTitle,
+    hubspotRecordId: null,
+    timestampImported: null,
+    channelUrl: youtubeUrl || null,
+    campaignName: null,
+    dealOwner: null,
+    handoffStatus: null,
+    contactEmail: null,
+    phoneNumber: null,
+    currency: null,
+    dealType: null,
+    contactType: null,
+    month: null,
+    year: null,
+    clientName: null,
+    dealName: null,
+    activationName: null,
+    pipeline: null,
+    dealStage: null,
+    firstName: null,
+    lastName: null,
+    youtubeHandle,
+    youtubeUrl: youtubeUrl || null,
+    subscriberCount: null,
+    viewCount: null,
+    videoCount: null,
+    youtubeVideoMedianViews: null,
+    youtubeShortsMedianViews: null,
+    youtubeEngagementRate: null,
+    youtubeFollowers: null,
+    instagramHandle: null,
+    instagramUrl: null,
+    instagramPostAverageViews: null,
+    instagramReelAverageViews: null,
+    instagramStory7DayAverageViews: null,
+    instagramStory30DayAverageViews: null,
+    instagramEngagementRate: null,
+    instagramFollowers: null,
+    tiktokHandle: null,
+    tiktokUrl: null,
+    tiktokAverageViews: null,
+    tiktokEngagementRate: null,
+    tiktokFollowers: null,
+    twitchHandle: null,
+    twitchUrl: null,
+    twitchAverageViews: null,
+    twitchEngagementRate: null,
+    twitchFollowers: null,
+    kickHandle: null,
+    kickUrl: null,
+    kickAverageViews: null,
+    kickEngagementRate: null,
+    kickFollowers: null,
+    xHandle: null,
+    xUrl: null,
+    xAverageViews: null,
+    xEngagementRate: null,
+    xFollowers: null,
+    notes: null,
+    sourceLabel: null,
+    influencerType: null,
+    influencerVertical: null,
+    countryRegion: null,
+    language: null,
+    errorMessage: errors.length > 0 ? errors.join("; ") : null,
+  };
 }
 
 function toParsedCsvImportRowFromLegacyV2(
@@ -1330,6 +1503,10 @@ function toParsedCsvImportRow(
   template: ParsedCsvHeaderTemplate,
   hubspotDropdownOptions: Record<(typeof CSV_IMPORT_PROFILE_DROPDOWN_FIELD_KEYS)[number], string[]>,
 ): ParsedCsvImportRow {
+  if (template.templateVersion === CSV_IMPORT_YOUTUBE_URL_ONLY_TEMPLATE_VERSION) {
+    return toParsedCsvImportRowFromYoutubeUrlOnly(rowNumber, rawRow, template);
+  }
+
   if (template.templateVersion === CSV_IMPORT_LEGACY_TEMPLATE_VERSION) {
     return toParsedCsvImportRowFromLegacyV2(rowNumber, rawRow, template, hubspotDropdownOptions);
   }
@@ -1373,14 +1550,24 @@ async function buildParsedRows(csvText: string): Promise<BuildParsedRowsResult> 
     );
   }
 
-  const dropdownOptions = await listDropdownOptions();
-  const hubspotDropdownOptions = {
-    influencerType: dropdownOptions.influencerType,
-    influencerVertical: dropdownOptions.influencerVertical,
-    countryRegion: dropdownOptions.countryRegion,
-    language: dropdownOptions.language,
-  };
-  assertHubspotDropdownConfiguration(hubspotDropdownOptions);
+  const hubspotDropdownOptions = headerTemplate.templateVersion === CSV_IMPORT_YOUTUBE_URL_ONLY_TEMPLATE_VERSION
+    ? {
+        influencerType: [],
+        influencerVertical: [],
+        countryRegion: [],
+        language: [],
+      }
+    : await (async () => {
+        const dropdownOptions = await listDropdownOptions();
+        const options = {
+          influencerType: dropdownOptions.influencerType,
+          influencerVertical: dropdownOptions.influencerVertical,
+          countryRegion: dropdownOptions.countryRegion,
+          language: dropdownOptions.language,
+        };
+        assertHubspotDropdownConfiguration(options);
+        return options;
+      })();
 
   return {
     templateVersion: headerTemplate.templateVersion,
@@ -1545,6 +1732,36 @@ async function failBatch(importBatchId: string, actorUserId: string, lastError: 
     failedRowCount: counts.failedRowCount,
     lastError,
   });
+}
+
+async function requestEnrichmentForImportedUrlOnlyChannels(input: {
+  importBatchId: string;
+  requestedByUserId: string;
+}): Promise<void> {
+  const rows = await prisma.csvImportRow.findMany({
+    where: {
+      batchId: input.importBatchId,
+      status: PrismaCsvImportRowStatus.IMPORTED,
+      channelId: {
+        not: null,
+      },
+    },
+    distinct: ["channelId"],
+    select: {
+      channelId: true,
+    },
+  });
+
+  for (const row of rows) {
+    if (!row.channelId) {
+      continue;
+    }
+
+    await requestChannelLlmEnrichment({
+      channelId: row.channelId,
+      requestedByUserId: input.requestedByUserId,
+    });
+  }
 }
 
 export async function createCsvImportBatch(input: {
@@ -2360,6 +2577,7 @@ export async function executeCsvImportBatch(input: {
     select: {
       id: true,
       requestedByUserId: true,
+      templateVersion: true,
     },
   });
 
@@ -2425,6 +2643,13 @@ export async function executeCsvImportBatch(input: {
           },
         });
       }
+    }
+
+    if (batch.templateVersion === CSV_IMPORT_YOUTUBE_URL_ONLY_TEMPLATE_VERSION) {
+      await requestEnrichmentForImportedUrlOnlyChannels({
+        importBatchId: input.importBatchId,
+        requestedByUserId: batch.requestedByUserId,
+      });
     }
 
     await completeBatch(input.importBatchId, batch.requestedByUserId);

@@ -7,6 +7,8 @@ import {
   CSV_IMPORT_LEGACY_V2_HEADER,
   CSV_IMPORT_MAX_DATA_ROWS,
   CSV_IMPORT_TEMPLATE_VERSION,
+  CSV_IMPORT_YOUTUBE_URL_ONLY_HEADER,
+  CSV_IMPORT_YOUTUBE_URL_ONLY_TEMPLATE_VERSION,
   csvImportBatchDetailSchema,
   csvImportBatchSummarySchema,
   csvImportUploadFileSchema,
@@ -18,6 +20,7 @@ const TEST_UUID = "6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b";
 describe("csv import contracts", () => {
   it("exports the v3 template metadata used by backend and UI", () => {
     expect(CSV_IMPORT_TEMPLATE_VERSION).toBe("v3");
+    expect(CSV_IMPORT_YOUTUBE_URL_ONLY_TEMPLATE_VERSION).toBe("youtube_url_only_v1");
     expect(CSV_IMPORT_MAX_DATA_ROWS).toBe(10_000);
     expect(CSV_IMPORT_HEADER).toEqual([
       "Channel Name",
@@ -66,6 +69,7 @@ describe("csv import contracts", () => {
       "X Followers",
     ]);
     expect(CSV_IMPORT_LEGACY_V3_HEADER).toContain("Campaign Name");
+    expect(CSV_IMPORT_YOUTUBE_URL_ONLY_HEADER).toEqual(["YouTube URL"]);
     expect(CSV_IMPORT_LEGACY_V3_HEADER).toContain("Deal stage");
     expect(CSV_IMPORT_LEGACY_V2_HEADER).toEqual([
       "youtubeChannelId",
