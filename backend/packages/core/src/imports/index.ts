@@ -1819,7 +1819,23 @@ export async function createCsvImportBatch(input: {
     );
   }
 
-  const parsedImport = await buildParsedRows(input.csvText);
+  let parsedImport;
+  try {
+    parsedImport = await buildParsedRows(input.csvText);
+  } catch (error) {
+    if (error instanceof ServiceError) {
+      throw error;
+    }
+
+    // Unexpected parse failure — surface a clean error code and keep the
+    // underlying message for server-side logs via formatErrorMessage.
+    throw new ServiceError(
+      "CSV_IMPORT_PARSE_FAILED",
+      400,
+      `CSV could not be parsed: ${formatErrorMessage(error)}`,
+    );
+  }
+
   const parsedRows = parsedImport.rows;
   const templateVersion = parsedImport.templateVersion;
   let importBatchId = "";
@@ -1830,7 +1846,8 @@ export async function createCsvImportBatch(input: {
   const completesImmediately = pendingRowCount === 0;
   const createdAt = new Date();
 
-  await withDbTransaction(async (tx) => {
+  try {
+    await withDbTransaction(async (tx) => {
     const batch = await tx.csvImportBatch.create({
       data: {
         requestedByUserId: input.requestedByUserId,
@@ -1964,7 +1981,22 @@ export async function createCsvImportBatch(input: {
         },
       });
     }
-  });
+    });
+  } catch (error) {
+    if (error instanceof ServiceError) {
+      throw error;
+    }
+
+    // Persist failure (DB outage, constraint violation, statement too large,
+    // etc.). Surface a clear ServiceError so the route returns a labelled
+    // 500 instead of a bare "Internal server error". The transaction rolled
+    // back, so no partial batch was created.
+    throw new ServiceError(
+      "CSV_IMPORT_PERSIST_FAILED",
+      500,
+      `CSV import could not be saved: ${formatErrorMessage(error)}`,
+    );
+  }
 
   if (!completesImmediately) {
     try {
