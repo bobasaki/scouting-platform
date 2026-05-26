@@ -159,6 +159,11 @@ const csvImportRowSelect = {
   countryRegion: true,
   language: true,
   channelId: true,
+  channel: {
+    select: {
+      title: true,
+    },
+  },
   errorMessage: true,
 } as const;
 
@@ -293,7 +298,7 @@ function toCsvImportRow(row: CsvImportBatchDetailRecord["rows"][number]): CsvImp
     rowNumber: row.rowNumber,
     status: toCsvImportRowStatus(row.status),
     youtubeChannelId: row.youtubeChannelId,
-    channelTitle: row.channelTitle,
+    channelTitle: row.channel?.title ?? row.channelTitle,
     hubspotRecordId: row.hubspotRecordId,
     timestampImported: row.timestampImported,
     channelUrl: row.channelUrl,

@@ -1,4 +1,5 @@
 import {
+  ChannelManualOverrideField,
   ChannelEnrichmentStatus as PrismaChannelEnrichmentStatus,
   CredentialProvider,
   Prisma,
@@ -64,6 +65,77 @@ function toNullableBigInt(value: number | null): bigint | null {
   }
 
   return BigInt(Math.round(value));
+}
+
+function deriveYoutubeUrlTitlePlaceholder(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const normalizedValue = /^https?:\/\//iu.test(value) ? value : `https://${value}`;
+
+  try {
+    const parsedUrl = new URL(normalizedValue);
+    const pathParts = parsedUrl.pathname
+      .split("/")
+      .filter(Boolean)
+      .map((part) => {
+        try {
+          return decodeURIComponent(part);
+        } catch {
+          return part;
+        }
+      });
+    const first = pathParts[0] ?? "";
+    const second = pathParts[1] ?? "";
+    const firstLower = first.toLowerCase();
+
+    if (first.startsWith("@")) {
+      return first;
+    }
+
+    if (firstLower === "channel" && second) {
+      return second;
+    }
+
+    if ((firstLower === "c" || firstLower === "user") && second) {
+      return second;
+    }
+
+    if (first) {
+      return first;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function shouldReplaceChannelTitleWithYoutubeTitle(input: {
+  currentTitle: string;
+  youtubeTitle: string | null;
+  youtubeChannelId: string;
+  currentHandle: string | null;
+  currentYoutubeUrl: string | null;
+  hasManualTitleOverride: boolean;
+}): boolean {
+  const youtubeTitle = input.youtubeTitle?.trim();
+
+  if (!youtubeTitle || input.hasManualTitleOverride) {
+    return false;
+  }
+
+  const currentTitle = input.currentTitle.trim();
+  const normalizedCurrentTitle = currentTitle.toLowerCase();
+  const handle = input.currentHandle?.trim().toLowerCase() ?? "";
+  const handleWithPrefix = handle ? (handle.startsWith("@") ? handle : `@${handle}`) : "";
+  const urlPlaceholder = deriveYoutubeUrlTitlePlaceholder(input.currentYoutubeUrl)?.toLowerCase() ?? "";
+
+  return normalizedCurrentTitle === input.youtubeChannelId.toLowerCase()
+    || normalizedCurrentTitle === handle
+    || normalizedCurrentTitle === handleWithPrefix
+    || (urlPlaceholder.length > 0 && normalizedCurrentTitle === urlPlaceholder);
 }
 
 const CHANNEL_PROFILE_RESULT_FIELD_BY_KEY = {
@@ -836,6 +908,14 @@ export async function executeChannelLlmEnrichment(input: {
                 email: true,
               },
             },
+            manualOverrides: {
+              where: {
+                field: ChannelManualOverrideField.TITLE,
+              },
+              select: {
+                id: true,
+              },
+            },
             youtubeContext: {
               select: {
                 context: true,
@@ -1092,6 +1172,14 @@ export async function executeChannelLlmEnrichment(input: {
     const influencerVerticalValue = applyDropdownUpdate(influencerVerticalUpdate);
     const countryRegionValue = applyDropdownUpdate(countryRegionUpdate);
     const languageValue = applyDropdownUpdate(languageUpdate);
+    const shouldUpdateTitle = shouldReplaceChannelTitleWithYoutubeTitle({
+      currentTitle: executionState.channel.title,
+      youtubeTitle: youtubeMetrics.context.title,
+      youtubeChannelId: executionState.channel.youtubeChannelId,
+      currentHandle: executionState.channel.handle,
+      currentYoutubeUrl: executionState.channel.youtubeUrl,
+      hasManualTitleOverride: executionState.channel.manualOverrides.length > 0,
+    });
 
     await prisma.$transaction(async (tx) => {
       await tx.channelYoutubeContext.update({
@@ -1109,6 +1197,7 @@ export async function executeChannelLlmEnrichment(input: {
           id: executionState.channel.id,
         },
         data: {
+          ...(shouldUpdateTitle ? { title: youtubeMetrics.context.title } : {}),
           handle: youtubeMetrics.normalizedHandle,
           youtubeUrl: youtubeMetrics.canonicalUrl,
           description: executionState.channel.description ?? youtubeMetrics.context.description,

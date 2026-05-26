@@ -564,6 +564,22 @@ integration("week 5 csv import core integration", () => {
     expect(channel.handle).toBe("@urlonlycreator");
     expect(channel.youtubeUrl).toBe("https://www.youtube.com/@urlonlycreator");
 
+    await prisma.channel.update({
+      where: {
+        id: channel.id,
+      },
+      data: {
+        title: "URL Only Creator",
+      },
+    });
+
+    const detail = await imports.getCsvImportBatchById({
+      importBatchId: batch.id,
+      page: 1,
+      pageSize: 100,
+    });
+    expect(detail.rows[0]?.channelTitle).toBe("URL Only Creator");
+
     const enrichment = await prisma.channelEnrichment.findUniqueOrThrow({
       where: {
         channelId: channel.id,
