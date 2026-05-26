@@ -687,7 +687,38 @@ function isValidYoutubeUrlField(value: string): boolean {
   try {
     const parsedUrl = new URL(normalizedValue);
     const host = parsedUrl.hostname.replace(/^www\./i, "").toLowerCase();
-    return host.endsWith("youtube.com") || host.endsWith("youtu.be");
+
+    if (!host.endsWith("youtube.com")) {
+      return false;
+    }
+
+    const pathParts = parsedUrl.pathname
+      .split("/")
+      .filter(Boolean)
+      .map((part) => {
+        try {
+          return decodeURIComponent(part);
+        } catch {
+          return part;
+        }
+      });
+    const first = pathParts[0] ?? "";
+    const second = pathParts[1] ?? "";
+    const firstLower = first.toLowerCase();
+
+    if (first.startsWith("@")) {
+      return pathParts.length === 1;
+    }
+
+    if (firstLower === "channel") {
+      return pathParts.length === 2 && isLikelyCanonicalYoutubeChannelId(second);
+    }
+
+    if ((firstLower === "c" || firstLower === "user") && second) {
+      return pathParts.length === 2;
+    }
+
+    return Boolean(first) && !["watch", "shorts", "playlist", "results", "feed"].includes(firstLower);
   } catch {
     return false;
   }
