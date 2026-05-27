@@ -17,6 +17,7 @@ import {
   parseCatalogUrlState,
   toggleCatalogMultiValueFilter,
   type CatalogCreatorFilterOptions,
+  type CatalogEnrichmentFilter,
   type CatalogFiltersState,
   type CatalogMultiValueFilterKey,
   type CatalogNumericFilterKey,
@@ -104,6 +105,7 @@ type CatalogTableShellViewProps = {
   onNumericFilterChange: (key: CatalogNumericFilterKey, value: string) => void;
   onClearNumericRangeFilter: (minKey: CatalogNumericFilterKey, maxKey: CatalogNumericFilterKey) => void;
   onClearMultiValueFilter: (key: CatalogMultiValueFilterKey) => void;
+  onEnrichmentStatusChange: (value: CatalogEnrichmentFilter | "") => void;
   onToggleMultiValueFilter: (key: CatalogMultiValueFilterKey, value: string) => void;
   onToggleChannelSelection: (channelId: string) => void;
   onTogglePageSelection: () => void;
@@ -134,6 +136,7 @@ export function CatalogTableShellView({
   onNumericFilterChange,
   onClearNumericRangeFilter,
   onClearMultiValueFilter,
+  onEnrichmentStatusChange,
   onToggleMultiValueFilter,
   onToggleChannelSelection,
   onTogglePageSelection,
@@ -164,6 +167,7 @@ export function CatalogTableShellView({
         searchOptions={searchOptions}
         onClearMultiValueFilter={onClearMultiValueFilter}
         onClearNumericRangeFilter={onClearNumericRangeFilter}
+        onEnrichmentStatusChange={onEnrichmentStatusChange}
         onNumericFilterChange={onNumericFilterChange}
         onQueryChange={onQueryChange}
         onResetFilters={onResetFilters}

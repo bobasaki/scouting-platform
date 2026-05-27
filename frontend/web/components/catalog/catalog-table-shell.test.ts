@@ -192,6 +192,7 @@ function renderView(
         youtubeShortsMedianViewsMax: "",
         youtubeFollowersMin: "",
         youtubeFollowersMax: "",
+        enrichmentStatus: "",
       },
       selectedChannelIds: options?.selectedChannelIds ?? [],
       batchEnrichmentActionState: options?.batchEnrichmentActionState ?? {
@@ -225,6 +226,7 @@ function renderView(
       onNumericFilterChange: vi.fn(),
       onClearNumericRangeFilter: vi.fn(),
       onClearMultiValueFilter: vi.fn(),
+      onEnrichmentStatusChange: vi.fn(),
       onToggleMultiValueFilter: vi.fn(),
       onTogglePageSelection: vi.fn(),
     }),
@@ -287,14 +289,16 @@ describe("catalog table shell view", () => {
         youtubeShortsMedianViewsMax: "",
         youtubeFollowersMin: "",
         youtubeFollowersMax: "500000",
+        // "failed" is a raw backend status — maps to "not_enriched" in the UI filter.
+        enrichmentStatus: "not_enriched",
       },
     });
 
     expect(buildCatalogSearchParams(parsed).toString()).toBe(
-      "page=3&query=space&countryRegion=Croatia&countryRegion=Germany&influencerVertical=Gaming&youtubeVideoMedianViewsMin=100000&youtubeFollowersMax=500000",
+      "page=3&query=space&countryRegion=Croatia&countryRegion=Germany&influencerVertical=Gaming&youtubeVideoMedianViewsMin=100000&youtubeFollowersMax=500000&enrichmentStatus=not_enriched",
     );
     expect(buildCatalogHref("/catalog", parsed)).toBe(
-      "/catalog?page=3&query=space&countryRegion=Croatia&countryRegion=Germany&influencerVertical=Gaming&youtubeVideoMedianViewsMin=100000&youtubeFollowersMax=500000",
+      "/catalog?page=3&query=space&countryRegion=Croatia&countryRegion=Germany&influencerVertical=Gaming&youtubeVideoMedianViewsMin=100000&youtubeFollowersMax=500000&enrichmentStatus=not_enriched",
     );
     expect(
       areCatalogFiltersEqual(parsed.filters, {
@@ -308,6 +312,7 @@ describe("catalog table shell view", () => {
         youtubeShortsMedianViewsMax: "",
         youtubeFollowersMin: "",
         youtubeFollowersMax: "500000",
+        enrichmentStatus: "not_enriched",
       }),
     ).toBe(true);
   });
@@ -512,6 +517,7 @@ describe("catalog table shell view", () => {
       youtubeShortsMedianViewsMax: "",
       youtubeFollowersMin: "",
       youtubeFollowersMax: "500000",
+      enrichmentStatus: "",
     });
 
     expect(filters).toEqual({
@@ -532,6 +538,7 @@ describe("catalog table shell view", () => {
       youtubeShortsMedianViewsMax: "",
       youtubeFollowersMin: "",
       youtubeFollowersMax: "500000",
+      enrichmentStatus: "",
     });
     expect(getCatalogFiltersFromSavedSegment({
       enrichmentStatus: ["completed"],
@@ -547,6 +554,7 @@ describe("catalog table shell view", () => {
       youtubeShortsMedianViewsMax: "",
       youtubeFollowersMin: "",
       youtubeFollowersMax: "",
+      enrichmentStatus: "enriched",
     });
     expect(
       formatSavedSegmentSummary({
