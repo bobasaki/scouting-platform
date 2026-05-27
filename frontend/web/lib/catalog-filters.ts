@@ -16,6 +16,8 @@ export type CatalogMultiValueFilterKey =
   | "influencerVertical"
   | "influencerType";
 
+export type CatalogEnrichmentFilter = "enriched" | "not_enriched";
+
 export type CatalogFiltersState = {
   query: string;
   countryRegion: string[];
@@ -27,6 +29,7 @@ export type CatalogFiltersState = {
   youtubeShortsMedianViewsMax: string;
   youtubeFollowersMin: string;
   youtubeFollowersMax: string;
+  enrichmentStatus: CatalogEnrichmentFilter | "";
 };
 
 export type CatalogFilterInput = Pick<
@@ -34,9 +37,9 @@ export type CatalogFilterInput = Pick<
   "query" | "countryRegion" | "influencerVertical" | "influencerType"
 > &
   Partial<Record<CatalogNumericFilterKey, unknown>> & {
-    // Legacy status filters are intentionally accepted and ignored so old URLs and
-    // saved segments do not crash the catalog after the filter model change.
     enrichmentStatus?: readonly string[];
+    // Legacy advanced report status filter is intentionally accepted and ignored so old URLs
+    // and saved segments do not crash the catalog after the filter model change.
     advancedReportStatus?: readonly string[];
   };
 
@@ -82,6 +85,7 @@ export const DEFAULT_CATALOG_FILTERS: CatalogFiltersState = {
   youtubeShortsMedianViewsMax: "",
   youtubeFollowersMin: "",
   youtubeFollowersMax: "",
+  enrichmentStatus: "",
 };
 
 const MULTI_VALUE_FILTER_LABELS: Record<CatalogMultiValueFilterKey, string> = {
@@ -153,6 +157,14 @@ function toOptionalNumber(value: string): number | undefined {
   return value ? Number(value) : undefined;
 }
 
+function normalizeEnrichmentFilter(value: unknown): CatalogEnrichmentFilter | "" {
+  if (value === "enriched" || value === "not_enriched") {
+    return value;
+  }
+
+  return "";
+}
+
 function formatFilterMetric(value: string): string {
   const parsedValue = Number.parseInt(value, 10);
 
@@ -184,6 +196,25 @@ function formatRangeSummary(
 }
 
 export function normalizeCatalogFilters(filters: CatalogFilterInput): CatalogFiltersState {
+  // Map raw enrichmentStatus array to simplified UI filter value.
+  // "completed" → "enriched"; anything else in the set → "not_enriched".
+  const rawEnrichmentStatus = filters.enrichmentStatus;
+  let enrichmentStatus: CatalogEnrichmentFilter | "" = "";
+
+  if (rawEnrichmentStatus && rawEnrichmentStatus.length > 0) {
+    if (rawEnrichmentStatus.includes("completed") && rawEnrichmentStatus.length === 1) {
+      enrichmentStatus = "enriched";
+    } else if (
+      !rawEnrichmentStatus.includes("completed") &&
+      rawEnrichmentStatus.some((s) => ["missing", "failed", "stale"].includes(s))
+    ) {
+      enrichmentStatus = "not_enriched";
+    } else {
+      // Also accept the simplified values directly (from URL params).
+      enrichmentStatus = normalizeEnrichmentFilter(rawEnrichmentStatus[0]);
+    }
+  }
+
   return {
     query: filters.query?.trim() ?? "",
     countryRegion: normalizeStringArray(filters.countryRegion),
@@ -203,35 +234,43 @@ export function normalizeCatalogFilters(filters: CatalogFilterInput): CatalogFil
     ),
     youtubeFollowersMin: normalizeCatalogNumericFilterValue(filters.youtubeFollowersMin),
     youtubeFollowersMax: normalizeCatalogNumericFilterValue(filters.youtubeFollowersMax),
+    enrichmentStatus,
   };
 }
 
 export function buildCatalogChannelFilters(filters: CatalogFiltersState): CatalogChannelFilters {
-  const normalized = normalizeCatalogFilters(filters);
+  // CatalogFiltersState is already normalized, but trim query defensively for safety.
   const requestFilters: CatalogChannelFilters = {};
+  const trimmedQuery = filters.query.trim();
 
-  if (normalized.query) {
-    requestFilters.query = normalized.query;
+  if (trimmedQuery) {
+    requestFilters.query = trimmedQuery;
   }
 
-  if (normalized.countryRegion.length > 0) {
-    requestFilters.countryRegion = [...normalized.countryRegion];
+  if (filters.countryRegion.length > 0) {
+    requestFilters.countryRegion = [...filters.countryRegion];
   }
 
-  if (normalized.influencerVertical.length > 0) {
-    requestFilters.influencerVertical = [...normalized.influencerVertical];
+  if (filters.influencerVertical.length > 0) {
+    requestFilters.influencerVertical = [...filters.influencerVertical];
   }
 
-  if (normalized.influencerType.length > 0) {
-    requestFilters.influencerType = [...normalized.influencerType];
+  if (filters.influencerType.length > 0) {
+    requestFilters.influencerType = [...filters.influencerType];
   }
 
   for (const key of CATALOG_NUMERIC_FILTER_KEYS) {
-    const value = toOptionalNumber(normalized[key]);
+    const value = toOptionalNumber(filters[key]);
 
     if (value !== undefined) {
       (requestFilters as Partial<Record<CatalogNumericFilterKey, number>>)[key] = value;
     }
+  }
+
+  if (filters.enrichmentStatus === "enriched") {
+    requestFilters.enrichmentStatus = ["completed"];
+  } else if (filters.enrichmentStatus === "not_enriched") {
+    requestFilters.enrichmentStatus = ["missing", "failed", "stale"];
   }
 
   return requestFilters;
@@ -249,6 +288,13 @@ export function buildSavedSegmentFilters(filters: CatalogFiltersState): SegmentF
 }
 
 export function getCatalogFiltersFromSavedSegment(filters: SegmentFilters): CatalogFiltersState {
+  const rawEnrichmentStatus = filters.enrichmentStatus;
+  const enrichmentStatusArray = Array.isArray(rawEnrichmentStatus)
+    ? (rawEnrichmentStatus as string[])
+    : typeof rawEnrichmentStatus === "string"
+      ? [rawEnrichmentStatus]
+      : [];
+
   return normalizeCatalogFilters({
     query: typeof filters.query === "string" ? filters.query : undefined,
     countryRegion: getStringArray(filters.countryRegion),
@@ -260,6 +306,7 @@ export function getCatalogFiltersFromSavedSegment(filters: SegmentFilters): Cata
     youtubeShortsMedianViewsMax: filters.youtubeShortsMedianViewsMax,
     youtubeFollowersMin: filters.youtubeFollowersMin,
     youtubeFollowersMax: filters.youtubeFollowersMax,
+    enrichmentStatus: enrichmentStatusArray,
   });
 }
 
@@ -311,6 +358,9 @@ export function formatSavedSegmentSummary(filters: SegmentFilters): string {
 export function parseCatalogFiltersFromSearchParams(
   searchParams: Pick<URLSearchParams, "get" | "getAll">,
 ): CatalogFiltersState {
+  const rawEnrichmentStatus = searchParams.get("enrichmentStatus");
+  const enrichmentStatusArray = rawEnrichmentStatus ? [rawEnrichmentStatus] : [];
+
   return normalizeCatalogFilters({
     query: searchParams.get("query") ?? undefined,
     countryRegion: searchParams.getAll("countryRegion"),
@@ -322,33 +372,37 @@ export function parseCatalogFiltersFromSearchParams(
     youtubeShortsMedianViewsMax: searchParams.get("youtubeShortsMedianViewsMax"),
     youtubeFollowersMin: searchParams.get("youtubeFollowersMin"),
     youtubeFollowersMax: searchParams.get("youtubeFollowersMax"),
+    enrichmentStatus: enrichmentStatusArray,
   });
 }
 
 export function buildCatalogFilterSearchParams(filters: CatalogFiltersState): URLSearchParams {
   const params = new URLSearchParams();
-  const normalized = normalizeCatalogFilters(filters);
 
-  if (normalized.query) {
-    params.set("query", normalized.query);
+  if (filters.query) {
+    params.set("query", filters.query);
   }
 
-  for (const value of normalized.countryRegion) {
+  for (const value of filters.countryRegion) {
     params.append("countryRegion", value);
   }
 
-  for (const value of normalized.influencerVertical) {
+  for (const value of filters.influencerVertical) {
     params.append("influencerVertical", value);
   }
 
-  for (const value of normalized.influencerType) {
+  for (const value of filters.influencerType) {
     params.append("influencerType", value);
   }
 
   for (const key of CATALOG_NUMERIC_FILTER_KEYS) {
-    if (normalized[key]) {
-      params.set(key, normalized[key]);
+    if (filters[key]) {
+      params.set(key, filters[key]);
     }
+  }
+
+  if (filters.enrichmentStatus) {
+    params.set("enrichmentStatus", filters.enrichmentStatus);
   }
 
   return params;
@@ -401,7 +455,8 @@ export function areCatalogFiltersEqual(
     left.countryRegion.join(",") === right.countryRegion.join(",") &&
     left.influencerVertical.join(",") === right.influencerVertical.join(",") &&
     left.influencerType.join(",") === right.influencerType.join(",") &&
-    CATALOG_NUMERIC_FILTER_KEYS.every((key) => left[key] === right[key])
+    CATALOG_NUMERIC_FILTER_KEYS.every((key) => left[key] === right[key]) &&
+    left.enrichmentStatus === right.enrichmentStatus
   );
 }
 
@@ -428,7 +483,8 @@ export function hasActiveCatalogFilters(filters: CatalogFiltersState): boolean {
       filters.countryRegion.length > 0 ||
       filters.influencerVertical.length > 0 ||
       filters.influencerType.length > 0 ||
-      CATALOG_NUMERIC_FILTER_KEYS.some((key) => filters[key]),
+      CATALOG_NUMERIC_FILTER_KEYS.some((key) => filters[key]) ||
+      filters.enrichmentStatus,
   );
 }
 
@@ -438,6 +494,7 @@ export function countActiveCatalogFilters(filters: CatalogFiltersState): number 
     filters.countryRegion.length +
     filters.influencerVertical.length +
     filters.influencerType.length +
-    CATALOG_NUMERIC_FILTER_KEYS.filter((key) => Boolean(filters[key])).length
+    CATALOG_NUMERIC_FILTER_KEYS.filter((key) => Boolean(filters[key])).length +
+    (filters.enrichmentStatus ? 1 : 0)
   );
 }

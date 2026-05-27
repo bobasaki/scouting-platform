@@ -11,6 +11,7 @@ import {
   requestFilteredChannelEnrichment,
   fetchChannels,
 } from "../../lib/channels-api";
+import type { ChannelEnrichmentStatus } from "@scouting-platform/contracts";
 import {
   DEFAULT_CATALOG_FILTERS,
   buildCatalogChannelFilters,
@@ -21,6 +22,7 @@ import {
   parseCatalogUrlState,
   toggleCatalogMultiValueFilter,
   type CatalogCreatorFilterOptions,
+  type CatalogEnrichmentFilter,
   type CatalogFiltersState,
   type CatalogMultiValueFilterKey,
   type CatalogNumericFilterKey,
@@ -156,6 +158,18 @@ export function useCatalogTableShellModel({
     () => parseCatalogUrlState(new URLSearchParams(appliedStateKey)),
     [appliedStateKey],
   );
+  const requestEnrichmentStatuses = useMemo((): ChannelEnrichmentStatus[] | undefined => {
+    if (appliedState.filters.enrichmentStatus === "enriched") {
+      return ["completed"];
+    }
+
+    if (appliedState.filters.enrichmentStatus === "not_enriched") {
+      return ["missing", "failed", "stale"];
+    }
+
+    return undefined;
+  }, [appliedState.filters.enrichmentStatus]);
+
   const requestInput = useMemo(
     () => ({
       page: appliedState.page,
@@ -188,8 +202,9 @@ export function useCatalogTableShellModel({
       ...(appliedState.filters.youtubeFollowersMax
         ? { youtubeFollowersMax: Number(appliedState.filters.youtubeFollowersMax) }
         : {}),
+      ...(requestEnrichmentStatuses ? { enrichmentStatus: requestEnrichmentStatuses } : {}),
     }),
-    [appliedState, pageSize],
+    [appliedState, pageSize, requestEnrichmentStatuses],
   );
   const viewMode = getCatalogViewMode(searchParams);
   const [requestState, setRequestState] = useState<CatalogTableRequestState>(
@@ -820,6 +835,12 @@ export function useCatalogTableShellModel({
       applyFilters({
         ...appliedState.filters,
         [key]: toggleCatalogMultiValueFilter(appliedState.filters[key], value),
+      });
+    },
+    onEnrichmentStatusChange: (value: CatalogEnrichmentFilter | "") => {
+      applyFilters({
+        ...appliedState.filters,
+        enrichmentStatus: value,
       });
     },
     onTogglePageSelection: () => {

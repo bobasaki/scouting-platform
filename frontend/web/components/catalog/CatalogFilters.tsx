@@ -3,6 +3,7 @@ import React from "react";
 import {
   countActiveCatalogFilters,
   type CatalogCreatorFilterOptions,
+  type CatalogEnrichmentFilter,
   type CatalogFilterOption,
   type CatalogFiltersState,
   type CatalogMultiValueFilterKey,
@@ -438,12 +439,91 @@ function MetricRangeFilterChip({
   );
 }
 
+const ENRICHMENT_FILTER_OPTIONS: { value: CatalogEnrichmentFilter; label: string }[] = [
+  { value: "enriched", label: "Enriched" },
+  { value: "not_enriched", label: "Not enriched" },
+];
+
+function EnrichmentStatusFilterChip({
+  value,
+  onChange,
+}: {
+  value: CatalogEnrichmentFilter | "";
+  onChange: (value: CatalogEnrichmentFilter | "") => void;
+}) {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const rootRef = useDismissOnOutsideClick<HTMLDivElement>(isOpen, () => {
+    setIsOpen(false);
+  });
+  const isActive = Boolean(value);
+  const selectedLabel = ENRICHMENT_FILTER_OPTIONS.find((o) => o.value === value)?.label;
+
+  return (
+    <div className="catalog-filter-chip" ref={rootRef}>
+      <button
+        aria-expanded={isOpen}
+        className={isActive ? "catalog-filter-chip__trigger catalog-filter-chip__trigger--active" : "catalog-filter-chip__trigger"}
+        onClick={() => {
+          setIsOpen((current) => !current);
+        }}
+        type="button"
+      >
+        <span>{isActive ? `Enrichment: ${selectedLabel ?? value}` : "Enrichment"}</span>
+      </button>
+
+      {isActive ? (
+        <button
+          aria-label="Clear enrichment filter"
+          className="catalog-filter-chip__clear"
+          onClick={(event) => {
+            event.stopPropagation();
+            onChange("");
+            setIsOpen(false);
+          }}
+          type="button"
+        >
+          ×
+        </button>
+      ) : null}
+
+      {isOpen ? (
+        <div className="catalog-filter-chip__popover">
+          <div className="catalog-table__filter-options" role="listbox">
+            {ENRICHMENT_FILTER_OPTIONS.map((option) => {
+              const checked = value === option.value;
+
+              return (
+                <label
+                  key={option.value}
+                  className={`catalog-table__filter-option${checked ? " catalog-table__filter-option--selected" : ""}`}
+                >
+                  <input
+                    checked={checked}
+                    onChange={() => {
+                      onChange(checked ? "" : option.value);
+                      setIsOpen(false);
+                    }}
+                    suppressHydrationWarning
+                    type="radio"
+                  />
+                  <span>{option.label}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 type CatalogFiltersProps = Readonly<{
   creatorFilterOptions: CatalogCreatorFilterOptions;
   filters: CatalogFiltersState;
   searchOptions: readonly CatalogSearchOption[];
   onClearMultiValueFilter: (key: CatalogMultiValueFilterKey) => void;
   onClearNumericRangeFilter: (minKey: CatalogNumericFilterKey, maxKey: CatalogNumericFilterKey) => void;
+  onEnrichmentStatusChange: (value: CatalogEnrichmentFilter | "") => void;
   onNumericFilterChange: (key: CatalogNumericFilterKey, value: string) => void;
   onQueryChange: (value: string) => void;
   onResetFilters: () => void;
@@ -456,6 +536,7 @@ export function CatalogFilters({
   searchOptions,
   onClearMultiValueFilter,
   onClearNumericRangeFilter,
+  onEnrichmentStatusChange,
   onNumericFilterChange,
   onQueryChange,
   onResetFilters,
@@ -538,6 +619,11 @@ export function CatalogFilters({
           minKey="youtubeFollowersMin"
           onNumericFilterChange={onNumericFilterChange}
           onClearNumericRangeFilter={onClearNumericRangeFilter}
+        />
+
+        <EnrichmentStatusFilterChip
+          onChange={onEnrichmentStatusChange}
+          value={filters.enrichmentStatus}
         />
 
         <button
