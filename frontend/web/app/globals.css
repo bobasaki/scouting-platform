@@ -2796,6 +2796,45 @@ a {
   text-decoration: underline;
 }
 
+.admin-dashboard__link--small {
+  font-size: var(--font-size-200);
+  margin-top: var(--space-2);
+  display: inline-block;
+}
+
+.admin-dashboard__card-value-percent {
+  font-size: 0.6em;
+  font-weight: var(--font-weight-normal);
+  color: var(--color-text-muted);
+}
+
+.admin-dashboard__enrichment-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-border);
+  overflow: hidden;
+  margin: var(--space-2) 0;
+}
+
+.admin-dashboard__enrichment-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--color-accent);
+  transition: width 300ms ease;
+}
+
+.admin-dashboard__enrichment-stat {
+  font-weight: var(--font-weight-semibold);
+}
+
+.admin-dashboard__enrichment-stat--enriched {
+  color: var(--color-success, #16a34a);
+}
+
+.admin-dashboard__enrichment-stat--not-enriched {
+  color: var(--color-text-muted);
+}
+
 .admin-dashboard__inline-note {
   margin: 0;
   color: var(--color-text-muted);

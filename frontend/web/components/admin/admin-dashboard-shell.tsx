@@ -112,9 +112,19 @@ function pluralize(count: number, singular: string, plural = `${singular}s`): st
 }
 
 function formatEnrichmentCoverageCopy(dashboard: AdminDashboardResponse): string {
-  const { counts, notEnrichedCount } = dashboard.enrichment;
+  const { counts } = dashboard.enrichment;
 
-  return `${pluralize(dashboard.enrichment.enrichedCount, "enriched channel")}, ${pluralize(notEnrichedCount, "not enriched channel")}. Missing ${counts.missing}, failed ${counts.failed}, stale ${counts.stale}, queued ${counts.queued}, running ${counts.running}.`;
+  return `Missing ${counts.missing}, failed ${counts.failed}, stale ${counts.stale}, queued ${counts.queued}, running ${counts.running}.`;
+}
+
+function getEnrichmentCoveragePercent(dashboard: AdminDashboardResponse): number {
+  const { enrichedCount, totalCount } = dashboard.enrichment;
+
+  if (totalCount === 0) {
+    return 0;
+  }
+
+  return Math.round((enrichedCount / totalCount) * 100);
 }
 
 export function shouldPollAdminDashboard(dashboard: AdminDashboardResponse | null): boolean {
@@ -155,10 +165,43 @@ function renderReadyState(dashboard: AdminDashboardResponse): ReactElement {
           <p className="admin-dashboard__card-label">Channel enrichment coverage</p>
           <p className="admin-dashboard__card-value">
             {dashboard.enrichment.enrichedCount}/{dashboard.enrichment.totalCount}
+            <span className="admin-dashboard__card-value-percent">
+              {" "}({getEnrichmentCoveragePercent(dashboard)}%)
+            </span>
+          </p>
+          <div
+            className="admin-dashboard__enrichment-bar"
+            aria-label={`${getEnrichmentCoveragePercent(dashboard)}% enriched`}
+            role="meter"
+            aria-valuenow={getEnrichmentCoveragePercent(dashboard)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <div
+              className="admin-dashboard__enrichment-bar-fill"
+              style={{ width: `${getEnrichmentCoveragePercent(dashboard)}%` }}
+            />
+          </div>
+          <p className="admin-dashboard__card-copy">
+            <span className="admin-dashboard__enrichment-stat admin-dashboard__enrichment-stat--enriched">
+              {dashboard.enrichment.enrichedCount} enriched
+            </span>
+            {" · "}
+            <span className="admin-dashboard__enrichment-stat admin-dashboard__enrichment-stat--not-enriched">
+              {dashboard.enrichment.notEnrichedCount} not enriched
+            </span>
           </p>
           <p className="admin-dashboard__card-copy">
             {formatEnrichmentCoverageCopy(dashboard)}
           </p>
+          {dashboard.enrichment.notEnrichedCount > 0 ? (
+            <Link
+              className="admin-dashboard__link admin-dashboard__link--small"
+              href={`/catalog?enrichmentStatus=not_enriched`}
+            >
+              View not enriched →
+            </Link>
+          ) : null}
         </article>
       </div>
 

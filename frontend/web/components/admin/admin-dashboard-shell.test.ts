@@ -156,9 +156,11 @@ describe("admin dashboard shell view", () => {
     expect(html).toContain("Refreshing overview...");
     expect(html).toContain("Queued 1, running 1, failed 1.");
     expect(html).toContain("3 active accounts, 1 admin, 4 total records.");
-    expect(html).toContain(
-      "7 enriched channels, 5 not enriched channels. Missing 2, failed 1, stale 0, queued 1, running 1.",
-    );
+    expect(html).toContain("7 enriched");
+    expect(html).toContain("5 not enriched");
+    expect(html).toContain("Missing 2, failed 1, stale 0, queued 1, running 1.");
+    expect(html).toContain("58%");
+    expect(html).toContain("View not enriched");
     expect(html).not.toContain("CSV exports");
     expect(html).not.toContain("HubSpot pushes");
     expect(html).not.toContain('href="/exports"');
