@@ -22,7 +22,6 @@ type NewScoutingWorkspaceProps = Readonly<{
   initialCampaignManagers?: CampaignManagerOption[] | undefined;
   initialCountryRegionOptions?: string[] | undefined;
   initialLanguageOptions?: string[] | undefined;
-  initialInfluencerVerticalOptions?: string[] | undefined;
 }>;
 
 type NewScoutingDraft = {
@@ -30,6 +29,7 @@ type NewScoutingDraft = {
   target: string;
   campaignId: string;
   campaignManagerUserId: string;
+  brief: string;
 } & CatalogScoutingCriteria;
 
 type NewScoutingRequestState = {
@@ -265,7 +265,6 @@ export function NewScoutingWorkspace({
   initialCampaignManagers = [],
   initialCountryRegionOptions = [],
   initialLanguageOptions = [],
-  initialInfluencerVerticalOptions = [],
 }: NewScoutingWorkspaceProps) {
   const router = useRouter();
   const [draft, setDraft] = useState<NewScoutingDraft>({
@@ -273,6 +272,7 @@ export function NewScoutingWorkspace({
     target: "",
     campaignId: "",
     campaignManagerUserId: "",
+    brief: "",
     ...EMPTY_CATALOG_SCOUTING_CRITERIA,
   });
   const [requestState, setRequestState] = useState<NewScoutingRequestState>(DEFAULT_REQUEST_STATE);
@@ -314,10 +314,6 @@ export function NewScoutingWorkspace({
     () => normalizeDropdownValues(initialLanguageOptions),
     [initialLanguageOptions],
   );
-  const influencerVerticalOptions = useMemo(
-    () => normalizeDropdownValues(initialInfluencerVerticalOptions),
-    [initialInfluencerVerticalOptions],
-  );
   const locationMultiSelectOptions = useMemo<SearchableMultiSelectOption[]>(
     () => countryRegionOptions.map((value) => ({ value, label: value, keywords: [value] })),
     [countryRegionOptions],
@@ -326,12 +322,7 @@ export function NewScoutingWorkspace({
     () => languageOptions.map((value) => ({ value, label: value, keywords: [value] })),
     [languageOptions],
   );
-  const influencerVerticalMultiSelectOptions = useMemo<SearchableMultiSelectOption[]>(
-    () => influencerVerticalOptions.map((value) => ({ value, label: value, keywords: [value] })),
-    [influencerVerticalOptions],
-  );
   const selectedLocations = useMemo(() => parseMultiValueSelection(draft.location), [draft.location]);
-  const selectedVerticals = useMemo(() => parseMultiValueSelection(draft.category), [draft.category]);
   const subscribersRange = useMemo(() => parseMetricRangeSelection(draft.subscribers), [draft.subscribers]);
   const viewsRange = useMemo(() => parseMetricRangeSelection(draft.views), [draft.views]);
   const subscribersRangeStart = (subscribersRange.minIndex / LAST_METRIC_SLIDER_INDEX) * 100;
@@ -352,11 +343,12 @@ export function NewScoutingWorkspace({
 
     try {
       const normalizedName = draft.name.trim();
+      const normalizedBrief = draft.brief.trim();
       const normalizedTarget = normalizeRunTarget(draft.target);
       const hasCriteria = hasCatalogScoutingCriteria(draft);
 
-      if (!normalizedName || !hasCriteria || normalizedTarget === null) {
-        throw new Error("Influencer List, target, and at least one catalog criterion are required.");
+      if (!normalizedName || !normalizedBrief || !hasCriteria || normalizedTarget === null) {
+        throw new Error("Influencer List, target, Brief, and at least one hard filter are required.");
       }
 
       if (!draft.campaignId) {
@@ -374,6 +366,7 @@ export function NewScoutingWorkspace({
         metadata: {
           campaignId: draft.campaignId,
           campaignManagerUserId: draft.campaignManagerUserId,
+          campaignObjective: normalizedBrief,
         },
       });
 
@@ -650,7 +643,7 @@ export function NewScoutingWorkspace({
           <header className="new-scouting-section__header">
 <h2 className="new-scouting-section__title" id="ns-audience-heading">Audience & content</h2>
             <p className="new-scouting-section__hint">
-              Narrow down the audience by region, language, vertical and freshness. Leave fields blank to keep them open.
+              Narrow down the audience by region, language and freshness. Leave fields blank to keep them open.
             </p>
           </header>
 
@@ -684,23 +677,6 @@ export function NewScoutingWorkspace({
             </label>
 
             <label className="new-scouting__field">
-              <span>Influencer Vertical</span>
-              <SearchableMultiSelect
-                ariaLabel="Influencer Vertical"
-                disabled={isBusy || influencerVerticalMultiSelectOptions.length === 0}
-                onChange={(values) => updateDraftField("category", joinMultiValueSelection(values))}
-                options={influencerVerticalMultiSelectOptions}
-                placeholder={
-                  influencerVerticalMultiSelectOptions.length === 0
-                    ? "No Influencer Vertical values available"
-                    : "Select one or more influencer verticals"
-                }
-                searchPlaceholder="Search influencer verticals..."
-                values={selectedVerticals}
-              />
-            </label>
-
-            <label className="new-scouting__field">
               <span>Last post day since</span>
               <input
                 disabled={isBusy}
@@ -717,15 +693,16 @@ export function NewScoutingWorkspace({
           </div>
 
           <label className="new-scouting__field">
-            <span>Niche keywords</span>
-            <input
-              autoComplete="off"
+            <span>Brief:</span>
+            <textarea
               disabled={isBusy}
-              maxLength={120}
-              name="niche"
-              onChange={(event) => updateDraftField("niche", event.currentTarget.value)}
-              placeholder="e.g. Competitive shooters, strategy RPGs"
-              value={draft.niche}
+              maxLength={2000}
+              name="brief"
+              onChange={(event) => updateDraftField("brief", event.currentTarget.value)}
+              placeholder="Describe the category, niche, audience, creator style, and any must-have or avoid signals."
+              required
+              rows={5}
+              value={draft.brief}
             />
           </label>
         </section>

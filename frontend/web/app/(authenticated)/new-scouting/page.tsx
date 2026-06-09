@@ -9,7 +9,7 @@ import { Skeleton, SkeletonPageBody } from "../../../components/ui/skeleton";
 
 function getDropdownFieldValues(
   items: readonly DropdownValue[],
-  fieldKey: "countryRegion" | "language" | "influencerVertical",
+  fieldKey: "countryRegion" | "language",
 ): string[] {
   const values = items
     .filter((item) => item.fieldKey === fieldKey)
@@ -42,7 +42,6 @@ async function NewScoutingData() {
       initialCampaignManagers={campaignManagers}
       initialCampaigns={campaigns.items}
       initialCountryRegionOptions={getDropdownFieldValues(dropdownValues.items, "countryRegion")}
-      initialInfluencerVerticalOptions={getDropdownFieldValues(dropdownValues.items, "influencerVertical")}
       initialLanguageOptions={getDropdownFieldValues(dropdownValues.items, "language")}
     />
   );

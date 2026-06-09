@@ -61,7 +61,10 @@ describe("runs.assess.channel-fit worker registration", () => {
 
     await handler({ data: request });
 
-    expect(vi.mocked(executeRunChannelFitAssessment)).toHaveBeenCalledWith(request);
+    expect(vi.mocked(executeRunChannelFitAssessment)).toHaveBeenCalledWith({
+      ...request,
+      isFinalAttempt: false,
+    });
   });
 
   it("parses and executes a batch of jobs", async () => {
@@ -91,10 +94,16 @@ describe("runs.assess.channel-fit worker registration", () => {
       requestedByUserId: "66666666-6666-4666-8666-666666666666",
     };
 
-    await handler([{ data: requestA }, { data: requestB }]);
+    await handler([{ data: requestA }, { data: requestB, retryCount: 5, retryLimit: 5 }]);
 
-    expect(vi.mocked(executeRunChannelFitAssessment)).toHaveBeenNthCalledWith(1, requestA);
-    expect(vi.mocked(executeRunChannelFitAssessment)).toHaveBeenNthCalledWith(2, requestB);
+    expect(vi.mocked(executeRunChannelFitAssessment)).toHaveBeenNthCalledWith(1, {
+      ...requestA,
+      isFinalAttempt: false,
+    });
+    expect(vi.mocked(executeRunChannelFitAssessment)).toHaveBeenNthCalledWith(2, {
+      ...requestB,
+      isFinalAttempt: true,
+    });
   });
 
   it("logs and re-throws errors so pg-boss can retry", async () => {

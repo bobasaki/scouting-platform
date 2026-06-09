@@ -159,17 +159,20 @@ function slimYoutubeContext(ctx: YoutubeChannelContext): {
 
 function buildPrompt(input: z.output<typeof inputSchema>): string {
   return JSON.stringify({
+    freeTextBrief: input.campaignBrief.campaignObjective,
     campaignBrief: input.campaignBrief,
     channel: input.channel,
     youtubeContext: slimYoutubeContext(input.youtubeContext),
     enrichmentProfile: input.enrichmentProfile,
     classificationSource:
       "enrichmentProfile is the prior nano creator classification. Use it as the primary classification signal, then use YouTube context and the campaign brief to judge fit.",
+    briefUsage:
+      "freeTextBrief is the campaign manager's free-text description of the requested category, niche, audience, creator style, and constraints. Treat it as the primary campaign-specific relevance signal after the hard filters have already selected candidate channels.",
     instructions: {
       fitScore:
-        "Return a number from 0 to 1 scoring how well this creator fits THIS specific campaign brief. 0 = clearly wrong fit, 1 = perfect fit. Weight: audience match, content style alignment, brand safety for this client's industry, presence of campaign-required themes.",
+        "Return a number from 0 to 1 scoring how well this creator fits THIS specific free-text brief. 0 = clearly wrong fit, 1 = perfect fit. Weight: category and niche alignment, audience match, content style alignment, brand safety for this client's industry, presence of campaign-required themes.",
       fitReasons:
-        "List 1-10 concrete reasons this creator fits the brief. Each reason must cite a specific signal and tie it to a brief requirement. Avoid generic platitudes.",
+        "List 1-10 concrete reasons this creator fits the free-text brief. Each reason must cite a specific signal and tie it to a brief requirement. Avoid generic platitudes.",
       fitConcerns:
         "List 0-10 concrete concerns or misfit signals. Include audience mismatches, content-restriction violations, brand-safety risks for this client's industry, and competitor conflicts. Empty array if no concerns.",
       recommendedAngles:
@@ -311,7 +314,7 @@ export async function enrichCampaignFitWithOpenAi(
         {
           role: "system",
           content:
-            "You assess a YouTube creator's fit for a specific marketing campaign brief and must return valid JSON with fitScore, fitReasons, fitConcerns, recommendedAngles, and avoidTopics.",
+            "You assess a YouTube creator's fit for a specific marketing campaign free-text brief after hard filters have already selected candidate channels. Return valid JSON with fitScore, fitReasons, fitConcerns, recommendedAngles, and avoidTopics.",
         },
         {
           role: "user",

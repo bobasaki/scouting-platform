@@ -26,6 +26,7 @@ describe("scouting query helpers", () => {
     });
     expect(hasCatalogScoutingCriteria({ subscribers: "  " })).toBe(false);
     expect(hasCatalogScoutingCriteria({ subscribers: "100K+" })).toBe(true);
+    expect(hasCatalogScoutingCriteria({ category: "Gaming", niche: "Strategy" })).toBe(false);
   });
 
   it("builds and parses catalog scouting query strings", () => {

@@ -61,13 +61,14 @@ const DEFAULT_TEST_DRAFT = {
   target: "20",
   campaignId: CAMPAIGN_OPTION.id,
   campaignManagerUserId: CAMPAIGN_MANAGER_OPTION.id,
+  brief: "Find strategy gaming creators for a console launch.",
   subscribers: "100K+",
   views: "25K-250K",
   location: "Germany",
   language: "German",
   lastPostDaysSince: "30",
-  category: "Gaming",
-  niche: "Strategy",
+  category: "",
+  niche: "",
 };
 
 const IDLE_MESSAGE = "";
@@ -93,7 +94,9 @@ function findInputByName(
   node: ReactNode,
   name: string,
 ): ReactElement<{ onChange: (event: { currentTarget: { value: string } }) => void }> {
-  const input = findElementsByType(node, "input").find((element) => element.props.name === name) as
+  const input = [...findElementsByType(node, "input"), ...findElementsByType(node, "textarea")].find(
+    (element) => element.props.name === name,
+  ) as
     | ReactElement<{ onChange: (event: { currentTarget: { value: string } }) => void }>
     | undefined;
 
@@ -132,7 +135,6 @@ function renderWorkspace(options?: {
     initialCampaignManagers: [CAMPAIGN_MANAGER_OPTION],
     initialCampaigns: [CAMPAIGN_OPTION],
     initialCountryRegionOptions: ["Germany", "Austria"],
-    initialInfluencerVerticalOptions: ["Gaming", "Tech"],
     initialLanguageOptions: ["German", "English"],
   });
 
@@ -159,8 +161,8 @@ describe("new scouting workspace behavior", () => {
         ...DEFAULT_TEST_DRAFT,
         name: "  Spring gaming outreach  ",
         target: " 25 ",
+        brief: "  Strategy gaming creators with a DACH audience  ",
         location: "  Germany  ",
-        niche: "  Strategy  ",
       },
     });
 
@@ -181,13 +183,14 @@ describe("new scouting workspace behavior", () => {
         location: "  Germany  ",
         language: "German",
         lastPostDaysSince: "30",
-        category: "Gaming",
-        niche: "  Strategy  ",
+        category: "",
+        niche: "",
       }),
       target: 25,
       metadata: {
         campaignId: CAMPAIGN_OPTION.id,
         campaignManagerUserId: CAMPAIGN_MANAGER_OPTION.id,
+        campaignObjective: "Strategy gaming creators with a DACH audience",
       },
     });
     expect(setRequestState).toHaveBeenCalledWith({
@@ -245,11 +248,11 @@ describe("new scouting workspace behavior", () => {
     });
   });
 
-  it("updates the niche draft when the niche field changes", () => {
+  it("updates the brief draft when the brief field changes", () => {
     const { element, setDraft } = renderWorkspace();
-    const nicheInput = findInputByName(element, "niche");
+    const briefInput = findInputByName(element, "brief");
 
-    nicheInput.props.onChange({ currentTarget: { value: "Walkthroughs" } });
+    briefInput.props.onChange({ currentTarget: { value: "Walkthroughs with cozy strategy depth" } });
 
     const updateDraft = setDraft.mock.calls[0]?.[0] as
       | ((draft: typeof DEFAULT_TEST_DRAFT) => typeof DEFAULT_TEST_DRAFT)
@@ -257,7 +260,7 @@ describe("new scouting workspace behavior", () => {
 
     expect(updateDraft?.(DEFAULT_TEST_DRAFT)).toEqual({
       ...DEFAULT_TEST_DRAFT,
-      niche: "Walkthroughs",
+      brief: "Walkthroughs with cozy strategy depth",
     });
   });
 });

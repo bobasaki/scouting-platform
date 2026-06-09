@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
 
-import { PrismaClient, Role, RunRequestStatus, RunResultSource } from "@prisma/client";
+import {
+  PrismaClient,
+  Role,
+  RunChannelAssessmentStatus,
+  RunRequestStatus,
+  RunResultSource,
+} from "@prisma/client";
 import { buildCatalogScoutingQuery } from "@scouting-platform/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -93,7 +99,7 @@ integration("week 3 core integration", () => {
     `);
 
     await prisma.$executeRawUnsafe(`
-      DELETE FROM pgboss.job WHERE name = 'runs.discover'
+      DELETE FROM pgboss.job WHERE name IN ('runs.discover', 'runs.assess.channel-fit')
     `);
 
     const db = await import("@scouting-platform/db");
@@ -117,7 +123,10 @@ integration("week 3 core integration", () => {
     await prisma.$disconnect();
   });
 
-  async function buildRunMetadata(campaignManagerUserId: string) {
+  async function buildRunMetadata(
+    campaignManagerUserId: string,
+    overrides?: { campaignObjective?: string },
+  ) {
     const client = await prisma.client.create({
       data: {
         name: `Client ${campaignManagerUserId.slice(0, 8)} ${Math.random()}`,
@@ -141,6 +150,9 @@ integration("week 3 core integration", () => {
 
     return {
       campaignId: campaign.id,
+      ...(overrides?.campaignObjective
+        ? { campaignObjective: overrides.campaignObjective }
+        : {}),
     };
   }
 
@@ -281,7 +293,151 @@ integration("week 3 core integration", () => {
     expect(discoverYoutubeChannelsMock).not.toHaveBeenCalled();
   });
 
-  it("matches catalog scouting criteria against catalog profile and median-view fields", async () => {
+  it("keeps briefed catalog scouting runs running until mini scores rerank the target results", async () => {
+    const user = await prisma.user.create({
+      data: {
+        email: "catalog-mini-rerank@example.com",
+        name: "Catalog Mini Rerank",
+        role: Role.USER,
+        passwordHash: "hash",
+        isActive: true,
+      },
+    });
+
+    const strongHardMetricChannel = await prisma.channel.create({
+      data: {
+        youtubeChannelId: "UC-CATALOG-MINI-1",
+        title: "Broad Gaming Creator",
+        countryRegion: "Germany",
+        contentLanguage: "German",
+        metrics: {
+          create: {
+            youtubeFollowers: 500_000n,
+            youtubeVideoMedianViews: 200_000n,
+          },
+        },
+      },
+    });
+    const strongerBriefFitChannel = await prisma.channel.create({
+      data: {
+        youtubeChannelId: "UC-CATALOG-MINI-2",
+        title: "Cozy Strategy Specialist",
+        countryRegion: "Germany",
+        contentLanguage: "German",
+        metrics: {
+          create: {
+            youtubeFollowers: 100_000n,
+            youtubeVideoMedianViews: 75_000n,
+          },
+        },
+      },
+    });
+
+    const created = await getCore().createRunRequest({
+      userId: user.id,
+      name: "Briefed Catalog Run",
+      query: buildCatalogScoutingQuery({
+        subscribers: "50K+",
+        views: "50K+",
+        location: "Germany",
+        language: "German",
+      }),
+      target: 1,
+      metadata: await buildRunMetadata(user.id, {
+        campaignObjective: "Find cozy strategy gaming creators for German-speaking PC audiences.",
+      }),
+    });
+
+    await getCore().executeRunDiscover({
+      runRequestId: created.runId,
+      requestedByUserId: user.id,
+    });
+
+    const runningRun = await prisma.runRequest.findUniqueOrThrow({
+      where: {
+        id: created.runId,
+      },
+      include: {
+        results: {
+          orderBy: {
+            rank: "asc",
+          },
+        },
+        channelAssessments: true,
+      },
+    });
+    expect(runningRun.status).toBe(RunRequestStatus.RUNNING);
+    expect(runningRun.completedAt).toBeNull();
+    expect(runningRun.results).toHaveLength(2);
+    expect(runningRun.channelAssessments).toHaveLength(2);
+    expect(
+      runningRun.channelAssessments.every(
+        (row) => row.status === RunChannelAssessmentStatus.QUEUED,
+      ),
+    ).toBe(true);
+
+    const jobs = await prisma.$queryRaw<Array<{ count: number }>>`
+      SELECT COUNT(*)::int AS count
+      FROM pgboss.job
+      WHERE name = 'runs.assess.channel-fit'
+    `;
+    expect(jobs[0]?.count ?? 0).toBeGreaterThanOrEqual(2);
+
+    await prisma.runChannelAssessment.update({
+      where: {
+        runRequestId_channelId: {
+          runRequestId: created.runId,
+          channelId: strongHardMetricChannel.id,
+        },
+      },
+      data: {
+        status: RunChannelAssessmentStatus.COMPLETED,
+        fitScore: 0.4,
+        assessedAt: new Date(),
+      },
+    });
+    await prisma.runChannelAssessment.update({
+      where: {
+        runRequestId_channelId: {
+          runRequestId: created.runId,
+          channelId: strongerBriefFitChannel.id,
+        },
+      },
+      data: {
+        status: RunChannelAssessmentStatus.COMPLETED,
+        fitScore: 0.95,
+        assessedAt: new Date(),
+      },
+    });
+
+    await getCore().finalizeRunAssessmentRankingIfReady({
+      runRequestId: created.runId,
+    });
+
+    const completedRun = await prisma.runRequest.findUniqueOrThrow({
+      where: {
+        id: created.runId,
+      },
+      include: {
+        results: {
+          orderBy: {
+            rank: "asc",
+          },
+        },
+      },
+    });
+    expect(completedRun.status).toBe(RunRequestStatus.COMPLETED);
+    expect(completedRun.completedAt).not.toBeNull();
+    expect(completedRun.results).toEqual([
+      expect.objectContaining({
+        channelId: strongerBriefFitChannel.id,
+        rank: 1,
+        source: RunResultSource.CATALOG,
+      }),
+    ]);
+  });
+
+  it("matches catalog scouting criteria against hard catalog profile and median-view fields", async () => {
     const user = await prisma.user.create({
       data: {
         email: "catalog-profile-fields@example.com",
@@ -292,23 +448,23 @@ integration("week 3 core integration", () => {
       },
     });
 
-    const matchingChannel = await prisma.channel.create({
+    await prisma.channel.create({
       data: {
         youtubeChannelId: "UC-CATALOG-PROFILE-1",
-        title: "French Strategy Creator",
+        title: "French Strategy Creator Below View Range",
         countryRegion: "France",
         contentLanguage: "French",
         influencerVertical: "Strategy",
         metrics: {
           create: {
             youtubeFollowers: 80_000n,
-            youtubeVideoMedianViews: 75_000n,
+            youtubeVideoMedianViews: 25_000n,
           },
         },
       },
     });
 
-    await prisma.channel.create({
+    const matchingChannel = await prisma.channel.create({
       data: {
         youtubeChannelId: "UC-CATALOG-PROFILE-2",
         title: "French Lifestyle Creator",
