@@ -7,6 +7,7 @@ const {
   enrichCampaignFitWithOpenAiMock,
   executeChannelLlmEnrichmentMock,
   extractOpenAiCampaignFitFromRawPayloadMock,
+  finalizeRunAssessmentRankingIfReadyMock,
   toRunChannelAssessmentItemMock,
   toRunMetadataMock,
 } = vi.hoisted(() => {
@@ -40,6 +41,7 @@ const {
     enrichCampaignFitWithOpenAiMock: vi.fn(),
     executeChannelLlmEnrichmentMock: vi.fn(),
     extractOpenAiCampaignFitFromRawPayloadMock: vi.fn(),
+    finalizeRunAssessmentRankingIfReadyMock: vi.fn(),
     toRunChannelAssessmentItemMock: vi.fn((row: { id: string; runRequestId: string; channelId: string; status: string }) => ({
       id: row.id,
       runRequestId: row.runRequestId,
@@ -94,6 +96,7 @@ vi.mock("@scouting-platform/integrations", () => ({
 }));
 
 vi.mock("./repository", () => ({
+  finalizeRunAssessmentRankingIfReady: finalizeRunAssessmentRankingIfReadyMock,
   parseStringArrayOrNull: (value: unknown) => {
     return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : null;
   },
@@ -299,6 +302,9 @@ describe("run assessment core service", () => {
     expect(enrichCampaignFitWithOpenAiMock).toHaveBeenCalled();
     expect(enrichCampaignFitWithOpenAiMock).toHaveBeenCalledWith(
       expect.objectContaining({
+        campaignBrief: expect.objectContaining({
+          campaignObjective: "Drive awareness",
+        }),
         enrichmentProfile: expect.objectContaining({
           summary: "Gaming creator",
           topics: ["gaming"],
@@ -316,6 +322,9 @@ describe("run assessment core service", () => {
         model: "gpt-4.1-mini",
         fitScore: 0.9,
       }),
+    });
+    expect(finalizeRunAssessmentRankingIfReadyMock).toHaveBeenCalledWith({
+      runRequestId: "run-1",
     });
   });
 
@@ -408,6 +417,124 @@ describe("run assessment core service", () => {
         }),
       }),
     );
+  });
+
+  it("keeps auto-rerank assessment failures queued while pg-boss can retry", async () => {
+    prismaMock.runChannelAssessment.updateMany.mockResolvedValueOnce({ count: 1 });
+    prismaMock.runChannelAssessment.findUnique.mockResolvedValueOnce({
+      id: "assessment-1",
+      runRequestId: "run-1",
+      channelId: "channel-1",
+      rawOpenaiPayload: null,
+      rawOpenaiPayloadFetchedAt: null,
+      runRequest: {
+        status: RunRequestStatus.RUNNING,
+        client: "NVIDIA",
+        campaignName: "RTX Launch",
+        clientIndustry: "Gaming Hardware",
+        campaignObjective: "Drive awareness",
+        targetAudienceAge: "18-34",
+        targetAudienceGender: "All",
+        targetGeographies: ["Germany"],
+        contentRestrictions: ["No politics"],
+        budgetTier: "mid",
+        deliverables: ["Dedicated video"],
+      },
+      channel: {
+        youtubeChannelId: "UC-1",
+        title: "Channel",
+        handle: "@channel",
+        description: "desc",
+        thumbnailUrl: null,
+        contentLanguage: "en",
+      },
+    });
+    prismaMock.channelEnrichment.findUnique.mockResolvedValueOnce({
+      status: "COMPLETED",
+      summary: "Gaming creator",
+      topics: ["gaming"],
+      brandFitNotes: "Fits gaming hardware",
+      structuredProfile: null,
+    });
+    prismaMock.channelYoutubeContext.findUnique.mockResolvedValueOnce({ context: null });
+    enrichCampaignFitWithOpenAiMock.mockRejectedValueOnce(new Error("temporary OpenAI outage"));
+
+    await expect(
+      executeRunChannelFitAssessment({
+        runRequestId: "run-1",
+        channelId: "channel-1",
+        requestedByUserId: "user-1",
+        isFinalAttempt: false,
+      }),
+    ).rejects.toThrow("temporary OpenAI outage");
+
+    expect(prismaMock.runChannelAssessment.updateMany.mock.calls[1]?.[0]).toMatchObject({
+      data: {
+        status: RunChannelAssessmentStatus.QUEUED,
+        lastError: "temporary OpenAI outage",
+      },
+    });
+    expect(finalizeRunAssessmentRankingIfReadyMock).not.toHaveBeenCalled();
+  });
+
+  it("marks exhausted auto-rerank assessment failures terminal and rechecks finalization", async () => {
+    prismaMock.runChannelAssessment.updateMany.mockResolvedValueOnce({ count: 1 });
+    prismaMock.runChannelAssessment.findUnique.mockResolvedValueOnce({
+      id: "assessment-1",
+      runRequestId: "run-1",
+      channelId: "channel-1",
+      rawOpenaiPayload: null,
+      rawOpenaiPayloadFetchedAt: null,
+      runRequest: {
+        status: RunRequestStatus.RUNNING,
+        client: "NVIDIA",
+        campaignName: "RTX Launch",
+        clientIndustry: "Gaming Hardware",
+        campaignObjective: "Drive awareness",
+        targetAudienceAge: "18-34",
+        targetAudienceGender: "All",
+        targetGeographies: ["Germany"],
+        contentRestrictions: ["No politics"],
+        budgetTier: "mid",
+        deliverables: ["Dedicated video"],
+      },
+      channel: {
+        youtubeChannelId: "UC-1",
+        title: "Channel",
+        handle: "@channel",
+        description: "desc",
+        thumbnailUrl: null,
+        contentLanguage: "en",
+      },
+    });
+    prismaMock.channelEnrichment.findUnique.mockResolvedValueOnce({
+      status: "COMPLETED",
+      summary: "Gaming creator",
+      topics: ["gaming"],
+      brandFitNotes: "Fits gaming hardware",
+      structuredProfile: null,
+    });
+    prismaMock.channelYoutubeContext.findUnique.mockResolvedValueOnce({ context: null });
+    enrichCampaignFitWithOpenAiMock.mockRejectedValueOnce(new Error("permanent OpenAI outage"));
+
+    await expect(
+      executeRunChannelFitAssessment({
+        runRequestId: "run-1",
+        channelId: "channel-1",
+        requestedByUserId: "user-1",
+        isFinalAttempt: true,
+      }),
+    ).rejects.toThrow("permanent OpenAI outage");
+
+    expect(prismaMock.runChannelAssessment.updateMany.mock.calls[1]?.[0]).toMatchObject({
+      data: {
+        status: RunChannelAssessmentStatus.FAILED,
+        lastError: "permanent OpenAI outage",
+      },
+    });
+    expect(finalizeRunAssessmentRankingIfReadyMock).toHaveBeenCalledWith({
+      runRequestId: "run-1",
+    });
   });
 
   it("updates the run brief and returns mapped metadata", async () => {

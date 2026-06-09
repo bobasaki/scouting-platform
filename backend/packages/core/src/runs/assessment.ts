@@ -24,6 +24,7 @@ import { ServiceError } from "../errors";
 import { enqueueJob } from "../queue";
 import { logProviderSpend } from "../telemetry";
 import {
+  finalizeRunAssessmentRankingIfReady,
   parseStringArrayOrNull,
   runMetadataSelect,
   toRunChannelAssessmentItem,
@@ -391,6 +392,7 @@ export async function executeRunChannelFitAssessment(input: {
   runRequestId: string;
   channelId: string;
   requestedByUserId: string;
+  isFinalAttempt?: boolean;
 }): Promise<void> {
   const claim = await prisma.runChannelAssessment.updateMany({
     where: {
@@ -414,6 +416,8 @@ export async function executeRunChannelFitAssessment(input: {
     return;
   }
 
+  let isAutoRerankRun = false;
+
   try {
     const row = await prisma.runChannelAssessment.findUnique({
       where: {
@@ -431,6 +435,8 @@ export async function executeRunChannelFitAssessment(input: {
     if (!row) {
       return;
     }
+
+    isAutoRerankRun = row.runRequest.status === PrismaRunRequestStatus.RUNNING;
 
     let enrichmentRow = await prisma.channelEnrichment.findUnique({
       where: {
@@ -585,7 +591,16 @@ export async function executeRunChannelFitAssessment(input: {
         lastError: null,
       },
     });
+
+    await finalizeRunAssessmentRankingIfReady({
+      runRequestId: input.runRequestId,
+    });
   } catch (error) {
+    const nextStatus =
+      isAutoRerankRun && !input.isFinalAttempt
+        ? PrismaRunChannelAssessmentStatus.QUEUED
+        : PrismaRunChannelAssessmentStatus.FAILED;
+
     await prisma.runChannelAssessment.updateMany({
       where: {
         runRequestId: input.runRequestId,
@@ -593,10 +608,16 @@ export async function executeRunChannelFitAssessment(input: {
         status: PrismaRunChannelAssessmentStatus.RUNNING,
       },
       data: {
-        status: PrismaRunChannelAssessmentStatus.FAILED,
+        status: nextStatus,
         lastError: formatErrorMessage(error),
       },
     });
+
+    if (isAutoRerankRun && input.isFinalAttempt) {
+      await finalizeRunAssessmentRankingIfReady({
+        runRequestId: input.runRequestId,
+      });
+    }
 
     throw error;
   }

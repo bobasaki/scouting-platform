@@ -75,7 +75,6 @@ describe("new scouting workspace", () => {
           },
         ],
         initialCountryRegionOptions: ["Germany", "Austria"],
-        initialInfluencerVerticalOptions: ["Gaming", "Tech"],
         initialLanguageOptions: ["German", "English"],
       }),
     );
@@ -89,8 +88,9 @@ describe("new scouting workspace", () => {
     expect(html).toContain("Location");
     expect(html).toContain("Language");
     expect(html).toContain("Last post day since");
-    expect(html).toContain("Influencer Vertical");
-    expect(html).toContain("Niche");
+    expect(html).toContain("Brief:");
+    expect(html).not.toContain("Influencer Vertical");
+    expect(html).not.toContain("Niche keywords");
     expect(html).toContain('href="/database?tab=campaigns"');
     expect(html).toContain("Start scouting");
     expect(html).not.toContain("Deal owner");
@@ -127,7 +127,6 @@ describe("new scouting workspace", () => {
         },
       ],
       initialCountryRegionOptions: ["Germany", "Austria"],
-      initialInfluencerVerticalOptions: ["Gaming", "Tech"],
       initialLanguageOptions: ["German", "English"],
     });
     const rendered = NewScoutingWorkspaceView(tree.props);

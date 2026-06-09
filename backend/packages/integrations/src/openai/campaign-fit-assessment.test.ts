@@ -211,6 +211,48 @@ describe("enrichCampaignFitWithOpenAi", () => {
     );
   });
 
+  it("passes the campaign manager free-text brief into the mini prompt", async () => {
+    const create = vi.fn<
+      (input: Record<string, unknown>) => Promise<{ choices: Array<{ message: { content: string } }> }>
+    >(async () => ({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify(createValidAssessment()),
+          },
+        },
+      ],
+    }));
+
+    await enrichCampaignFitWithOpenAi({
+      ...TEST_INPUT,
+      campaignBrief: {
+        ...TEST_INPUT.campaignBrief,
+        campaignObjective: "Find cozy strategy gaming creators with German-speaking PC audiences.",
+      },
+      client: {
+        chat: {
+          completions: {
+            create,
+          },
+        },
+      },
+    });
+
+    const request = create.mock.calls[0]?.[0] as
+      | { messages?: Array<{ role: string; content: string }> }
+      | undefined;
+    const userMessage = request?.messages?.find((message) => message.role === "user");
+
+    expect(userMessage).toBeDefined();
+    expect(JSON.parse(userMessage?.content ?? "{}")).toEqual(
+      expect.objectContaining({
+        freeTextBrief: "Find cozy strategy gaming creators with German-speaking PC audiences.",
+        briefUsage: expect.stringContaining("primary campaign-specific relevance signal"),
+      }),
+    );
+  });
+
   it("parses valid assessment output", async () => {
     const result = await enrichCampaignFitWithOpenAi({
       ...TEST_INPUT,

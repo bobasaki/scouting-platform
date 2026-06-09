@@ -4,6 +4,7 @@ export type WorkerJobOptions = Readonly<{
   teamSize: number;
   teamConcurrency: number;
   batchSize: number;
+  includeMetadata?: boolean;
 }>;
 
 export type WorkerRuntimeConfig = Readonly<{

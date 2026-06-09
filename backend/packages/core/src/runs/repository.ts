@@ -35,6 +35,7 @@ import {
 import { getUserYoutubeApiKey } from "../auth";
 import { upsertChannelSkeleton } from "../channels";
 import { ServiceError } from "../errors";
+import { enqueueJob } from "../queue";
 import { logProviderSpend } from "../telemetry";
 import { enqueueRunsDiscoverJob } from "./queue";
 
@@ -244,6 +245,44 @@ export function toRunChannelAssessmentItem(row: RunChannelAssessment): RunChanne
 type CatalogCandidate = {
   id: string;
 };
+
+type RankedRunResult = {
+  channelId: string;
+  source: PrismaRunResultSource;
+};
+
+type AssessmentBriefFields = {
+  clientIndustry: string | null;
+  campaignObjective: string | null;
+  targetAudienceAge: string | null;
+  targetAudienceGender: string | null;
+  targetGeographies: Prisma.JsonValue | null;
+  contentRestrictions: Prisma.JsonValue | null;
+  budgetTier: string | null;
+  deliverables: Prisma.JsonValue | null;
+};
+
+function hasAutomaticAssessmentBrief(run: AssessmentBriefFields): boolean {
+  const stringFields = [
+    run.clientIndustry,
+    run.campaignObjective,
+    run.targetAudienceAge,
+    run.targetAudienceGender,
+    run.budgetTier,
+  ];
+
+  if (stringFields.some((value) => value?.trim())) {
+    return true;
+  }
+
+  const arrayFields = [
+    parseStringArrayOrNull(run.targetGeographies),
+    parseStringArrayOrNull(run.contentRestrictions),
+    parseStringArrayOrNull(run.deliverables),
+  ];
+
+  return arrayFields.some((value) => (value?.length ?? 0) > 0);
+}
 
 async function validateCampaignManagerUser(userId: string): Promise<void> {
   const campaignManager = await prisma.user.findFirst({
@@ -551,8 +590,6 @@ async function getCatalogCandidatesForCriteria(
   const viewsRange = parseMetricRange(criteria.views);
   const locations = splitCriteriaValues(criteria.location);
   const language = criteria.language.trim();
-  const category = criteria.category.trim();
-  const niche = criteria.niche.trim();
   const lastPostDaysSince = parseDaysSince(criteria.lastPostDaysSince);
 
   if (subscriberRange?.min !== undefined) {
@@ -613,29 +650,6 @@ async function getCatalogCandidatesForCriteria(
     whereClauses.push(Prisma.sql`
       NULLIF(cyc.context #>> '{recentVideos,0,publishedAt}', '') IS NOT NULL
       AND (cyc.context #>> '{recentVideos,0,publishedAt}')::timestamptz >= ${threshold}
-    `);
-  }
-
-  if (category) {
-    const pattern = toLikePattern(category);
-
-    whereClauses.push(Prisma.sql`
-      (
-        c.influencer_vertical ILIKE ${pattern} ESCAPE '\\'
-        OR ce.structured_profile::text ILIKE ${pattern} ESCAPE '\\'
-        OR cyc.context::text ILIKE ${pattern} ESCAPE '\\'
-      )
-    `);
-  }
-
-  if (niche) {
-    const pattern = toLikePattern(niche);
-
-    whereClauses.push(Prisma.sql`
-      (
-        c.influencer_vertical ILIKE ${pattern} ESCAPE '\\'
-        OR ce.structured_profile::text ILIKE ${pattern} ESCAPE '\\'
-      )
     `);
   }
 
@@ -1055,6 +1069,172 @@ export async function getRunStatus(input: {
   };
 }
 
+async function enqueueAutomaticRunAssessmentJobs(input: {
+  runRequestId: string;
+  requestedByUserId: string;
+  channelIds: readonly string[];
+}): Promise<void> {
+  for (const channelId of input.channelIds) {
+    try {
+      await enqueueJob("runs.assess.channel-fit", {
+        runRequestId: input.runRequestId,
+        channelId,
+        requestedByUserId: input.requestedByUserId,
+      });
+    } catch (error) {
+      await prisma.runChannelAssessment.update({
+        where: {
+          runRequestId_channelId: {
+            runRequestId: input.runRequestId,
+            channelId,
+          },
+        },
+        data: {
+          status: PrismaRunChannelAssessmentStatus.FAILED,
+          lastError: formatErrorMessage(error),
+        },
+      });
+    }
+  }
+
+  await finalizeRunAssessmentRankingIfReady({
+    runRequestId: input.runRequestId,
+  });
+}
+
+export async function finalizeRunAssessmentRankingIfReady(input: {
+  runRequestId: string;
+}): Promise<void> {
+  const runRequest = await prisma.runRequest.findUnique({
+    where: {
+      id: input.runRequestId,
+    },
+    select: {
+      id: true,
+      status: true,
+      target: true,
+      results: {
+        orderBy: {
+          rank: "asc",
+        },
+        select: {
+          id: true,
+          channelId: true,
+          rank: true,
+        },
+      },
+      channelAssessments: {
+        select: {
+          channelId: true,
+          status: true,
+          fitScore: true,
+        },
+      },
+    },
+  });
+
+  if (!runRequest || runRequest.status !== PrismaRunRequestStatus.RUNNING) {
+    return;
+  }
+
+  if (runRequest.results.length === 0) {
+    await prisma.runRequest.update({
+      where: {
+        id: runRequest.id,
+      },
+      data: {
+        status: PrismaRunRequestStatus.COMPLETED,
+        completedAt: new Date(),
+        lastError: null,
+      },
+    });
+    return;
+  }
+
+  if (runRequest.channelAssessments.length === 0) {
+    return;
+  }
+
+  const pendingAssessment = runRequest.channelAssessments.some(
+    (assessment) =>
+      assessment.status === PrismaRunChannelAssessmentStatus.QUEUED ||
+      assessment.status === PrismaRunChannelAssessmentStatus.RUNNING,
+  );
+
+  if (pendingAssessment) {
+    return;
+  }
+
+  const assessmentByChannelId = new Map(
+    runRequest.channelAssessments.map((assessment) => [assessment.channelId, assessment] as const),
+  );
+  const rankedResults = runRequest.results
+    .map((result) => {
+      const assessment = assessmentByChannelId.get(result.channelId);
+      const fitScore =
+        assessment?.status === PrismaRunChannelAssessmentStatus.COMPLETED &&
+        typeof assessment.fitScore === "number"
+          ? assessment.fitScore
+          : null;
+
+      return {
+        ...result,
+        fitScore,
+      };
+    })
+    .sort((left, right) => {
+      if (left.fitScore !== null && right.fitScore !== null && left.fitScore !== right.fitScore) {
+        return right.fitScore - left.fitScore;
+      }
+
+      if (left.fitScore !== null && right.fitScore === null) {
+        return -1;
+      }
+
+      if (left.fitScore === null && right.fitScore !== null) {
+        return 1;
+      }
+
+      return left.rank - right.rank;
+    });
+  const target = runRequest.target && runRequest.target > 0 ? runRequest.target : rankedResults.length;
+  const selectedResults = rankedResults.slice(0, target);
+  const selectedResultIds = selectedResults.map((result) => result.id);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.runResult.deleteMany({
+      where: {
+        runRequestId: runRequest.id,
+        id: {
+          notIn: selectedResultIds,
+        },
+      },
+    });
+
+    for (const [index, result] of selectedResults.entries()) {
+      await tx.runResult.update({
+        where: {
+          id: result.id,
+        },
+        data: {
+          rank: index + 1,
+        },
+      });
+    }
+
+    await tx.runRequest.update({
+      where: {
+        id: runRequest.id,
+      },
+      data: {
+        status: PrismaRunRequestStatus.COMPLETED,
+        completedAt: new Date(),
+        lastError: null,
+      },
+    });
+  });
+}
+
 export async function executeRunDiscover(input: {
   runRequestId: string;
   requestedByUserId: string;
@@ -1069,6 +1249,14 @@ export async function executeRunDiscover(input: {
       status: true,
       query: true,
       target: true,
+      clientIndustry: true,
+      campaignObjective: true,
+      targetAudienceAge: true,
+      targetAudienceGender: true,
+      targetGeographies: true,
+      contentRestrictions: true,
+      budgetTier: true,
+      deliverables: true,
     },
   });
 
@@ -1118,9 +1306,17 @@ export async function executeRunDiscover(input: {
 
   try {
     const catalogCandidates = await getCatalogCandidatesForQuery(runRequest.query);
-    const rankedResults = isCatalogScoutingQuery(runRequest.query)
+    const isStructuredCatalogRun = isCatalogScoutingQuery(runRequest.query);
+    const shouldAutoAssess =
+      isStructuredCatalogRun &&
+      hasAutomaticAssessmentBrief(runRequest) &&
+      catalogCandidates.length > 0;
+    const rankedResults: RankedRunResult[] = isStructuredCatalogRun
       ? catalogCandidates
-          .slice(0, runRequest.target ?? catalogCandidates.length)
+          .slice(
+            0,
+            shouldAutoAssess ? catalogCandidates.length : runRequest.target ?? catalogCandidates.length,
+          )
           .map((channel) => ({
             channelId: channel.id,
             source: PrismaRunResultSource.CATALOG,
@@ -1291,6 +1487,11 @@ export async function executeRunDiscover(input: {
           runRequestId: runRequest.id,
         },
       });
+      await tx.runChannelAssessment.deleteMany({
+        where: {
+          runRequestId: runRequest.id,
+        },
+      });
 
       if (rankedResults.length > 0) {
         await tx.runResult.createMany({
@@ -1303,17 +1504,37 @@ export async function executeRunDiscover(input: {
         });
       }
 
+      if (shouldAutoAssess) {
+        await tx.runChannelAssessment.createMany({
+          data: rankedResults.map((result) => ({
+            runRequestId: runRequest.id,
+            channelId: result.channelId,
+            status: PrismaRunChannelAssessmentStatus.QUEUED,
+          })),
+        });
+      }
+
       await tx.runRequest.update({
         where: {
           id: runRequest.id,
         },
         data: {
-          status: PrismaRunRequestStatus.COMPLETED,
-          completedAt: new Date(),
+          status: shouldAutoAssess
+            ? PrismaRunRequestStatus.RUNNING
+            : PrismaRunRequestStatus.COMPLETED,
+          completedAt: shouldAutoAssess ? null : new Date(),
           lastError: null,
         },
       });
     });
+
+    if (shouldAutoAssess) {
+      await enqueueAutomaticRunAssessmentJobs({
+        runRequestId: runRequest.id,
+        requestedByUserId: input.requestedByUserId,
+        channelIds: rankedResults.map((result) => result.channelId),
+      });
+    }
   } catch (error) {
     await prisma.runRequest.update({
       where: {
