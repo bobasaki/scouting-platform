@@ -4,6 +4,7 @@ import {
   ApiRequestError,
   cancelChannelEnrichment,
   deleteChannelsBatch,
+  deleteFilteredChannels,
   fetchChannelDetail,
   fetchChannels,
   requestChannelEnrichment,
@@ -399,6 +400,23 @@ describe("channels api helpers", () => {
     expect(response).toEqual({
       requestedCount: 2,
       deletedCount: 2,
+    });
+  });
+
+  it("deletes all channels matching catalog filters", async () => {
+    const filters = { enrichmentStatus: ["cancelled" as const] };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      jsonResponse({ requestedCount: 8, deletedCount: 8 }),
+    );
+
+    await expect(deleteFilteredChannels(filters)).resolves.toEqual({
+      requestedCount: 8,
+      deletedCount: 8,
+    });
+    expect(fetchSpy).toHaveBeenCalledWith("/api/admin/channels/bulk-delete", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ type: "filtered", filters }),
     });
   });
 

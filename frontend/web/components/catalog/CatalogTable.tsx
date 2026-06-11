@@ -15,6 +15,7 @@ import type {
   CatalogViewMode,
 } from "./catalog-table-shared";
 import {
+  ALL_FILTERED_CHANNELS_SELECTION,
   areAllCatalogPageRowsSelected,
   countSelectedCatalogPageRows,
   formatCatalogSelectionSummary,
@@ -166,6 +167,7 @@ type CatalogTableProps = Readonly<{
   onPreviousPage: () => void;
   onRequestFilteredEnrichment: () => void | Promise<void>;
   onRequestSelectedEnrichment: () => void | Promise<void>;
+  onSelectAllFilteredChannels: () => void;
   onToggleChannelSelection: (channelId: string) => void;
   onTogglePageSelection: () => void;
 }>;
@@ -185,15 +187,20 @@ export function CatalogTable({
   onPreviousPage,
   onRequestFilteredEnrichment,
   onRequestSelectedEnrichment,
+  onSelectAllFilteredChannels,
   onToggleChannelSelection,
   onTogglePageSelection,
 }: CatalogTableProps) {
   const hasChannels = data.items.length > 0;
   const hasPreviousPage = hasPreviousCatalogPage(data);
   const hasNextPage = hasNextCatalogPage(data);
-  const selectedOnPageCount = countSelectedCatalogPageRows(selectedChannelIds, data.items);
-  const allRowsSelected = areAllCatalogPageRowsSelected(selectedChannelIds, data.items);
-  const hasSelection = selectedChannelIds.length > 0;
+  const allFilteredSelected = selectedChannelIds.includes(ALL_FILTERED_CHANNELS_SELECTION);
+  const selectedCount = allFilteredSelected ? data.total : selectedChannelIds.length;
+  const selectedOnPageCount = allFilteredSelected
+    ? data.items.length
+    : countSelectedCatalogPageRows(selectedChannelIds, data.items);
+  const allRowsSelected = allFilteredSelected || areAllCatalogPageRowsSelected(selectedChannelIds, data.items);
+  const hasSelection = selectedCount > 0;
   const isRequestingBatchEnrichment = batchEnrichmentActionState.type === "submitting";
   const isDeletingChannels = deleteActionState.type === "submitting";
   const isCreatingCsvExportBatch =
@@ -207,7 +214,9 @@ export function CatalogTable({
         <div className="catalog-table__toolbar-copy">
           <p className="catalog-table__summary">{formatChannelCountSummary(data)}</p>
           <p aria-live="polite" className="catalog-table__selection-summary">
-            {formatCatalogSelectionSummary(selectedChannelIds.length, selectedOnPageCount)}
+            {allFilteredSelected
+              ? `All ${data.total} matching channels selected`
+              : formatCatalogSelectionSummary(selectedCount, selectedOnPageCount)}
           </p>
         </div>
         <div className="catalog-table__pagination">
@@ -235,6 +244,16 @@ export function CatalogTable({
 
       {viewMode === "table" && hasChannels ? (
         <div className="catalog-table__selection-actions">
+          {allRowsSelected && !allFilteredSelected && data.total > data.items.length ? (
+            <button
+              className="catalog-table__button catalog-table__button--secondary"
+              onClick={onSelectAllFilteredChannels}
+              suppressHydrationWarning
+              type="button"
+            >
+              Select all {data.total} matching channels
+            </button>
+          ) : null}
           {hasSelection ? (
             <>
               <button
@@ -246,7 +265,7 @@ export function CatalogTable({
                 suppressHydrationWarning
                 type="button"
               >
-                {isRequestingBatchEnrichment ? "Requesting..." : `Enrich selected (${selectedChannelIds.length})`}
+                {isRequestingBatchEnrichment ? "Requesting..." : `Enrich selected (${selectedCount})`}
               </button>
               <button
                 className="catalog-table__button"
@@ -257,7 +276,7 @@ export function CatalogTable({
                 suppressHydrationWarning
                 type="button"
               >
-                {isCreatingCsvExportBatch ? "Exporting..." : `Export selected (${selectedChannelIds.length})`}
+                {isCreatingCsvExportBatch ? "Exporting..." : `Export selected (${selectedCount})`}
               </button>
             </>
           ) : null}
@@ -282,7 +301,7 @@ export function CatalogTable({
               suppressHydrationWarning
               type="button"
             >
-              {isDeletingChannels ? "Deleting..." : `Delete selected (${selectedChannelIds.length})`}
+              {isDeletingChannels ? "Deleting..." : `Delete selected (${selectedCount})`}
             </button>
           ) : null}
           {hasSelection ? (
@@ -373,7 +392,7 @@ export function CatalogTable({
             {data.items.map((channel) => (
               <CatalogTableRow
                 channel={channel}
-                isSelected={selectedChannelIds.includes(channel.id)}
+                isSelected={allFilteredSelected || selectedChannelIds.includes(channel.id)}
                 key={channel.id}
                 onToggle={onToggleChannelSelection}
               />

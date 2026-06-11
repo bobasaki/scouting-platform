@@ -426,6 +426,46 @@ export async function deleteChannelsBatch(
   }
 }
 
+export async function deleteFilteredChannels(
+  filters: CatalogChannelFilters,
+): Promise<BulkDeleteChannelsResponse> {
+  const requestPayload = bulkDeleteChannelsRequestSchema.parse({
+    type: "filtered",
+    filters,
+  });
+
+  try {
+    const response = await fetch("/api/admin/channels/bulk-delete", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(requestPayload),
+    });
+    const payload = await readJsonPayload(response);
+
+    if (!response.ok) {
+      throw new ApiRequestError(
+        getApiErrorMessage(response, payload, {
+          authorizationErrorMessage: "Only admins can delete channels.",
+          fallbackMessage: GENERIC_CHANNEL_DELETE_REQUEST_ERROR_MESSAGE,
+        }),
+        response.status,
+      );
+    }
+
+    const parsed = bulkDeleteChannelsResponseSchema.safeParse(payload);
+
+    if (!parsed.success) {
+      throw new Error(INVALID_CHANNEL_DELETE_RESPONSE_ERROR_MESSAGE);
+    }
+
+    return parsed.data;
+  } catch (error) {
+    throw normalizeRequestError(error, GENERIC_CHANNEL_DELETE_REQUEST_ERROR_MESSAGE);
+  }
+}
+
 function appendCatalogFilters(
   searchParams: URLSearchParams,
   requestQuery: CatalogChannelFilters,

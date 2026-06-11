@@ -35,7 +35,12 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     const result = await bulkDeleteChannels({
       actorUserId: admin.userId,
-      channelIds: payload.data.channelIds,
+      scope: "type" in payload.data
+        ? payload.data
+        : {
+            type: "selected",
+            channelIds: payload.data.channelIds,
+          },
     });
 
     return NextResponse.json(bulkDeleteChannelsResponseSchema.parse(result));

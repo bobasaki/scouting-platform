@@ -14,6 +14,8 @@ import type {
 
 import type { BatchChannelEnrichmentRequestResult } from "../../lib/channels-api";
 
+export const ALL_FILTERED_CHANNELS_SELECTION = "__all_filtered_channels__";
+
 export type SavedSegmentsRequestState =
   | {
       status: "loading";
