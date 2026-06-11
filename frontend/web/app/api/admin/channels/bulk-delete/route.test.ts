@@ -72,7 +72,32 @@ describe("admin channel bulk delete route", () => {
     });
     expect(bulkDeleteChannelsMock).toHaveBeenCalledWith({
       actorUserId: adminUserId,
-      channelIds,
+      scope: {
+        type: "selected",
+        channelIds,
+      },
+    });
+  });
+
+  it("deletes all channels matching validated filters", async () => {
+    bulkDeleteChannelsMock.mockResolvedValue({
+      requestedCount: 12,
+      deletedCount: 12,
+    });
+    const filters = { enrichmentStatus: ["cancelled"] };
+
+    const response = await POST(
+      new Request("http://localhost/api/admin/channels/bulk-delete", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ type: "filtered", filters }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(bulkDeleteChannelsMock).toHaveBeenCalledWith({
+      actorUserId: adminUserId,
+      scope: { type: "filtered", filters },
     });
   });
 

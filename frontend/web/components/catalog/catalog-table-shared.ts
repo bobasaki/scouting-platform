@@ -14,6 +14,8 @@ import type {
 
 import type { BatchChannelEnrichmentRequestResult } from "../../lib/channels-api";
 
+export const ALL_FILTERED_CHANNELS_SELECTION = "__all_filtered_channels__";
+
 export type SavedSegmentsRequestState =
   | {
       status: "loading";
@@ -105,6 +107,8 @@ export function getCatalogEnrichmentDetailCopy(
       const timestamp = getCatalogEnrichmentActivityTimestamp(enrichment);
       return timestamp ? `Stale since ${timestamp}.` : "Stale and should be refreshed.";
     }
+    case "cancelled":
+      return "Stopped before the latest attempt completed.";
     default:
       return enrichment.status;
   }

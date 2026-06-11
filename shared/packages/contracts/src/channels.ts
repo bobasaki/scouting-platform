@@ -16,6 +16,7 @@ export const channelEnrichmentStatusSchema = z.enum([
   "completed",
   "failed",
   "stale",
+  "cancelled",
 ]);
 
 export const structuredChannelProfilePrimaryNicheSchema = z.enum([
@@ -298,9 +299,19 @@ export const bulkRetryChannelEnrichmentResponseSchema = z.object({
   failedCount: z.number().int().nonnegative(),
 });
 
-export const bulkDeleteChannelsRequestSchema = z.object({
+const bulkDeleteSelectedChannelsRequestSchema = z.object({
   channelIds: z.array(z.uuid()).min(1).max(100),
 });
+
+const bulkDeleteFilteredChannelsRequestSchema = z.object({
+  type: z.literal("filtered"),
+  filters: catalogChannelFiltersSchema,
+});
+
+export const bulkDeleteChannelsRequestSchema = z.union([
+  bulkDeleteSelectedChannelsRequestSchema,
+  bulkDeleteFilteredChannelsRequestSchema,
+]);
 
 export const bulkDeleteChannelsResponseSchema = z.object({
   requestedCount: z.number().int().nonnegative(),

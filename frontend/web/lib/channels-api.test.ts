@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   ApiRequestError,
+  cancelChannelEnrichment,
   deleteChannelsBatch,
+  deleteFilteredChannels,
   fetchChannelDetail,
   fetchChannels,
   requestChannelEnrichment,
@@ -352,6 +354,24 @@ describe("channels api helpers", () => {
     expect(response.enrichment.summary).toBe("Creator focused on launches and industry analysis.");
   });
 
+  it("stops enrichment through DELETE /api/channels/:id/enrich", async () => {
+    const channelId = "53adac17-f39d-4731-a61f-194150fbc431";
+    const enrichment = {
+      ...buildChannelDetailPayload().enrichment,
+      status: "cancelled",
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      jsonResponse({ channelId, enrichment }),
+    );
+
+    const response = await cancelChannelEnrichment(channelId);
+
+    expect(fetchSpy).toHaveBeenCalledWith(`/api/channels/${channelId}/enrich`, {
+      method: "DELETE",
+    });
+    expect(response.enrichment.status).toBe("cancelled");
+  });
+
   it("deletes channels through the admin bulk delete endpoint", async () => {
     const firstChannelId = "53adac17-f39d-4731-a61f-194150fbc431";
     const secondChannelId = "c539c987-dc34-4ef7-9843-b5dba7320e19";
@@ -380,6 +400,23 @@ describe("channels api helpers", () => {
     expect(response).toEqual({
       requestedCount: 2,
       deletedCount: 2,
+    });
+  });
+
+  it("deletes all channels matching catalog filters", async () => {
+    const filters = { enrichmentStatus: ["cancelled" as const] };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      jsonResponse({ requestedCount: 8, deletedCount: 8 }),
+    );
+
+    await expect(deleteFilteredChannels(filters)).resolves.toEqual({
+      requestedCount: 8,
+      deletedCount: 8,
+    });
+    expect(fetchSpy).toHaveBeenCalledWith("/api/admin/channels/bulk-delete", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ type: "filtered", filters }),
     });
   });
 

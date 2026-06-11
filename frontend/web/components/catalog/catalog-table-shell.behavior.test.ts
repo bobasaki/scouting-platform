@@ -10,6 +10,7 @@ const {
   createCsvExportBatchMock,
   createSavedSegmentMock,
   deleteChannelsBatchMock,
+  deleteFilteredChannelsMock,
   deleteSavedSegmentMock,
   fetchChannelsMock,
   fetchCsvExportBatchDetailMock,
@@ -28,6 +29,7 @@ const {
   createCsvExportBatchMock: vi.fn(),
   createSavedSegmentMock: vi.fn(),
   deleteChannelsBatchMock: vi.fn(),
+  deleteFilteredChannelsMock: vi.fn(),
   deleteSavedSegmentMock: vi.fn(),
   fetchChannelsMock: vi.fn(),
   fetchCsvExportBatchDetailMock: vi.fn(),
@@ -64,6 +66,7 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("../../lib/channels-api", () => ({
   deleteChannelsBatch: deleteChannelsBatchMock,
+  deleteFilteredChannels: deleteFilteredChannelsMock,
   fetchChannels: fetchChannelsMock,
   requestFilteredChannelEnrichment: requestFilteredChannelEnrichmentMock,
   requestChannelEnrichmentBatch: requestChannelEnrichmentBatchMock,
@@ -102,6 +105,7 @@ type CatalogShellElement = ReactElement<{
   onPreviousPage: () => void;
   onRequestFilteredEnrichment: () => Promise<void> | void;
   onRequestSelectedEnrichment: () => Promise<void> | void;
+  onSelectAllFilteredChannels: () => void;
   onResetFilters: () => void;
   onRetry: () => void;
   onRetrySavedSegments: () => void;
@@ -439,6 +443,16 @@ describe("catalog table shell behavior", () => {
     deleteChannelsBatchMock.mockResolvedValue({
       requestedCount: 1,
       deletedCount: 1,
+    });
+    deleteFilteredChannelsMock.mockResolvedValue({
+      requestedCount: 2,
+      deletedCount: 2,
+    });
+    requestFilteredChannelEnrichmentMock.mockResolvedValue({
+      requestedCount: 2,
+      queuedCount: 2,
+      alreadyQueuedCount: 0,
+      failedCount: 0,
     });
     requestChannelEnrichmentBatchMock.mockResolvedValue([]);
   });
@@ -930,6 +944,47 @@ describe("catalog table shell behavior", () => {
     element.props.onClearSelection();
 
     expect(setSelectedChannelIds).toHaveBeenCalledWith([]);
+  });
+
+  it("selects every channel matching the current filters", () => {
+    const { element, setSelectedChannelIds } = renderShell();
+
+    element.props.onSelectAllFilteredChannels();
+
+    expect(setSelectedChannelIds).toHaveBeenCalledWith(["__all_filtered_channels__"]);
+  });
+
+  it("uses filter-wide bulk operations when every matching channel is selected", async () => {
+    const firstChannel = createChannel("00000000-0000-0000-0000-000000000211", "Luna One");
+    const secondChannel = createChannel("00000000-0000-0000-0000-000000000212", "Luna Two");
+    const confirmMock = vi.fn(() => true);
+    vi.stubGlobal("window", { confirm: confirmMock });
+    const { element } = renderShell({
+      isAdmin: true,
+      requestState: createReadyState({
+        items: [firstChannel, secondChannel],
+        total: 2,
+        page: 1,
+        pageSize: 20,
+      }),
+      selectedChannelIds: ["__all_filtered_channels__"],
+    });
+
+    await element.props.onExportSelectedChannels();
+    await element.props.onRequestSelectedEnrichment();
+    await element.props.onDeleteSelectedChannels();
+
+    const filters = {
+      query: "space",
+      countryRegion: ["Croatia"],
+      youtubeVideoMedianViewsMin: 100000,
+    };
+    expect(createCsvExportBatchMock).toHaveBeenCalledWith({
+      type: "filtered",
+      filters,
+    });
+    expect(requestFilteredChannelEnrichmentMock).toHaveBeenCalledWith(filters);
+    expect(deleteFilteredChannelsMock).toHaveBeenCalledWith(filters);
   });
 
   it("deletes selected channels for admins after confirmation", async () => {

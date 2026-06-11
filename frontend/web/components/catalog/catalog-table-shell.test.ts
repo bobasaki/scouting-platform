@@ -220,6 +220,7 @@ function renderView(
       onPreviousPage: vi.fn(),
       onRequestFilteredEnrichment: vi.fn(),
       onRequestSelectedEnrichment: vi.fn(),
+      onSelectAllFilteredChannels: vi.fn(),
       onResetFilters: vi.fn(),
       onRetry: vi.fn(),
       onToggleChannelSelection: vi.fn(),
@@ -764,6 +765,44 @@ describe("catalog table shell view", () => {
     expect(html).toContain("1 channel selected");
     expect(html).toContain("Clear selection");
     expect(html).toContain("catalog-table__row catalog-table__row--selected");
+  });
+
+  it("offers selecting every channel matching the current filters", () => {
+    const html = renderView(
+      {
+        status: "ready",
+        data: {
+          ...pagedChannels,
+          total: 42,
+        },
+        error: null,
+      },
+      {
+        selectedChannelIds: pagedChannels.items.map((channel) => channel.id),
+      },
+    );
+
+    expect(html).toContain("Select all 42 matching channels");
+  });
+
+  it("renders filter-wide selection counts", () => {
+    const html = renderView(
+      {
+        status: "ready",
+        data: {
+          ...pagedChannels,
+          total: 42,
+        },
+        error: null,
+      },
+      {
+        selectedChannelIds: ["__all_filtered_channels__"],
+      },
+    );
+
+    expect(html).toContain("All 42 matching channels selected");
+    expect(html).toContain("Enrich selected (42)");
+    expect(html).toContain("Export selected (42)");
   });
 
   it("renders batch enrich actions and feedback for selected channels", () => {

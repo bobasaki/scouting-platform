@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   deleteChannelsBatch,
+  deleteFilteredChannels,
   requestChannelEnrichmentBatch,
   requestFilteredChannelEnrichment,
   fetchChannels,
@@ -40,6 +41,7 @@ import type {
   SavedSegmentsRequestState,
 } from "./catalog-table-shared";
 import {
+  ALL_FILTERED_CHANNELS_SELECTION,
   getBatchEnrichmentSubmittingMessage,
   getFilteredEnrichmentSubmittingMessage,
   getCatalogChannelDeleteErrorMessage,
@@ -462,6 +464,7 @@ export function useCatalogTableShellModel({
   }
 
   function applyFilters(nextFilters: CatalogFiltersState): void {
+    setSelectedChannelIds([]);
     replaceCatalogState({
       page: 1,
       filters: nextFilters,
@@ -540,9 +543,12 @@ export function useCatalogTableShellModel({
       return;
     }
 
-    const channelIds = [...new Set(selectedChannelIds)];
+    const allFilteredSelected = selectedChannelIds.includes(ALL_FILTERED_CHANNELS_SELECTION);
+    const channelIds = [...new Set(selectedChannelIds.filter(
+      (channelId) => channelId !== ALL_FILTERED_CHANNELS_SELECTION,
+    ))];
 
-    if (channelIds.length === 0) {
+    if (!allFilteredSelected && channelIds.length === 0) {
       return;
     }
 
@@ -556,8 +562,15 @@ export function useCatalogTableShellModel({
 
     try {
       const batch = await createCsvExportBatch({
-        type: "selected",
-        channelIds,
+        ...(allFilteredSelected
+          ? {
+              type: "filtered" as const,
+              filters: buildCatalogChannelFilters(appliedState.filters),
+            }
+          : {
+              type: "selected" as const,
+              channelIds,
+            }),
       });
 
       setLatestCsvExportBatch({
@@ -581,6 +594,11 @@ export function useCatalogTableShellModel({
 
   async function handleRequestSelectedEnrichment(): Promise<void> {
     if (requestState.status !== "ready") {
+      return;
+    }
+
+    if (selectedChannelIds.includes(ALL_FILTERED_CHANNELS_SELECTION)) {
+      await handleRequestFilteredEnrichment();
       return;
     }
 
@@ -675,14 +693,18 @@ export function useCatalogTableShellModel({
       return;
     }
 
-    const channelIds = [...new Set(selectedChannelIds)];
+    const allFilteredSelected = selectedChannelIds.includes(ALL_FILTERED_CHANNELS_SELECTION);
+    const channelIds = [...new Set(selectedChannelIds.filter(
+      (channelId) => channelId !== ALL_FILTERED_CHANNELS_SELECTION,
+    ))];
+    const selectedCount = allFilteredSelected ? requestState.data.total : channelIds.length;
 
-    if (channelIds.length === 0) {
+    if (selectedCount === 0) {
       return;
     }
 
     const confirmed = window.confirm(
-      `Delete ${channelIds.length} selected channel${channelIds.length === 1 ? "" : "s"}? This cannot be undone.`,
+      `Delete ${selectedCount} selected channel${selectedCount === 1 ? "" : "s"}? This cannot be undone.`,
     );
 
     if (!confirmed) {
@@ -691,11 +713,13 @@ export function useCatalogTableShellModel({
 
     setDeleteActionState({
       type: "submitting",
-      message: getCatalogChannelDeleteSubmittingMessage(channelIds.length),
+      message: getCatalogChannelDeleteSubmittingMessage(selectedCount),
     });
 
     try {
-      const result = await deleteChannelsBatch(channelIds);
+      const result = allFilteredSelected
+        ? await deleteFilteredChannels(buildCatalogChannelFilters(appliedState.filters))
+        : await deleteChannelsBatch(channelIds);
       const deletedChannelIds = new Set(channelIds);
 
       setRequestState((current) => {
@@ -794,6 +818,7 @@ export function useCatalogTableShellModel({
     onRequestFilteredEnrichment: handleRequestFilteredEnrichment,
     onRequestSelectedEnrichment: handleRequestSelectedEnrichment,
     onResetFilters: () => {
+      setSelectedChannelIds([]);
       replaceCatalogState({
         page: 1,
         filters: DEFAULT_CATALOG_FILTERS,
@@ -809,6 +834,18 @@ export function useCatalogTableShellModel({
       setSavedSegmentName(value);
     },
     onToggleChannelSelection: (channelId: string) => {
+      if (
+        selectedChannelIds.includes(ALL_FILTERED_CHANNELS_SELECTION) &&
+        requestState.status === "ready"
+      ) {
+        setSelectedChannelIds(
+          requestState.data.items
+            .map((channel) => channel.id)
+            .filter((visibleChannelId) => visibleChannelId !== channelId),
+        );
+        return;
+      }
+
       setSelectedChannelIds((current) => toggleCatalogChannelSelection(current, channelId));
     },
     onNumericFilterChange: (key: CatalogNumericFilterKey, value: string) => {
@@ -847,7 +884,15 @@ export function useCatalogTableShellModel({
         return;
       }
 
+      if (selectedChannelIds.includes(ALL_FILTERED_CHANNELS_SELECTION)) {
+        setSelectedChannelIds([]);
+        return;
+      }
+
       setSelectedChannelIds((current) => toggleCatalogPageSelection(current, requestState.data.items));
+    },
+    onSelectAllFilteredChannels: () => {
+      setSelectedChannelIds([ALL_FILTERED_CHANNELS_SELECTION]);
     },
   };
 }

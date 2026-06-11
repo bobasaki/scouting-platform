@@ -1235,10 +1235,10 @@ export async function getChannelByYoutubeId(youtubeChannelId: string): Promise<C
 
 export async function bulkDeleteChannels(input: {
   actorUserId: string;
-  channelIds: string[];
+  scope:
+    | { type: "selected"; channelIds: string[] }
+    | { type: "filtered"; filters: CatalogChannelFilters };
 }): Promise<BulkDeleteChannelsResponse> {
-  const uniqueChannelIds = [...new Set(input.channelIds)];
-
   const actor = await prisma.user.findFirst({
     where: {
       id: input.actorUserId,
@@ -1253,6 +1253,11 @@ export async function bulkDeleteChannels(input: {
   if (!actor) {
     throw new ServiceError("FORBIDDEN", 403, "Only admins can delete channels");
   }
+
+  const channelIds = input.scope.type === "selected"
+    ? input.scope.channelIds
+    : await listAllChannelIdsForCatalogFilters(input.scope.filters);
+  const uniqueChannelIds = [...new Set(channelIds)];
 
   const channels = await prisma.channel.findMany({
     where: {
