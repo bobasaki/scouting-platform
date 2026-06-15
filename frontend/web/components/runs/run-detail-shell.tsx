@@ -1,6 +1,11 @@
 "use client";
 
-import { isCatalogScoutingQuery, type RunResultItem, type RunStatusResponse } from "@scouting-platform/contracts";
+import {
+  isCatalogScoutingQuery,
+  type RunChannelAssessmentItem,
+  type RunResultItem,
+  type RunStatusResponse,
+} from "@scouting-platform/contracts";
 import Image from "next/image";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
@@ -101,10 +106,106 @@ function getResultIdentityFallback(result: RunResultItem): string {
   return result.channel.title.trim().charAt(0).toUpperCase() || "?";
 }
 
+function getFitScorePresentation(score: number): {
+  label: string;
+  tone: "strong" | "mixed" | "low";
+} {
+  const percentage = Math.round(score * 100);
+
+  if (score >= 0.7) {
+    return { label: `${percentage}% fit - Strong fit`, tone: "strong" };
+  }
+
+  if (score >= 0.4) {
+    return { label: `${percentage}% fit - Mixed fit`, tone: "mixed" };
+  }
+
+  return { label: `${percentage}% fit - Low fit`, tone: "low" };
+}
+
+function renderAssessmentList(title: string, items: string[] | null, tone: "positive" | "caution") {
+  if (!items || items.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className={`run-detail__assessment-group run-detail__assessment-group--${tone}`}>
+      <h5>{title}</h5>
+      <ul>
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function renderAssessment(assessment: RunChannelAssessmentItem | undefined) {
+  if (!assessment) {
+    return (
+      <section className="run-detail__assessment run-detail__assessment--unavailable">
+        <h4>Mini fit assessment</h4>
+        <p>No Mini assessment was generated for this channel.</p>
+      </section>
+    );
+  }
+
+  if (assessment.status === "queued" || assessment.status === "running") {
+    return (
+      <section className="run-detail__assessment run-detail__assessment--pending">
+        <div className="run-detail__assessment-heading">
+          <h4>Mini fit assessment</h4>
+          <StatusPill status={assessment.status} />
+        </div>
+        <p>Mini is reviewing this channel against the campaign brief.</p>
+      </section>
+    );
+  }
+
+  if (assessment.status === "failed") {
+    return (
+      <section className="run-detail__assessment run-detail__assessment--failed">
+        <div className="run-detail__assessment-heading">
+          <h4>Mini fit assessment</h4>
+          <StatusPill status="failed" />
+        </div>
+        <p>{assessment.lastError || "Mini could not complete the fit assessment for this channel."}</p>
+      </section>
+    );
+  }
+
+  const fitScore = assessment.fitScore === null
+    ? null
+    : getFitScorePresentation(assessment.fitScore);
+
+  return (
+    <section className="run-detail__assessment run-detail__assessment--completed">
+      <div className="run-detail__assessment-heading">
+        <h4>Mini fit assessment</h4>
+        {fitScore ? (
+          <strong className={`run-detail__fit-score run-detail__fit-score--${fitScore.tone}`}>
+            {fitScore.label}
+          </strong>
+        ) : null}
+      </div>
+      <div className="run-detail__assessment-grid">
+        {renderAssessmentList("Why it fits", assessment.fitReasons, "positive")}
+        {renderAssessmentList("Concerns", assessment.fitConcerns, "caution")}
+        {renderAssessmentList("Recommended angles", assessment.recommendedAngles, "positive")}
+        {renderAssessmentList("Topics to avoid", assessment.avoidTopics, "caution")}
+      </div>
+      {!assessment.fitReasons?.length && !assessment.fitConcerns?.length ? (
+        <p>No written rationale was returned for this assessment.</p>
+      ) : null}
+    </section>
+  );
+}
+
 function renderResultCard(
   runId: string,
   runStatus: RunStatusResponse["status"],
   result: RunResultItem,
+  assessment: RunChannelAssessmentItem | undefined,
 ) {
   return (
     <li className="run-detail__result-card" key={result.id}>
@@ -145,6 +246,7 @@ function renderResultCard(
         <div className="run-detail__result-actions">
           <Link href={`/catalog/${result.channelId}`}>Open catalog detail</Link>
         </div>
+        {renderAssessment(assessment)}
         <RunResultRating
           disabled={runStatus !== "completed"}
           initialRating={result.rating ?? null}
@@ -302,7 +404,14 @@ function renderReadyState(run: RunStatusResponse, onRetry: () => void) {
 
         {run.results.length > 0 ? (
           <ul className="run-detail__results-list">
-            {run.results.map((result) => renderResultCard(run.id, run.status, result))}
+            {run.results.map((result) =>
+              renderResultCard(
+                run.id,
+                run.status,
+                result,
+                run.assessments.find((assessment) => assessment.channelId === result.channelId),
+              ),
+            )}
           </ul>
         ) : (
           <p className="run-detail__empty-state">{getRunResultsEmptyMessage({

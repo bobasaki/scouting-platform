@@ -91,6 +91,22 @@ function buildRunStatusPayload(
     updatedAt: string;
     completedAt: string | null;
     results: RunResultPayload[];
+    assessments: Array<{
+      id: string;
+      runRequestId: string;
+      channelId: string;
+      status: "queued" | "running" | "completed" | "failed";
+      model: string | null;
+      fitScore: number | null;
+      fitReasons: string[] | null;
+      fitConcerns: string[] | null;
+      recommendedAngles: string[] | null;
+      avoidTopics: string[] | null;
+      assessedAt: string | null;
+      lastError: string | null;
+      createdAt: string;
+      updatedAt: string;
+    }>;
   }>,
 ) {
   const status = overrides?.status ?? "completed";
@@ -118,7 +134,7 @@ function buildRunStatusPayload(
       overrides?.completedAt ??
       (status === "completed" || status === "failed" ? "2026-03-10T10:03:00.000Z" : null),
     metadata: buildRunMetadata(),
-    assessments: [],
+    assessments: overrides?.assessments ?? [],
     results: overrides?.results ?? [
       {
         id: "24a57b02-3008-4af1-9b3a-340bd0db7d1c",
@@ -209,6 +225,46 @@ describe("run detail shell", () => {
     expect(html).toContain("Campaign manager rating");
     expect(html).toContain("4 out of 5.");
     expect(html).toContain('href="/catalog/24a57b02-3008-4af1-9b3a-340bd0db7d1c"');
+    expect(html).toContain("No Mini assessment was generated for this channel.");
+  });
+
+  it("renders Mini fit rationale for each assessed channel", () => {
+    const html = renderView({
+      status: "ready",
+      data: buildRunStatusPayload({
+        assessments: [
+          {
+            id: "124a57b0-3008-4af1-9b3a-340bd0db7d1c",
+            runRequestId: "53adac17-f39d-4731-a61f-194150fbc431",
+            channelId: "24a57b02-3008-4af1-9b3a-340bd0db7d1c",
+            status: "completed",
+            model: "gpt-4.1-mini",
+            fitScore: 0.81,
+            fitReasons: ["Strong audience overlap"],
+            fitConcerns: ["Limited local-language reach"],
+            recommendedAngles: ["Benchmark-style review"],
+            avoidTopics: ["Console-only positioning"],
+            assessedAt: "2026-03-10T10:03:00.000Z",
+            lastError: null,
+            createdAt: "2026-03-10T10:02:00.000Z",
+            updatedAt: "2026-03-10T10:03:00.000Z",
+          },
+        ],
+      }),
+      error: null,
+    });
+
+    expect(html).toContain("Mini fit assessment");
+    expect(html).toContain("81% fit");
+    expect(html).toContain("Strong fit");
+    expect(html).toContain("Why it fits");
+    expect(html).toContain("Strong audience overlap");
+    expect(html).toContain("Concerns");
+    expect(html).toContain("Limited local-language reach");
+    expect(html).toContain("Recommended angles");
+    expect(html).toContain("Benchmark-style review");
+    expect(html).toContain("Topics to avoid");
+    expect(html).toContain("Console-only positioning");
   });
 
   it("renders explicit failed job feedback and empty snapshot guidance", () => {
