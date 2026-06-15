@@ -28,6 +28,7 @@ integration("run assessment API integration", () => {
   let runDetailRoute: typeof import("./runs/[id]/route");
   let runAssessRoute: typeof import("./runs/[id]/assess/route");
   let runBriefRoute: typeof import("./runs/[id]/brief/route");
+  let runResultRatingRoute: typeof import("./runs/[id]/results/[resultId]/rating/route");
 
   beforeAll(async () => {
     process.env.DATABASE_URL = databaseUrl;
@@ -43,6 +44,7 @@ integration("run assessment API integration", () => {
     runDetailRoute = await import("./runs/[id]/route");
     runAssessRoute = await import("./runs/[id]/assess/route");
     runBriefRoute = await import("./runs/[id]/brief/route");
+    runResultRatingRoute = await import("./runs/[id]/results/[resultId]/rating/route");
   });
 
   beforeEach(async () => {
@@ -189,7 +191,7 @@ integration("run assessment API integration", () => {
     return new NextRequest(url, init);
   }
 
-  it("returns 401 for unauthenticated assess and brief routes", async () => {
+  it("returns 401 for unauthenticated assess, brief, and rating routes", async () => {
     const assessResponse = await runAssessRoute.POST(
       nextRequest("http://localhost/api/runs/6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b/assess", {
         method: "POST",
@@ -207,6 +209,127 @@ integration("run assessment API integration", () => {
       { params: Promise.resolve({ id: "6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b" }) },
     );
     expect(briefResponse.status).toBe(401);
+
+    const ratingResponse = await runResultRatingRoute.PATCH(
+      nextRequest(
+        "http://localhost/api/runs/6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b/results/24a57b02-3008-4af1-9b3a-340bd0db7d1c/rating",
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ rating: 5 }),
+        },
+      ),
+      {
+        params: Promise.resolve({
+          id: "6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b",
+          resultId: "24a57b02-3008-4af1-9b3a-340bd0db7d1c",
+        }),
+      },
+    );
+    expect(ratingResponse.status).toBe(401);
+  });
+
+  it("lets the run owner rate, rerate, and clear a channel", async () => {
+    const owner = await createUser("rating-owner@example.com");
+    const { run, channelA } = await createCompletedRunWithResults(owner.id);
+    const runResult = await prisma.runResult.findUniqueOrThrow({
+      where: {
+        runRequestId_channelId: {
+          runRequestId: run.id,
+          channelId: channelA.id,
+        },
+      },
+    });
+
+    currentSessionUser = { id: owner.id, role: "user" };
+
+    const rate = async (rating: number | null) =>
+      runResultRatingRoute.PATCH(
+        nextRequest(
+          `http://localhost/api/runs/${run.id}/results/${runResult.id}/rating`,
+          {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ rating }),
+          },
+        ),
+        { params: Promise.resolve({ id: run.id, resultId: runResult.id }) },
+      );
+
+    const firstResponse = await rate(4);
+    expect(firstResponse.status).toBe(200);
+    expect(await firstResponse.json()).toMatchObject({
+      runId: run.id,
+      resultId: runResult.id,
+      channelId: channelA.id,
+      rating: 4,
+    });
+
+    const reratedResponse = await rate(5);
+    expect(reratedResponse.status).toBe(200);
+
+    const detailResponse = await runDetailRoute.GET(
+      nextRequest(`http://localhost/api/runs/${run.id}`),
+      { params: Promise.resolve({ id: run.id }) },
+    );
+    expect(detailResponse.status).toBe(200);
+    const detailPayload = await detailResponse.json();
+    expect(
+      detailPayload.results.find((result: { id: string }) => result.id === runResult.id),
+    ).toMatchObject({
+      rating: 5,
+      ratedAt: expect.any(String),
+    });
+
+    const clearResponse = await rate(null);
+    expect(clearResponse.status).toBe(200);
+    expect(await clearResponse.json()).toMatchObject({
+      rating: null,
+      ratedAt: null,
+    });
+
+    const stored = await prisma.runResult.findUniqueOrThrow({
+      where: { id: runResult.id },
+    });
+    expect(stored.rating).toBeNull();
+    expect(stored.ratedAt).toBeNull();
+    expect(stored.ratedByUserId).toBeNull();
+  });
+
+  it("rejects invalid ratings and non-owner updates", async () => {
+    const owner = await createUser("rating-owner-two@example.com");
+    const otherUser = await createUser("rating-other@example.com");
+    const { run, channelA } = await createCompletedRunWithResults(owner.id);
+    const runResult = await prisma.runResult.findUniqueOrThrow({
+      where: {
+        runRequestId_channelId: {
+          runRequestId: run.id,
+          channelId: channelA.id,
+        },
+      },
+    });
+
+    currentSessionUser = { id: owner.id, role: "user" };
+    const invalidResponse = await runResultRatingRoute.PATCH(
+      nextRequest(`http://localhost/api/runs/${run.id}/results/${runResult.id}/rating`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ rating: 6 }),
+      }),
+      { params: Promise.resolve({ id: run.id, resultId: runResult.id }) },
+    );
+    expect(invalidResponse.status).toBe(400);
+
+    currentSessionUser = { id: otherUser.id, role: "user" };
+    const forbiddenResponse = await runResultRatingRoute.PATCH(
+      nextRequest(`http://localhost/api/runs/${run.id}/results/${runResult.id}/rating`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ rating: 3 }),
+      }),
+      { params: Promise.resolve({ id: run.id, resultId: runResult.id }) },
+    );
+    expect(forbiddenResponse.status).toBe(403);
   });
 
   it("returns 403 for non-owner assess requests", async () => {

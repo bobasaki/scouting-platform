@@ -4,11 +4,14 @@ import {
   listRunsQuerySchema,
   listRecentRunsResponseSchema,
   runStatusResponseSchema,
+  updateRunResultRatingRequestSchema,
+  updateRunResultRatingResponseSchema,
   type CreateRunRequest,
   type CreateRunResponse,
   type ListRecentRunsResponse,
   type ListRunsQuery,
   type RunStatusResponse,
+  type UpdateRunResultRatingResponse,
 } from "@scouting-platform/contracts";
 
 const GENERIC_CREATE_RUN_REQUEST_ERROR_MESSAGE = "Unable to create run. Please try again.";
@@ -16,6 +19,8 @@ const GENERIC_RECENT_RUNS_REQUEST_ERROR_MESSAGE =
   "Unable to load recent runs. Please try again.";
 const GENERIC_RUN_STATUS_REQUEST_ERROR_MESSAGE =
   "Unable to load run details. Please try again.";
+const GENERIC_RUN_RESULT_RATING_REQUEST_ERROR_MESSAGE =
+  "Unable to save the channel rating. Please try again.";
 const INVALID_CREATE_RUN_RESPONSE_ERROR_MESSAGE =
   "Received an invalid run creation response from the server.";
 const INVALID_RECENT_RUNS_RESPONSE_ERROR_MESSAGE =
@@ -215,5 +220,48 @@ export async function fetchRunStatus(
     return parsed.data;
   } catch (error) {
     throw normalizeRequestError(error, GENERIC_RUN_STATUS_REQUEST_ERROR_MESSAGE);
+  }
+}
+
+export async function updateRunResultRating(
+  runId: string,
+  resultId: string,
+  rating: number | null,
+): Promise<UpdateRunResultRatingResponse> {
+  const requestPayload = updateRunResultRatingRequestSchema.parse({ rating });
+
+  try {
+    const response = await fetch(
+      `/api/runs/${encodeURIComponent(runId)}/results/${encodeURIComponent(resultId)}/rating`,
+      {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(requestPayload),
+      },
+    );
+    const payload = await readJsonPayload(response);
+
+    if (!response.ok) {
+      throw new ApiRequestError(
+        getApiErrorMessage(response, payload, {
+          authorizationErrorMessage: "You are not authorized to rate this channel.",
+          notFoundErrorMessage: "Run result not found.",
+          fallbackMessage: GENERIC_RUN_RESULT_RATING_REQUEST_ERROR_MESSAGE,
+        }),
+        response.status,
+      );
+    }
+
+    const parsed = updateRunResultRatingResponseSchema.safeParse(payload);
+
+    if (!parsed.success) {
+      throw new Error("Received an invalid channel rating response from the server.");
+    }
+
+    return parsed.data;
+  } catch (error) {
+    throw normalizeRequestError(error, GENERIC_RUN_RESULT_RATING_REQUEST_ERROR_MESSAGE);
   }
 }

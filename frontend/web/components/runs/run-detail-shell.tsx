@@ -11,6 +11,7 @@ import { EmptyState } from "../ui/EmptyState";
 import { ErrorState } from "../ui/ErrorState";
 import { StatusPill } from "../ui/StatusPill";
 import { StatusTimeline } from "../ui/StatusTimeline";
+import { RunResultRating } from "./run-result-rating";
 import {
   RUN_STATUS_POLL_INTERVAL_MS,
   formatRunResultCount as formatRunResultCountValue,
@@ -100,7 +101,11 @@ function getResultIdentityFallback(result: RunResultItem): string {
   return result.channel.title.trim().charAt(0).toUpperCase() || "?";
 }
 
-function renderResultCard(result: RunResultItem) {
+function renderResultCard(
+  runId: string,
+  runStatus: RunStatusResponse["status"],
+  result: RunResultItem,
+) {
   return (
     <li className="run-detail__result-card" key={result.id}>
       <div className="run-detail__result-media">
@@ -140,6 +145,12 @@ function renderResultCard(result: RunResultItem) {
         <div className="run-detail__result-actions">
           <Link href={`/catalog/${result.channelId}`}>Open catalog detail</Link>
         </div>
+        <RunResultRating
+          disabled={runStatus !== "completed"}
+          initialRating={result.rating ?? null}
+          resultId={result.id}
+          runId={runId}
+        />
       </div>
     </li>
   );
@@ -271,7 +282,7 @@ function renderReadyState(run: RunStatusResponse, onRetry: () => void) {
           <div>
             <h2 id="run-detail-results-heading">Matched creators</h2>
             <p>
-              Ranked matches for this run. Review the list, then send it to Google Sheets.
+              Ranked matches for this run. Rate each creator, then send the list to Google Sheets.
             </p>
           </div>
           <div className="run-detail__panel-actions">
@@ -290,7 +301,9 @@ function renderReadyState(run: RunStatusResponse, onRetry: () => void) {
         </header>
 
         {run.results.length > 0 ? (
-          <ul className="run-detail__results-list">{run.results.map((result) => renderResultCard(result))}</ul>
+          <ul className="run-detail__results-list">
+            {run.results.map((result) => renderResultCard(run.id, run.status, result))}
+          </ul>
         ) : (
           <p className="run-detail__empty-state">{getRunResultsEmptyMessage({
             status: run.status,

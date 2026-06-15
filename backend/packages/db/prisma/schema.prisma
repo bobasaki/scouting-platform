@@ -262,6 +262,7 @@ model User {
   requestedHubspotObjectSyncRuns        HubspotObjectSyncRun[]        @relation("HubspotObjectSyncRequestedBy")
   createdCampaigns                      Campaign[]                    @relation("CampaignCreatedBy")
   youtubeDiscoveryCache                 YoutubeDiscoveryCache[]
+  ratedRunResults                       RunResult[]                   @relation("RunResultRatedBy")
 
   @@index([lockedUntil], map: "users_locked_until_idx")
   @@map("users")
@@ -1061,18 +1062,23 @@ model RunHubspotRowOverride {
 }
 
 model RunResult {
-  id           String          @id @default(uuid()) @db.Uuid
-  runRequestId String          @map("run_request_id") @db.Uuid
-  channelId    String          @map("channel_id") @db.Uuid
-  rank         Int
-  source       RunResultSource
-  createdAt    DateTime        @default(now()) @map("created_at")
-  runRequest   RunRequest      @relation(fields: [runRequestId], references: [id], onDelete: Cascade)
-  channel      Channel         @relation(fields: [channelId], references: [id], onDelete: Restrict)
+  id            String          @id @default(uuid()) @db.Uuid
+  runRequestId  String          @map("run_request_id") @db.Uuid
+  channelId     String          @map("channel_id") @db.Uuid
+  rank          Int
+  source        RunResultSource
+  rating        Int?
+  ratedAt       DateTime?       @map("rated_at")
+  ratedByUserId String?         @map("rated_by_user_id") @db.Uuid
+  createdAt     DateTime        @default(now()) @map("created_at")
+  runRequest    RunRequest      @relation(fields: [runRequestId], references: [id], onDelete: Cascade)
+  channel       Channel         @relation(fields: [channelId], references: [id], onDelete: Restrict)
+  ratedByUser   User?           @relation("RunResultRatedBy", fields: [ratedByUserId], references: [id], onDelete: SetNull)
 
   @@unique([runRequestId, channelId], map: "run_results_run_request_id_channel_id_key")
   @@index([runRequestId], map: "run_results_run_request_id_idx")
   @@index([channelId], map: "run_results_channel_id_idx")
+  @@index([ratedByUserId], map: "run_results_rated_by_user_id_idx")
   @@map("run_results")
 }
 

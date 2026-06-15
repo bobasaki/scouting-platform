@@ -4,6 +4,7 @@ import {
   createRunRequestSchema,
   runStatusResponseSchema,
   updateRunBriefRequestSchema,
+  updateRunResultRatingRequestSchema,
 } from "./runs";
 
 const TEST_UUID = "6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b";
@@ -104,5 +105,18 @@ describe("run brief contracts", () => {
     });
 
     expect(payload.assessments).toEqual([]);
+  });
+});
+
+describe("run result rating contracts", () => {
+  it("accepts a 1-to-5 rating or null to clear it", () => {
+    expect(updateRunResultRatingRequestSchema.parse({ rating: 5 })).toEqual({ rating: 5 });
+    expect(updateRunResultRatingRequestSchema.parse({ rating: null })).toEqual({ rating: null });
+  });
+
+  it("rejects ratings outside the supported range", () => {
+    expect(() => updateRunResultRatingRequestSchema.parse({ rating: 0 })).toThrow();
+    expect(() => updateRunResultRatingRequestSchema.parse({ rating: 6 })).toThrow();
+    expect(() => updateRunResultRatingRequestSchema.parse({ rating: 3.5 })).toThrow();
   });
 });

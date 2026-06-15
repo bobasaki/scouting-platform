@@ -14,6 +14,7 @@ export const runRequestStatusSchema = z.enum([
 ]);
 
 export const runResultSourceSchema = z.enum(["catalog", "discovery"]);
+export const runResultRatingSchema = z.number().int().min(1).max(5);
 
 export const runMonthSchema = z.enum([
   "january",
@@ -153,8 +154,22 @@ export const runResultItemSchema = z.object({
   channelId: z.uuid(),
   rank: z.number().int().min(1),
   source: runResultSourceSchema,
+  rating: runResultRatingSchema.nullable().optional(),
+  ratedAt: isoDatetimeSchema.nullable().optional(),
   createdAt: isoDatetimeSchema,
   channel: runResultChannelSchema,
+});
+
+export const updateRunResultRatingRequestSchema = z.object({
+  rating: runResultRatingSchema.nullable(),
+});
+
+export const updateRunResultRatingResponseSchema = z.object({
+  runId: z.uuid(),
+  resultId: z.uuid(),
+  channelId: z.uuid(),
+  rating: runResultRatingSchema.nullable(),
+  ratedAt: isoDatetimeSchema.nullable(),
 });
 
 export const runStatusResponseSchema = z.object({
@@ -182,6 +197,7 @@ export const listCampaignManagersResponseSchema = z.object({
 
 export type RunRequestStatus = z.infer<typeof runRequestStatusSchema>;
 export type RunResultSource = z.infer<typeof runResultSourceSchema>;
+export type RunResultRating = z.infer<typeof runResultRatingSchema>;
 export type RunMonth = z.infer<typeof runMonthSchema>;
 export type RunCampaignManager = z.infer<typeof runCampaignManagerSchema>;
 export type RunMetadataInput = z.infer<typeof runMetadataInputSchema>;
@@ -195,6 +211,8 @@ export type RunFilterOptions = z.infer<typeof runFilterOptionsSchema>;
 export type ListRecentRunsResponse = z.infer<typeof listRecentRunsResponseSchema>;
 export type RunResultChannel = z.infer<typeof runResultChannelSchema>;
 export type RunResultItem = z.infer<typeof runResultItemSchema>;
+export type UpdateRunResultRatingRequest = z.infer<typeof updateRunResultRatingRequestSchema>;
+export type UpdateRunResultRatingResponse = z.infer<typeof updateRunResultRatingResponseSchema>;
 export type RunStatusResponse = z.infer<typeof runStatusResponseSchema>;
 export type CampaignManagerOption = z.infer<typeof campaignManagerOptionSchema>;
 export type ListCampaignManagersResponse = z.infer<typeof listCampaignManagersResponseSchema>;

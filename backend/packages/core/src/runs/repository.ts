@@ -24,6 +24,7 @@ import {
   type RunMonth,
   type RunRequestStatus,
   type RunStatusResponse,
+  type UpdateRunResultRatingResponse,
 } from "@scouting-platform/contracts";
 import { prisma } from "@scouting-platform/db";
 import {
@@ -1010,6 +1011,8 @@ export async function getRunStatus(input: {
           channelId: true,
           rank: true,
           source: true,
+          rating: true,
+          ratedAt: true,
           createdAt: true,
           channel: {
             select: {
@@ -1056,6 +1059,8 @@ export async function getRunStatus(input: {
       channelId: result.channelId,
       rank: result.rank,
       source: toRunResultSource(result.source),
+      rating: result.rating,
+      ratedAt: result.ratedAt?.toISOString() ?? null,
       createdAt: result.createdAt.toISOString(),
       channel: {
         id: result.channel.id,
@@ -1066,6 +1071,81 @@ export async function getRunStatus(input: {
       },
     })),
     assessments: runRequest.channelAssessments.map(toRunChannelAssessmentItem),
+  };
+}
+
+export async function updateRunResultRating(input: {
+  runId: string;
+  resultId: string;
+  userId: string;
+  role: "admin" | "user";
+  rating: number | null;
+}): Promise<UpdateRunResultRatingResponse> {
+  if (
+    input.rating !== null &&
+    (!Number.isInteger(input.rating) || input.rating < 1 || input.rating > 5)
+  ) {
+    throw new ServiceError("RUN_RESULT_RATING_INVALID", 400, "Rating must be between 1 and 5");
+  }
+
+  const runResult = await prisma.runResult.findUnique({
+    where: {
+      id: input.resultId,
+    },
+    select: {
+      id: true,
+      runRequestId: true,
+      channelId: true,
+      runRequest: {
+        select: {
+          requestedByUserId: true,
+          status: true,
+        },
+      },
+    },
+  });
+
+  if (!runResult || runResult.runRequestId !== input.runId) {
+    throw new ServiceError("RUN_RESULT_NOT_FOUND", 404, "Run result not found");
+  }
+
+  if (input.role !== "admin" && runResult.runRequest.requestedByUserId !== input.userId) {
+    throw new ServiceError("RUN_RESULT_FORBIDDEN", 403, "Forbidden");
+  }
+
+  if (runResult.runRequest.status !== PrismaRunRequestStatus.COMPLETED) {
+    throw new ServiceError(
+      "RUN_RESULT_RATING_NOT_READY",
+      409,
+      "Channels can be rated after the scouting run completes",
+    );
+  }
+
+  const ratedAt = input.rating === null ? null : new Date();
+  const updated = await prisma.runResult.update({
+    where: {
+      id: runResult.id,
+    },
+    data: {
+      rating: input.rating,
+      ratedAt,
+      ratedByUserId: input.rating === null ? null : input.userId,
+    },
+    select: {
+      id: true,
+      runRequestId: true,
+      channelId: true,
+      rating: true,
+      ratedAt: true,
+    },
+  });
+
+  return {
+    runId: updated.runRequestId,
+    resultId: updated.id,
+    channelId: updated.channelId,
+    rating: updated.rating,
+    ratedAt: updated.ratedAt?.toISOString() ?? null,
   };
 }
 
