@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { updateRunResultRating } from "../../lib/runs-api";
 
-const RATINGS = [1, 2, 3, 4, 5] as const;
+const DEFAULT_RATING = 1;
+const SAVE_DELAY_MS = 250;
 
 type RunResultRatingProps = Readonly<{
   runId: string;
@@ -22,21 +23,31 @@ export function RunResultRating({
   const [rating, setRating] = useState<number | null>(initialRating);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const persistedRatingRef = useRef<number | null>(initialRating);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setRating(initialRating);
+    persistedRatingRef.current = initialRating;
     setStatus("idle");
     setError(null);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
   }, [initialRating]);
 
   async function saveRating(nextRating: number | null) {
-    const previousRating = rating;
+    const previousRating = persistedRatingRef.current;
     setRating(nextRating);
     setStatus("saving");
     setError(null);
 
     try {
       const result = await updateRunResultRating(runId, resultId, nextRating);
+      persistedRatingRef.current = result.rating;
       setRating(result.rating);
       setStatus("saved");
     } catch (saveError) {
@@ -50,34 +61,62 @@ export function RunResultRating({
     }
   }
 
+  function scheduleRatingSave(nextRating: number) {
+    setRating(nextRating);
+    setStatus("idle");
+    setError(null);
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(() => {
+      saveTimeoutRef.current = null;
+      void saveRating(nextRating);
+    }, SAVE_DELAY_MS);
+  }
+
+  function clearRating() {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+
+    void saveRating(null);
+  }
+
   return (
     <fieldset className="run-result-rating" disabled={disabled || status === "saving"}>
       <legend>Campaign manager rating</legend>
       <div className="run-result-rating__row">
-        <div aria-label="Channel rating" className="run-result-rating__stars" role="group">
-          {RATINGS.map((value) => {
-            const isFilled = rating !== null && value <= rating;
-
-            return (
-              <button
-                aria-label={`Rate ${value} out of 5`}
-                aria-pressed={rating === value}
-                className={`run-result-rating__star${isFilled ? " run-result-rating__star--filled" : ""}`}
-                key={value}
-                onClick={() => void saveRating(value)}
-                title={`${value} out of 5`}
-                type="button"
-              >
-                <span aria-hidden="true">{isFilled ? "★" : "☆"}</span>
-              </button>
-            );
-          })}
+        <div className="run-result-rating__slider-wrap">
+          <input
+            aria-label="Channel rating from 1 to 5"
+            className="run-result-rating__slider"
+            max="5"
+            min="1"
+            onChange={(event) => scheduleRatingSave(Number(event.currentTarget.value))}
+            step="1"
+            type="range"
+            value={rating ?? DEFAULT_RATING}
+          />
+          <div aria-hidden="true" className="run-result-rating__scale">
+            <span>1</span>
+            <span>2</span>
+            <span>3</span>
+            <span>4</span>
+            <span>5</span>
+          </div>
         </div>
+
+        <output className="run-result-rating__value">
+          {rating === null ? "Not rated" : `${rating} / 5`}
+        </output>
 
         {rating !== null ? (
           <button
             className="run-result-rating__clear"
-            onClick={() => void saveRating(null)}
+            onClick={clearRating}
             type="button"
           >
             Clear

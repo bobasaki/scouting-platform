@@ -9,7 +9,7 @@ vi.mock("../../lib/runs-api", () => ({
 import { RunResultRating } from "./run-result-rating";
 
 describe("run result rating", () => {
-  it("renders an unrated five-star control", () => {
+  it("renders an unrated 1-to-5 slider", () => {
     const html = renderToStaticMarkup(
       createElement(RunResultRating, {
         runId: "53adac17-f39d-4731-a61f-194150fbc431",
@@ -18,7 +18,11 @@ describe("run result rating", () => {
     );
 
     expect(html).toContain("Campaign manager rating");
-    expect(html.match(/Rate \d out of 5/g)).toHaveLength(5);
+    expect(html).toContain('type="range"');
+    expect(html).toContain('aria-label="Channel rating from 1 to 5"');
+    expect(html).toContain('min="1"');
+    expect(html).toContain('max="5"');
+    expect(html).toContain("Not rated");
     expect(html).toContain("Not rated yet.");
   });
 
@@ -31,7 +35,8 @@ describe("run result rating", () => {
       }),
     );
 
-    expect(html.match(/run-result-rating__star--filled/g)).toHaveLength(4);
+    expect(html).toContain('value="4"');
+    expect(html).toContain("4 / 5");
     expect(html).toContain("4 out of 5.");
     expect(html).toContain("Clear");
   });
