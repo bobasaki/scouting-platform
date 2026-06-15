@@ -888,6 +888,104 @@ a {
   font-weight: var(--font-weight-semibold);
 }
 
+.run-result-rating {
+  border: 0;
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.run-result-rating legend {
+  padding: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-100);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.run-result-rating__row {
+  display: flex;
+  align-items: center;
+}
+
+.run-result-rating__row {
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.run-result-rating__slider-wrap {
+  flex: 1 1 14rem;
+  max-width: 22rem;
+  display: grid;
+  gap: 0.125rem;
+}
+
+.run-result-rating__clear {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.run-result-rating__slider {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--color-accent);
+  cursor: grab;
+}
+
+.run-result-rating__slider:active {
+  cursor: grabbing;
+}
+
+.run-result-rating__slider:focus-visible,
+.run-result-rating__clear:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.run-result-rating__scale {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 0.35rem;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-100);
+}
+
+.run-result-rating__value {
+  min-width: 4.75rem;
+  border-radius: 999px;
+  background: var(--color-accent-soft);
+  padding: var(--space-1) var(--space-2);
+  color: var(--color-accent);
+  font-size: var(--font-size-100);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+}
+
+.run-result-rating__clear {
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-100);
+  text-decoration: underline;
+}
+
+.run-result-rating:disabled {
+  opacity: 0.65;
+}
+
+.run-result-rating__status {
+  min-height: 1.25rem;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-100);
+}
+
+.run-result-rating__status--error {
+  color: var(--color-danger);
+}
+
 .catalog-table {
   display: grid;
   gap: var(--space-4);

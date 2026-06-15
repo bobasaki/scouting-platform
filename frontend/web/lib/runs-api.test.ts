@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ApiRequestError, createRun, fetchRecentRuns, fetchRunStatus } from "./runs-api";
+import {
+  ApiRequestError,
+  createRun,
+  fetchRecentRuns,
+  fetchRunStatus,
+  updateRunResultRating,
+} from "./runs-api";
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
@@ -246,6 +252,51 @@ describe("runs api helpers", () => {
 
     await expect(fetchRecentRuns()).rejects.toMatchObject({
       message: "You are not authorized to view recent runs.",
+      status: 403,
+    } satisfies Partial<ApiRequestError>);
+  });
+
+  it("updates a run result rating via PATCH", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      jsonResponse({
+        runId: "53adac17-f39d-4731-a61f-194150fbc431",
+        resultId: "24a57b02-3008-4af1-9b3a-340bd0db7d1c",
+        channelId: "24a57b02-3008-4af1-9b3a-340bd0db7d1c",
+        rating: 4,
+        ratedAt: "2026-06-15T12:00:00.000Z",
+      }),
+    );
+
+    const response = await updateRunResultRating(
+      "53adac17-f39d-4731-a61f-194150fbc431",
+      "24a57b02-3008-4af1-9b3a-340bd0db7d1c",
+      4,
+    );
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "/api/runs/53adac17-f39d-4731-a61f-194150fbc431/results/24a57b02-3008-4af1-9b3a-340bd0db7d1c/rating",
+      expect.objectContaining({
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ rating: 4 }),
+      }),
+    );
+    expect(response.rating).toBe(4);
+  });
+
+  it("surfaces rating authorization failures", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(jsonResponse({}, 403));
+
+    await expect(
+      updateRunResultRating(
+        "53adac17-f39d-4731-a61f-194150fbc431",
+        "24a57b02-3008-4af1-9b3a-340bd0db7d1c",
+        3,
+      ),
+    ).rejects.toMatchObject({
+      message: "You are not authorized to rate this channel.",
       status: 403,
     } satisfies Partial<ApiRequestError>);
   });

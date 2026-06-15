@@ -29,6 +29,7 @@ import {
   RUN_STATUS_POLL_INTERVAL_MS,
   shouldPollRunStatus,
 } from "../runs/run-presentation";
+import { RunResultRating } from "../runs/run-result-rating";
 
 type DatabaseRunsTabProps = Readonly<{
   requestedRunId: string | null;
@@ -106,7 +107,11 @@ function getResultIdentityFallback(result: RunResultItem): string {
   return result.channel.title.trim().charAt(0).toUpperCase() || "?";
 }
 
-function renderResultCard(result: RunResultItem) {
+function renderResultCard(
+  runId: string,
+  runStatus: RunStatusResponse["status"],
+  result: RunResultItem,
+) {
   return (
     <li className="database-runs__result-card" key={result.id}>
       <div aria-hidden="true" className="database-runs__result-badge">
@@ -125,6 +130,12 @@ function renderResultCard(result: RunResultItem) {
         <Link className="database-runs__result-link" href={`/catalog/${result.channelId}`}>
           Open creator detail
         </Link>
+        <RunResultRating
+          disabled={runStatus !== "completed"}
+          initialRating={result.rating ?? null}
+          resultId={result.id}
+          runId={runId}
+        />
       </div>
     </li>
   );
@@ -588,7 +599,13 @@ export function DatabaseRunsTab({
 
             {detailRequestState.data.results.length > 0 ? (
               <ul className="database-runs__results-list">
-                {detailRequestState.data.results.map((result) => renderResultCard(result))}
+                {detailRequestState.data.results.map((result) =>
+                  renderResultCard(
+                    detailRequestState.data.id,
+                    detailRequestState.data.status,
+                    result,
+                  ),
+                )}
               </ul>
             ) : (
               <div className="database-runs__empty-state">

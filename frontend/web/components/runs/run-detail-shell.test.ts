@@ -47,6 +47,8 @@ type RunResultPayload = {
   channelId: string;
   rank: number;
   source: "catalog" | "discovery";
+  rating?: number | null;
+  ratedAt?: string | null;
   createdAt: string;
   channel: {
     id: string;
@@ -123,6 +125,8 @@ function buildRunStatusPayload(
         channelId: "24a57b02-3008-4af1-9b3a-340bd0db7d1c",
         rank: 1,
         source: "catalog" as const,
+        rating: 4,
+        ratedAt: "2026-06-15T12:00:00.000Z",
         createdAt: "2026-03-10T10:02:00.000Z",
         channel: {
           id: "24a57b02-3008-4af1-9b3a-340bd0db7d1c",
@@ -202,6 +206,8 @@ describe("run detail shell", () => {
     expect(html).toContain("Matched creators");
     expect(html).toContain("Updated");
     expect(html).toContain("Run Result Channel");
+    expect(html).toContain("Campaign manager rating");
+    expect(html).toContain("4 out of 5.");
     expect(html).toContain('href="/catalog/24a57b02-3008-4af1-9b3a-340bd0db7d1c"');
   });
 

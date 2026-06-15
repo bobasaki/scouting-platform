@@ -114,6 +114,25 @@ const channelEnrichmentCancellationMigrationPath = path.resolve(
   currentDir,
   "../prisma/migrations/20260611120000_channel_enrichment_cancellation/migration.sql",
 );
+const runResultRatingsMigrationPath = path.resolve(
+  currentDir,
+  "../prisma/migrations/20260615120000_run_result_ratings/migration.sql",
+);
+
+describe("run result ratings migration", () => {
+  it("adds nullable 1-to-5 ratings with rater attribution", () => {
+    const migrationSql = readFileSync(runResultRatingsMigrationPath, "utf-8");
+
+    expect(migrationSql).toContain('ALTER TABLE "run_results"');
+    expect(migrationSql).toContain('"rating" INTEGER');
+    expect(migrationSql).toContain('"rated_at" TIMESTAMP(3)');
+    expect(migrationSql).toContain('"rated_by_user_id" UUID');
+    expect(migrationSql).toContain('"rating" BETWEEN 1 AND 5');
+    expect(migrationSql).toContain('CREATE INDEX "run_results_rated_by_user_id_idx"');
+    expect(migrationSql).toContain('ON DELETE SET NULL ON UPDATE CASCADE');
+    expect(migrationSql).not.toContain("IF NOT EXISTS");
+  });
+});
 
 describe("channel enrichment cancellation migration", () => {
   it("adds the cancelled status deterministically", () => {
