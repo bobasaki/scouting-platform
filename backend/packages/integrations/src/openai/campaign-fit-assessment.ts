@@ -172,7 +172,7 @@ function buildPrompt(input: z.output<typeof inputSchema>): string {
       "freeTextBrief is the campaign manager's free-text description of the requested category, niche, audience, creator style, and constraints. Treat it as the primary campaign-specific relevance signal after the hard filters have already selected candidate channels.",
     instructions: {
       fitScore:
-        "Return a number from 0 to 1 scoring how well this creator fits THIS specific free-text brief. 0 = clearly wrong fit, 1 = perfect fit. Weight: category and niche alignment, audience match, content style alignment, brand safety for this client's industry, presence of campaign-required themes.",
+        "Return a number from 0 to 1 scoring how well this creator fits THIS specific free-text brief. Be lenient and opportunity-oriented: if the creator fits even somewhat, that is probably okay and should usually score 0.55 or higher. Use 0.7+ for solid partial fits with several useful signals, 0.85+ for very strong fits, and reserve scores below 0.4 for clearly irrelevant or unsafe channels. Weight category and niche alignment, audience match, content style alignment, brand safety for this client's industry, presence of campaign-required themes, and evidence of openness to sponsorships.",
       brevity:
         "Be extremely concise. The UI shows this as short bullets inside a scouting-result card, not a report. Each bullet should be a terse signal under 80 characters, often 2-7 words.",
       fitReasons:
