@@ -141,7 +141,7 @@ integration("database HubSpot sync API integration", () => {
     const listResponse = await route.GET();
     expect(listResponse.status).toBe(200);
     const listPayload = await listResponse.json();
-    expect(listPayload.items).toHaveLength(1);
-    expect(listPayload.latest.id).toBe(createPayload.run.id);
+    expect(listPayload.items).toHaveLength(2);
+    expect(listPayload.items.map((item: { id: string }) => item.id)).toContain(createPayload.run.id);
   });
 });

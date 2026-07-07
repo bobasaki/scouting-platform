@@ -30,7 +30,7 @@ async function NewScoutingData() {
     : [
         {
           items: [],
-          filterOptions: { clients: [], markets: [] },
+          filterOptions: { clients: [], markets: [], statuses: [] },
           permissions: { canCreate: false, role: "user", userType: "campaign_manager" as const },
         },
         [] as CampaignManagerOption[],

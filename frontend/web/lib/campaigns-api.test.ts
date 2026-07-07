@@ -30,6 +30,7 @@ describe("campaigns api helpers", () => {
         briefLink: null,
         month: "april",
         year: 2026,
+        status: null,
         isActive: true,
         hubspotObjectId: null,
         hubspotObjectType: null,

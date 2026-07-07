@@ -111,6 +111,16 @@ describe("parseJobPayload", () => {
     });
   });
 
+  it("parses a valid hubspot.object-sync.schedule payload", () => {
+    const payload = parseJobPayload("hubspot.object-sync.schedule", {
+      initiatedBy: "system",
+    });
+
+    expect(payload).toEqual({
+      initiatedBy: "system",
+    });
+  });
+
   it("rejects runs.assess.channel-fit payloads missing runRequestId", () => {
     expect(() =>
       parseJobPayload("runs.assess.channel-fit", {

@@ -118,6 +118,20 @@ const runResultRatingsMigrationPath = path.resolve(
   currentDir,
   "../prisma/migrations/20260615120000_run_result_ratings/migration.sql",
 );
+const campaignStatusSyncMigrationPath = path.resolve(
+  currentDir,
+  "../prisma/migrations/20260707120000_campaign_status_sync/migration.sql",
+);
+
+describe("campaign status sync migration", () => {
+  it("adds nullable HubSpot campaign status with an index", () => {
+    const migrationSql = readFileSync(campaignStatusSyncMigrationPath, "utf-8");
+
+    expect(migrationSql).toContain('ALTER TABLE "campaigns" ADD COLUMN "status" TEXT');
+    expect(migrationSql).toContain('CREATE INDEX "campaigns_status_idx"');
+    expect(migrationSql).not.toContain("IF NOT EXISTS");
+  });
+});
 
 describe("run result ratings migration", () => {
   it("adds nullable 1-to-5 ratings with rater attribution", () => {

@@ -92,6 +92,7 @@ integration("HubSpot object sync core service", () => {
     process.env.HUBSPOT_CAMPAIGN_BRIEF_LINK_PROPERTY = "brief";
     process.env.HUBSPOT_CAMPAIGN_MONTH_PROPERTY = "month";
     process.env.HUBSPOT_CAMPAIGN_YEAR_PROPERTY = "year";
+    process.env.HUBSPOT_CAMPAIGN_STATUS_PROPERTY = "status";
     process.env.HUBSPOT_CAMPAIGN_ACTIVE_PROPERTY = "active";
   }
 
@@ -122,7 +123,7 @@ integration("HubSpot object sync core service", () => {
     });
   }
 
-  it("lists sync runs scoped to the requesting admin", async () => {
+  it("lists sync runs for admins", async () => {
     const objectSync = await loadObjectSync();
     const adminA = await createAdmin("admin-a@example.com");
     const adminB = await createAdmin("admin-b@example.com");
@@ -134,8 +135,8 @@ integration("HubSpot object sync core service", () => {
     });
 
     expect(listed.items.map((item) => item.id)).toContain(runA.id);
-    expect(listed.items.map((item) => item.id)).not.toContain(runB.id);
-    expect(listed.latest?.id).toBe(runA.id);
+    expect(listed.items.map((item) => item.id)).toContain(runB.id);
+    expect(listed.latest?.id).toBe(runB.id);
   });
 
   it("upserts HubSpot clients and campaigns", async () => {
@@ -177,6 +178,7 @@ integration("HubSpot object sync core service", () => {
                 brief: "https://example.com/brief",
                 month: "April",
                 year: "2026",
+                status: "In progress",
                 active: "true",
               },
             },
@@ -203,6 +205,7 @@ integration("HubSpot object sync core service", () => {
     const campaign = await prisma.campaign.findFirst({ where: { name: "Spring Launch" } });
     expect(campaign?.hubspotObjectId).toBe("campaign-201");
     expect(campaign?.month).toBe(RunMonth.APRIL);
+    expect(campaign?.status).toBe("In progress");
   });
 
   it("deletes HubSpot-sourced records that are no longer active in HubSpot", async () => {
@@ -281,6 +284,7 @@ integration("HubSpot object sync core service", () => {
                 market: null,
                 month: null,
                 year: null,
+                status: "Planned",
                 active: "true",
               },
             },
@@ -293,6 +297,7 @@ integration("HubSpot object sync core service", () => {
                 market: "Croatia",
                 month: "April",
                 year: "2026",
+                status: "In progress",
                 active: "true",
               },
             },
@@ -320,6 +325,7 @@ integration("HubSpot object sync core service", () => {
       marketId: null,
       month: null,
       year: null,
+      status: "Planned",
       isActive: true,
     });
     await expect(
@@ -386,6 +392,7 @@ integration("HubSpot object sync core service", () => {
                 market: null,
                 month: null,
                 year: null,
+                status: "Cancelled",
                 active: "true",
               },
             },
@@ -413,6 +420,7 @@ integration("HubSpot object sync core service", () => {
       marketId: null,
       month: null,
       year: null,
+      status: "Cancelled",
       isActive: true,
     });
   });

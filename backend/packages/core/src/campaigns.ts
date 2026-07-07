@@ -11,6 +11,7 @@ import type {
   UpdateClientRequest,
 } from "@scouting-platform/contracts";
 import {
+  CAMPAIGN_STATUS_OPTIONS,
   COUNTRY_REGION_OPTIONS as countryRegionOptions,
   createCampaignRequestSchema,
   createClientRequestSchema,
@@ -24,12 +25,18 @@ import { prisma, withDbTransaction } from "@scouting-platform/db";
 import { fromPrismaRole, fromPrismaUserType } from "./auth/roles";
 import { ServiceError } from "./errors";
 
+const DEFAULT_CAMPAIGN_STATUS = CAMPAIGN_STATUS_OPTIONS[0];
+const CAMPAIGN_STATUS_LABELS_BY_NORMALIZED = new Map(
+  CAMPAIGN_STATUS_OPTIONS.map((status) => [status.toLowerCase(), status]),
+);
+
 const campaignSelect = {
   id: true,
   name: true,
   briefLink: true,
   month: true,
   year: true,
+  status: true,
   isActive: true,
   hubspotObjectId: true,
   hubspotObjectType: true,
@@ -61,6 +68,40 @@ const campaignSelect = {
 
 function toRunMonthValue(value: string | null): CampaignSummary["month"] {
   return value ? (value.toLowerCase() as NonNullable<CampaignSummary["month"]>) : null;
+}
+
+function normalizeCampaignStatus(value: string | null): string | null {
+  const normalized = value?.trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized.toLowerCase() === "canceled") {
+    return "Cancelled";
+  }
+
+  return CAMPAIGN_STATUS_LABELS_BY_NORMALIZED.get(normalized.toLowerCase()) ?? normalized;
+}
+
+function toCampaignStatusFilterValues(statuses: readonly string[]): string[] {
+  const values = new Set<string>();
+
+  for (const status of statuses) {
+    const normalized = normalizeCampaignStatus(status);
+
+    if (!normalized) {
+      continue;
+    }
+
+    values.add(normalized);
+
+    if (normalized === "Cancelled") {
+      values.add("Canceled");
+    }
+  }
+
+  return [...values];
 }
 
 function toClientSummary(
@@ -119,6 +160,7 @@ function toCampaignSummary(
     briefLink: campaign.briefLink,
     month: toRunMonthValue(campaign.month),
     year: campaign.year,
+    status: normalizeCampaignStatus(campaign.status),
     isActive: campaign.isActive,
     hubspotObjectId: campaign.hubspotObjectId,
     hubspotObjectType: campaign.hubspotObjectType,
@@ -172,6 +214,20 @@ async function ensureMarketReferenceData() {
   });
 }
 
+function mergeCampaignStatuses(values: Array<string | null>): string[] {
+  const statuses = new Set<string>(CAMPAIGN_STATUS_OPTIONS);
+
+  for (const value of values) {
+    const normalized = normalizeCampaignStatus(value);
+
+    if (normalized) {
+      statuses.add(normalized);
+    }
+  }
+
+  return [...statuses];
+}
+
 export async function listCampaigns(input: {
   userId: string;
   query?: Partial<ListCampaignsQuery>;
@@ -183,11 +239,14 @@ export async function listCampaigns(input: {
   const where: Prisma.CampaignWhereInput = {
     ...(parsedQuery.clientId ? { clientId: parsedQuery.clientId } : {}),
     ...(parsedQuery.marketId ? { marketId: parsedQuery.marketId } : {}),
+    ...(parsedQuery.statuses && parsedQuery.statuses.length > 0
+      ? { status: { in: toCampaignStatusFilterValues(parsedQuery.statuses) } }
+      : {}),
     ...(typeof parsedQuery.active === "boolean" ? { isActive: parsedQuery.active } : {}),
   };
 
   // Run all queries in parallel once market reference data is guaranteed to exist.
-  const [requestUser, campaigns, clients, markets] = await Promise.all([
+  const [requestUser, campaigns, clients, markets, statusRows] = await Promise.all([
     getRequestUser(input.userId),
     prisma.campaign.findMany({
       where,
@@ -202,6 +261,20 @@ export async function listCampaigns(input: {
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
+    prisma.campaign.findMany({
+      where: {
+        status: {
+          not: null,
+        },
+      },
+      distinct: ["status"],
+      select: {
+        status: true,
+      },
+      orderBy: {
+        status: "asc",
+      },
+    }),
   ]);
 
   return {
@@ -209,6 +282,7 @@ export async function listCampaigns(input: {
     filterOptions: {
       clients,
       markets,
+      statuses: mergeCampaignStatuses(statusRows.map((row) => row.status)),
     },
     permissions: {
       canCreate: canCreateCampaign(requestUser),
@@ -248,6 +322,7 @@ export async function createCampaign(input: CreateCampaignRequest & { userId: st
         briefLink: payload.briefLink?.trim() || null,
         month: payload.month.toUpperCase() as RunMonth,
         year: payload.year,
+        status: DEFAULT_CAMPAIGN_STATUS,
         isActive: payload.isActive,
         createdByUserId: input.userId,
       },

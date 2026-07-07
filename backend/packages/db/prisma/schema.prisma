@@ -324,6 +324,7 @@ model Campaign {
   briefLink         String?      @map("brief_link")
   month             RunMonth?
   year              Int?
+  status            String?
   isActive          Boolean      @default(true) @map("is_active")
   hubspotObjectId   String?      @map("hubspot_object_id")
   hubspotObjectType String?      @map("hubspot_object_type")
@@ -342,6 +343,7 @@ model Campaign {
   @@unique([hubspotObjectType, hubspotObjectId], map: "campaigns_hubspot_object_type_id_key")
   @@index([clientId], map: "campaigns_client_id_idx")
   @@index([marketId], map: "campaigns_market_id_idx")
+  @@index([status], map: "campaigns_status_idx")
   @@index([isActive], map: "campaigns_is_active_idx")
   @@index([hubspotObjectId], map: "campaigns_hubspot_object_id_idx")
   @@index([hubspotObjectType], map: "campaigns_hubspot_object_type_idx")

@@ -1,7 +1,7 @@
 import { PrismaClient, Role, RunMonth, UserType } from "@prisma/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { COUNTRY_REGION_OPTIONS } from "@scouting-platform/contracts";
+import { CAMPAIGN_STATUS_OPTIONS, COUNTRY_REGION_OPTIONS } from "@scouting-platform/contracts";
 
 const databaseUrl = process.env.DATABASE_URL_TEST?.trim() ?? "";
 const integration = databaseUrl ? describe.sequential : describe.skip;
@@ -82,9 +82,71 @@ integration("campaigns core integration", () => {
 
     expect(marketNames).toHaveLength(COUNTRY_REGION_OPTIONS.length);
     expect(marketNames).toEqual(expect.arrayContaining([...COUNTRY_REGION_OPTIONS]));
+    expect(result.filterOptions.statuses).toEqual([...CAMPAIGN_STATUS_OPTIONS]);
 
     const marketCount = await prisma.market.count();
     expect(marketCount).toBe(COUNTRY_REGION_OPTIONS.length);
+  });
+
+  it("filters campaigns by one or more HubSpot statuses", async () => {
+    const admin = await prisma.user.create({
+      data: {
+        email: "admin@example.com",
+        name: "Admin",
+        role: Role.ADMIN,
+        userType: UserType.ADMIN,
+        passwordHash: "bootstrap-hash",
+        isActive: true,
+      },
+      select: {
+        id: true,
+      },
+    });
+    const client = await prisma.client.create({
+      data: {
+        name: "Client",
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    await prisma.campaign.createMany({
+      data: [
+        {
+          name: "In Progress Campaign",
+          clientId: client.id,
+          status: "In progress",
+        },
+        {
+          name: "Planned Campaign",
+          clientId: client.id,
+          status: "Planned",
+        },
+        {
+          name: "Cancelled Campaign",
+          clientId: client.id,
+          status: "Cancelled",
+        },
+      ],
+    });
+
+    const result = await campaigns.listCampaigns({
+      userId: admin.id,
+      query: {
+        statuses: ["In progress", "Planned"],
+      },
+    });
+
+    expect(result.items.map((campaign) => campaign.name).sort()).toEqual([
+      "In Progress Campaign",
+      "Planned Campaign",
+    ]);
+    expect(result.items.map((campaign) => campaign.status).sort()).toEqual([
+      "In progress",
+      "Planned",
+    ]);
+    expect(result.filterOptions.statuses).toEqual([...CAMPAIGN_STATUS_OPTIONS]);
   });
 
   it("updates and deletes local clients and campaigns with audit events", async () => {

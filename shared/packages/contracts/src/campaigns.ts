@@ -5,6 +5,13 @@ import { runMonthSchema } from "./runs";
 
 const isoDatetimeSchema = z.string().datetime();
 
+export const CAMPAIGN_STATUS_OPTIONS = [
+  "In progress",
+  "Planned",
+  "Finished",
+  "Cancelled",
+] as const;
+
 export const campaignClientSchema = z.object({
   id: z.uuid(),
   name: z.string().trim().min(1).max(200),
@@ -31,6 +38,7 @@ export const campaignSummarySchema = z.object({
   briefLink: z.string().nullable(),
   month: runMonthSchema.nullable(),
   year: z.number().int().min(2000).max(2100).nullable(),
+  status: z.string().trim().min(1).nullable(),
   isActive: z.boolean(),
   hubspotObjectId: z.string().nullable().optional(),
   hubspotObjectType: z.string().nullable().optional(),
@@ -63,6 +71,13 @@ export const updateCampaignRequestSchema = z.object({
 export const listCampaignsQuerySchema = z.object({
   clientId: z.uuid().optional(),
   marketId: z.uuid().optional(),
+  statuses: z
+    .union([z.string(), z.array(z.string())])
+    .transform((value) => (Array.isArray(value) ? value : [value]))
+    .transform((values) => [
+      ...new Set(values.map((value) => value.trim()).filter((value) => value.length > 0)),
+    ])
+    .optional(),
   active: z
     .union([z.boolean(), z.enum(["true", "false"])])
     .transform((value) => (typeof value === "boolean" ? value : value === "true"))
@@ -81,6 +96,7 @@ export const listCampaignsResponseSchema = z.object({
   filterOptions: z.object({
     clients: z.array(campaignClientSchema),
     markets: z.array(campaignMarketSchema),
+    statuses: z.array(z.string().trim().min(1)),
   }),
   permissions: z.object({
     canCreate: z.boolean(),
@@ -130,6 +146,7 @@ export const listClientsResponseSchema = z.object({
 
 export type CampaignClient = z.infer<typeof campaignClientSchema>;
 export type CampaignMarket = z.infer<typeof campaignMarketSchema>;
+export type CampaignStatus = (typeof CAMPAIGN_STATUS_OPTIONS)[number];
 export type CampaignSummary = z.infer<typeof campaignSummarySchema>;
 export type CreateCampaignRequest = z.infer<typeof createCampaignRequestSchema>;
 export type UpdateCampaignRequest = z.infer<typeof updateCampaignRequestSchema>;

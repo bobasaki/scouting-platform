@@ -9,6 +9,10 @@ import {
 } from "./continuous-enrichment-monitor";
 import { registerExportsCsvGenerateWorker } from "./exports-csv-generate-worker";
 import { registerHubspotImportBatchWorker } from "./hubspot-import-batch-worker";
+import {
+  ensureHubspotObjectSyncDailySchedule,
+  registerHubspotObjectSyncScheduleWorker,
+} from "./hubspot-object-sync-schedule-worker";
 import { registerHubspotObjectSyncWorker } from "./hubspot-object-sync-worker";
 import { registerHubspotPreviewEnrichWorker } from "./hubspot-preview-enrich-worker";
 import { registerHubspotPushBatchWorker } from "./hubspot-push-batch-worker";
@@ -48,6 +52,7 @@ async function registerWorkers(
   await registerHubspotPreviewEnrichWorker(boss, config.jobs.hubspotPreviewEnrich);
   await registerHubspotImportBatchWorker(boss, config.jobs.hubspotImportBatch);
   await registerHubspotPushBatchWorker(boss, config.jobs.hubspotPushBatch);
+  await registerHubspotObjectSyncScheduleWorker(boss, config.jobs.hubspotObjectSyncSchedule);
   await registerHubspotObjectSyncWorker(boss, config.jobs.hubspotObjectSync);
 }
 
@@ -66,6 +71,7 @@ async function startWorker(): Promise<void> {
 
   await boss.start();
   await ensureQueues(boss);
+  await ensureHubspotObjectSyncDailySchedule(boss);
   await registerWorkers(boss, config);
   const continuousEnrichmentMonitor: ContinuousEnrichmentMonitor =
     startContinuousEnrichmentMonitor(boss, config.continuousEnrichment);
