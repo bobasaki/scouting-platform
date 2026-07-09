@@ -46,6 +46,10 @@ describe("new scouting page", () => {
 
     expect(html).toContain("New Scouting");
     expect(html).toContain('href="/dashboard"');
+    expect(listCampaignsMock).toHaveBeenCalledWith("user-1", {
+      active: true,
+      statuses: ["In progress", "Planned"],
+    });
     expect(newScoutingWorkspaceMock).toHaveBeenCalledTimes(1);
     expect(html).toContain("new-scouting-workspace");
   });

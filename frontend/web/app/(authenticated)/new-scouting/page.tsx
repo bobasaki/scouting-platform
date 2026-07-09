@@ -1,11 +1,13 @@
 import React, { Suspense } from "react";
 
-import type { CampaignManagerOption, DropdownValue } from "@scouting-platform/contracts";
+import type { CampaignManagerOption, CampaignStatus, DropdownValue } from "@scouting-platform/contracts";
 import { getSession } from "../../../lib/cached-auth";
 import { getCachedCampaigns, getCachedCampaignManagers, getCachedDropdownValues } from "../../../lib/cached-data";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { NewScoutingWorkspace } from "../../../components/scouting/new-scouting-workspace";
 import { Skeleton, SkeletonPageBody } from "../../../components/ui/skeleton";
+
+const NEW_SCOUTING_CAMPAIGN_STATUSES: CampaignStatus[] = ["In progress", "Planned"];
 
 function getDropdownFieldValues(
   items: readonly DropdownValue[],
@@ -23,7 +25,10 @@ async function NewScoutingData() {
   const session = await getSession();
   const [campaigns, campaignManagers, dropdownValues] = session?.user?.id
     ? await Promise.all([
-        getCachedCampaigns(session.user.id, { active: true }),
+        getCachedCampaigns(session.user.id, {
+          active: true,
+          statuses: NEW_SCOUTING_CAMPAIGN_STATUSES,
+        }),
         getCachedCampaignManagers(),
         getCachedDropdownValues(),
       ])
