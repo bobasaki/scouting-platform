@@ -6,7 +6,7 @@ const { getSessionMock, listCampaignManagersMock, listCampaignsMock, listDropdow
   listCampaignManagersMock: vi.fn(async () => []),
   listCampaignsMock: vi.fn(async () => ({
     items: [],
-    filterOptions: { clients: [], markets: [] },
+    filterOptions: { clients: [], markets: [], statuses: [] },
     permissions: { canCreate: false, role: "user", userType: "campaign_manager" },
   })),
   listDropdownValuesMock: vi.fn(async () => ({
@@ -46,6 +46,10 @@ describe("new scouting page", () => {
 
     expect(html).toContain("New Scouting");
     expect(html).toContain('href="/dashboard"');
+    expect(listCampaignsMock).toHaveBeenCalledWith("user-1", {
+      active: true,
+      statuses: ["In progress", "Planned"],
+    });
     expect(newScoutingWorkspaceMock).toHaveBeenCalledTimes(1);
     expect(html).toContain("new-scouting-workspace");
   });

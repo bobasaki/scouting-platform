@@ -18,9 +18,11 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   try {
     const url = new URL(request.url);
+    const statuses = url.searchParams.getAll("status");
     const query = listCampaignsQuerySchema.safeParse({
       clientId: url.searchParams.get("clientId") ?? undefined,
       marketId: url.searchParams.get("marketId") ?? undefined,
+      statuses: statuses.length > 0 ? statuses : undefined,
       active: url.searchParams.get("active") ?? undefined,
     });
 

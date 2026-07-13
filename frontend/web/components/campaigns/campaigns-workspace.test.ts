@@ -33,6 +33,7 @@ describe("CampaignsWorkspace", () => {
               briefLink: "https://example.com/local-brief",
               month: "april",
               year: 2026,
+              status: "In progress",
               isActive: true,
               hubspotObjectId: null,
               hubspotObjectType: null,
@@ -63,6 +64,7 @@ describe("CampaignsWorkspace", () => {
               briefLink: null,
               month: "april",
               year: 2026,
+              status: "In progress",
               isActive: true,
               hubspotObjectId: "202",
               hubspotObjectType: "2-CAMPAIGN",
@@ -93,6 +95,7 @@ describe("CampaignsWorkspace", () => {
               briefLink: null,
               month: "april",
               year: 2026,
+              status: "Cancelled",
               isActive: false,
               hubspotObjectId: "201",
               hubspotObjectType: "2-CAMPAIGN",
@@ -105,6 +108,7 @@ describe("CampaignsWorkspace", () => {
           filterOptions: {
             clients: [],
             markets: [],
+            statuses: ["In progress", "Planned", "Finished", "Cancelled"],
           },
           permissions: {
             canCreate: true,
@@ -121,10 +125,12 @@ describe("CampaignsWorkspace", () => {
     expect(html).toContain('href="https://example.com/local-brief"');
     expect(html).toContain("Open brief");
     expect(html).toContain("Local Campaign");
-    expect(html).toContain(">Delete</button>");
+    expect(html).not.toContain("Add Campaign");
+    expect(html).not.toContain(">Delete</button>");
+    expect(html).not.toContain("<th>Actions</th>");
     expect(html).toContain("Active Launch");
     expect(html).not.toContain("Archived Launch");
-    expect(html).toContain("Archived");
+    expect(html).toContain("In progress");
     expect(html).toContain("Synced");
   });
 });

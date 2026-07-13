@@ -29,6 +29,7 @@ export type WorkerRuntimeConfig = Readonly<{
     hubspotPreviewEnrich: WorkerJobOptions;
     hubspotImportBatch: WorkerJobOptions;
     hubspotPushBatch: WorkerJobOptions;
+    hubspotObjectSyncSchedule: WorkerJobOptions;
     hubspotObjectSync: WorkerJobOptions;
   }>;
 }>;
@@ -211,6 +212,11 @@ export function getWorkerRuntimeConfig(
         1,
       ),
       hubspotPushBatch: buildWorkerJobOptions(env, "WORKER_HUBSPOT_PUSH_BATCH_CONCURRENCY", 1),
+      hubspotObjectSyncSchedule: buildWorkerJobOptions(
+        env,
+        "WORKER_HUBSPOT_OBJECT_SYNC_SCHEDULE_CONCURRENCY",
+        1,
+      ),
       hubspotObjectSync: buildWorkerJobOptions(env, "WORKER_HUBSPOT_OBJECT_SYNC_CONCURRENCY", 1),
     },
   };

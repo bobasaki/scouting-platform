@@ -51,6 +51,7 @@ const campaigns = {
   filterOptions: {
     clients: [],
     markets: [],
+    statuses: [],
   },
   permissions: {
     canCreate: true,

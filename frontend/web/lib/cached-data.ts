@@ -48,7 +48,7 @@ export const getCachedCampaignManagers = unstable_cache(
 
 export function getCachedCampaigns(
   userId: string,
-  query?: { active?: boolean },
+  query?: { active?: boolean; statuses?: string[] },
 ) {
   return unstable_cache(
     () => listCampaigns({ userId, ...(query ? { query } : {}) }),

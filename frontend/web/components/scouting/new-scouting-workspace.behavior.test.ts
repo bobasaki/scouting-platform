@@ -51,6 +51,7 @@ const CAMPAIGN_OPTION = {
   briefLink: null,
   month: "march" as const,
   year: 2026,
+  status: "In progress",
   isActive: true,
   createdAt: "2026-03-26T12:00:00.000Z",
   updatedAt: "2026-03-26T12:00:00.000Z",

@@ -15,6 +15,7 @@ describe("getWorkerRuntimeConfig", () => {
     expect(config.jobs.channelsEnrichLlm.localConcurrency).toBe(4);
     expect(config.jobs.channelsEnrichHypeauditor.localConcurrency).toBe(1);
     expect(config.jobs.hubspotPreviewEnrich.localConcurrency).toBe(1);
+    expect(config.jobs.hubspotObjectSyncSchedule.localConcurrency).toBe(1);
     expect(config.jobs.hubspotObjectSync.localConcurrency).toBe(1);
     expect(config.continuousEnrichment).toEqual({
       enabled: true,
@@ -42,6 +43,7 @@ describe("getWorkerRuntimeConfig", () => {
       WORKER_HUBSPOT_PREVIEW_ENRICH_CONCURRENCY: "4",
       WORKER_HUBSPOT_IMPORT_BATCH_CONCURRENCY: "9",
       WORKER_HUBSPOT_PUSH_BATCH_CONCURRENCY: "10",
+      WORKER_HUBSPOT_OBJECT_SYNC_SCHEDULE_CONCURRENCY: "11",
       WORKER_HUBSPOT_OBJECT_SYNC_CONCURRENCY: "3",
       WORKER_CONTINUOUS_ENRICHMENT_ENABLED: "false",
       WORKER_CONTINUOUS_ENRICHMENT_INTERVAL_MS: "120000",
@@ -63,6 +65,7 @@ describe("getWorkerRuntimeConfig", () => {
     expect(config.jobs.hubspotPreviewEnrich.localConcurrency).toBe(4);
     expect(config.jobs.hubspotImportBatch.localConcurrency).toBe(9);
     expect(config.jobs.hubspotPushBatch.localConcurrency).toBe(10);
+    expect(config.jobs.hubspotObjectSyncSchedule.localConcurrency).toBe(11);
     expect(config.jobs.hubspotObjectSync.localConcurrency).toBe(3);
     expect(config.continuousEnrichment).toEqual({
       enabled: false,

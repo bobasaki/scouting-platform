@@ -88,12 +88,17 @@ The sync job runs in `scouting-worker`, so these MUST be set on the worker.
 Set the same values on `scouting-web` too so admin UI validation paths stay
 consistent.
 
+The worker also registers an automatic daily HubSpot object sync at midnight
+GMT+2 (`0 0 * * *`, timezone `Etc/GMT-2`). This creates the same durable sync
+run as the Database "Sync from HubSpot" button.
+
 Required:
 
 - `HUBSPOT_CLIENT_OBJECT_TYPE`
 - `HUBSPOT_CLIENT_NAME_PROPERTY`
 - `HUBSPOT_CAMPAIGN_OBJECT_TYPE`
 - `HUBSPOT_CAMPAIGN_NAME_PROPERTY`
+- `HUBSPOT_CAMPAIGN_STATUS_PROPERTY`
 - exactly one of `HUBSPOT_CAMPAIGN_CLIENT_OBJECT_ID_PROPERTY` or
   `HUBSPOT_CAMPAIGN_CLIENT_ASSOCIATION_TYPE_ID` (setting both raises
   `HUBSPOT_OBJECT_SYNC_CONFIG_AMBIGUOUS`)

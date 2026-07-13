@@ -69,6 +69,7 @@ type HubspotObjectSyncConfig = Readonly<{
     briefLinkProperty: string | null;
     monthProperty: string | null;
     yearProperty: string | null;
+    statusProperty: string;
     activeProperty: string | null;
   }>;
 }>;
@@ -116,6 +117,7 @@ type CampaignSyncData = Readonly<{
   briefLink: string | null;
   month: RunMonth | null;
   year: number | null;
+  status: string | null;
   isActive: boolean;
   hubspotObjectId: string;
   hubspotObjectType: string;
@@ -209,6 +211,7 @@ function toLegacyCompatibleCampaignUpdateData(data: CampaignSyncData): Prisma.Ca
     briefLink: data.briefLink,
     ...(data.month === null ? {} : { month: data.month }),
     ...(data.year === null ? {} : { year: data.year }),
+    status: data.status,
     isActive: data.isActive,
     hubspotObjectId: data.hubspotObjectId,
     hubspotObjectType: data.hubspotObjectType,
@@ -312,6 +315,7 @@ export function loadHubspotObjectSyncConfig(
       briefLinkProperty: getOptionalEnv(env, "HUBSPOT_CAMPAIGN_BRIEF_LINK_PROPERTY"),
       monthProperty: getOptionalEnv(env, "HUBSPOT_CAMPAIGN_MONTH_PROPERTY"),
       yearProperty: getOptionalEnv(env, "HUBSPOT_CAMPAIGN_YEAR_PROPERTY"),
+      statusProperty: getRequiredEnv(env, "HUBSPOT_CAMPAIGN_STATUS_PROPERTY"),
       activeProperty: getOptionalEnv(env, "HUBSPOT_CAMPAIGN_ACTIVE_PROPERTY"),
     },
   };
@@ -553,6 +557,31 @@ async function getAdminUser(userId: string): Promise<void> {
   }
 }
 
+async function getScheduledSyncRequesterUserId(): Promise<string> {
+  const user = await prisma.user.findFirst({
+    where: {
+      role: Role.ADMIN,
+      isActive: true,
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!user) {
+    throw new ServiceError(
+      "HUBSPOT_OBJECT_SYNC_SCHEDULED_REQUESTER_MISSING",
+      503,
+      "Daily HubSpot sync requires at least one active admin user",
+    );
+  }
+
+  return user.id;
+}
+
 async function loadSyncRun(syncRunId: string): Promise<HubspotObjectSyncRun> {
   const syncRunDelegate = getHubspotObjectSyncRunDelegate();
   const run = await syncRunDelegate.findUnique({
@@ -792,6 +821,7 @@ async function deactivateSkippedCampaignRecord(input: {
       hubspotArchived: input.record.archived,
       hubspotSyncedAt: input.now,
       hubspotRawPayload: toJsonValue(input.record),
+      status: getRecordProperty(input.record, input.config.campaign.statusProperty),
     },
   });
 
@@ -810,6 +840,7 @@ async function syncCampaigns(input: {
     input.config.campaign.briefLinkProperty,
     input.config.campaign.monthProperty,
     input.config.campaign.yearProperty,
+    input.config.campaign.statusProperty,
     input.config.campaign.activeProperty,
   ]);
   const records = await fetchAllHubspotObjects({
@@ -896,6 +927,7 @@ async function syncCampaigns(input: {
           : null,
         month,
         year,
+        status: getRecordProperty(record, input.config.campaign.statusProperty),
         isActive,
         hubspotObjectId: record.id,
         hubspotObjectType: input.config.campaign.objectType,
@@ -1029,11 +1061,10 @@ async function performHubspotObjectSync(input: {
   };
 }
 
-export async function createHubspotObjectSyncRun(input: {
+async function createHubspotObjectSyncRunForUser(input: {
   requestedByUserId: string;
+  source: "manual" | "scheduled";
 }): Promise<HubspotObjectSyncRun> {
-  await getAdminUser(input.requestedByUserId);
-
   let syncRunId = "";
 
   await withDbTransaction(async (tx) => {
@@ -1060,6 +1091,7 @@ export async function createHubspotObjectSyncRun(input: {
         entityId: run.id,
         metadata: toJsonValue({
           objectTypes: OBJECT_TYPES,
+          source: input.source,
         }),
       },
     });
@@ -1073,6 +1105,26 @@ export async function createHubspotObjectSyncRun(input: {
   return loadSyncRun(syncRunId);
 }
 
+export async function createHubspotObjectSyncRun(input: {
+  requestedByUserId: string;
+}): Promise<HubspotObjectSyncRun> {
+  await getAdminUser(input.requestedByUserId);
+
+  return createHubspotObjectSyncRunForUser({
+    requestedByUserId: input.requestedByUserId,
+    source: "manual",
+  });
+}
+
+export async function createScheduledHubspotObjectSyncRun(): Promise<HubspotObjectSyncRun> {
+  const requestedByUserId = await getScheduledSyncRequesterUserId();
+
+  return createHubspotObjectSyncRunForUser({
+    requestedByUserId,
+    source: "scheduled",
+  });
+}
+
 export async function listHubspotObjectSyncRuns(input: {
   requestedByUserId: string;
   limit?: number;
@@ -1081,9 +1133,6 @@ export async function listHubspotObjectSyncRuns(input: {
 
   const syncRunDelegate = getHubspotObjectSyncRunDelegate();
   const runs = await syncRunDelegate.findMany({
-    where: {
-      requestedByUserId: input.requestedByUserId,
-    },
     orderBy: {
       createdAt: "desc",
     },

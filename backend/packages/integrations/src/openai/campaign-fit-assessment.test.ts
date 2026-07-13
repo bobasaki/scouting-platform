@@ -284,6 +284,7 @@ describe("enrichCampaignFitWithOpenAi", () => {
     const userMessage = request?.messages?.find((message) => message.role === "user");
     const prompt = JSON.parse(userMessage?.content ?? "{}") as {
       instructions?: {
+        fitScore?: string;
         brevity?: string;
         fitReasons?: string;
         fitConcerns?: string;
@@ -293,6 +294,10 @@ describe("enrichCampaignFitWithOpenAi", () => {
     };
 
     expect(systemMessage?.content).toContain("short signal bullets");
+    expect(prompt.instructions?.fitScore).toContain("Be lenient and opportunity-oriented");
+    expect(prompt.instructions?.fitScore).toContain("fits even somewhat");
+    expect(prompt.instructions?.fitScore).toContain("0.55 or higher");
+    expect(prompt.instructions?.fitScore).toContain("below 0.4 for clearly irrelevant or unsafe");
     expect(prompt.instructions?.brevity).toContain("under 80 characters");
     expect(prompt.instructions?.fitReasons).toContain("List every useful fit signal");
     expect(prompt.instructions?.fitReasons).toContain("Past sponsors: CarVertical, HelloFresh");

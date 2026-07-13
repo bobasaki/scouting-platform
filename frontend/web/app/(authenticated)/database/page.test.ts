@@ -14,7 +14,7 @@ const {
   databaseAdminWorkspaceMock: vi.fn(() => "database-admin-workspace"),
   getCachedCampaignsMock: vi.fn(async () => ({
     items: [],
-    filterOptions: { clients: [], markets: [] },
+    filterOptions: { clients: [], markets: [], statuses: [] },
     permissions: { canCreate: true, role: "user", userType: "campaign_manager" as const },
   })),
   getCachedClientsMock: vi.fn(async () => ({

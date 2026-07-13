@@ -238,11 +238,13 @@ export default async function globalSetup(): Promise<void> {
         briefLink: E2E_CAMPAIGN.briefLink,
         month: campaignMonth,
         year: E2E_CAMPAIGN.year,
+        status: "In progress",
         isActive: true,
         createdByUserId: admin.id,
       },
       update: {
         briefLink: E2E_CAMPAIGN.briefLink,
+        status: "In progress",
         isActive: true,
         createdByUserId: admin.id,
       },

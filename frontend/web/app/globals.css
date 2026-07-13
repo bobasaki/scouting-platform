@@ -7396,6 +7396,29 @@ button:disabled,
   color: var(--color-accent);
 }
 
+.database-records__status--in-progress {
+  background: rgba(53, 98, 255, 0.1);
+  color: var(--color-link);
+  border-color: rgba(53, 98, 255, 0.22);
+}
+
+.database-records__status--planned {
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+}
+
+.database-records__status--finished {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+  border-color: rgba(4, 122, 71, 0.2);
+}
+
+.database-records__status--canceled {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  border-color: rgba(180, 35, 24, 0.2);
+}
+
 .database-records__status-filter {
   display: inline-flex;
   flex-wrap: wrap;

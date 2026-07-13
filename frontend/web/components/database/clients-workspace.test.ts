@@ -64,10 +64,11 @@ describe("ClientsWorkspace", () => {
 
     expect(html).toContain("HubSpot");
     expect(html).toContain("Local Client");
-    expect(html).toContain(">Delete</button>");
     expect(html).toContain("Active Client");
-    expect(html).not.toContain("Archived Client");
-    expect(html).toContain("Archived");
+    expect(html).toContain("Archived Client");
+    expect(html).not.toContain("Add Client");
+    expect(html).not.toContain("<th>Actions</th>");
+    expect(html).not.toContain("<th>Status</th>");
     expect(html).toContain("Synced");
   });
 });
