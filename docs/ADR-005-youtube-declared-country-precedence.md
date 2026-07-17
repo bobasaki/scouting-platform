@@ -37,6 +37,10 @@ dropdown value. Unknown country remains null rather than being guessed from lang
 Automated refreshes never overwrite `admin_manual`, `csv_import`, or `hypeauditor` country values.
 Audience-country insights remain separate in `channel_insights.audience_countries`.
 
+Admins can set a country override only to a configured Country/Region dropdown value. The override
+stores both the prior resolved value and its source; clearing it restores that fallback provenance
+before subsequent automated enrichment resumes normal precedence handling.
+
 Existing populated countries with matching imported CSV evidence are backfilled as `csv_import`.
 Other existing populated countries are backfilled as `llm`, which reflects the current pre-change
 automated writer and allows a controlled repair workflow.

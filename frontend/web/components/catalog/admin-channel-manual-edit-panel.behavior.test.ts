@@ -40,9 +40,10 @@ type AdminChannelManualEditPanelElement = ReactElement<{
     handle: string;
     description: string;
     thumbnailUrl: string;
+    countryRegion: string;
   };
-  onSaveField: (field: "title" | "handle" | "description" | "thumbnailUrl") => void | Promise<void>;
-  onClearField: (field: "title" | "handle" | "description" | "thumbnailUrl") => void | Promise<void>;
+  onSaveField: (field: "title" | "handle" | "description" | "thumbnailUrl" | "countryRegion") => void | Promise<void>;
+  onClearField: (field: "title" | "handle" | "description" | "thumbnailUrl" | "countryRegion") => void | Promise<void>;
 }>;
 
 function createChannelDetail(overrides?: Partial<ChannelDetail>): ChannelDetail {
@@ -53,6 +54,7 @@ function createChannelDetail(overrides?: Partial<ChannelDetail>): ChannelDetail 
     handle: "@orbitaldeepdive",
     description: "Weekly coverage of launch systems and creator strategy.",
     thumbnailUrl: "https://example.com/thumb.jpg",
+    countryRegion: "Croatia",
     createdAt: "2026-03-01T10:00:00.000Z",
     updatedAt: "2026-03-08T10:00:00.000Z",
     enrichment: {
@@ -95,6 +97,7 @@ function renderPanel(options?: {
     handle: string;
     description: string;
     thumbnailUrl: string;
+    countryRegion: string;
   };
 }) {
   useStateMock.mockReset();
@@ -110,6 +113,7 @@ function renderPanel(options?: {
         handle: "@orbitaldeepdive",
         description: "Weekly coverage of launch systems and creator strategy.",
         thumbnailUrl: "https://example.com/thumb.jpg",
+        countryRegion: "Croatia",
       },
       setDraftsMock,
     ])
@@ -130,6 +134,7 @@ function renderPanel(options?: {
   const onChannelUpdated = vi.fn();
   const element = AdminChannelManualEditPanel({
     channel: options?.channel ?? createChannelDetail(),
+    countryRegionOptions: ["Croatia", "Germany"],
     onChannelUpdated,
   }) as AdminChannelManualEditPanelElement;
 
@@ -168,6 +173,7 @@ describe("admin channel manual edit panel behavior", () => {
       handle: "",
       description: "Weekly coverage of launch systems and creator strategy.",
       thumbnailUrl: "https://example.com/thumb.jpg",
+      countryRegion: "Croatia",
     });
   });
 
@@ -191,6 +197,7 @@ describe("admin channel manual edit panel behavior", () => {
         handle: "@orbitaldeepdive",
         description: "   ",
         thumbnailUrl: "https://example.com/thumb.jpg",
+        countryRegion: "Croatia",
       },
     });
 
@@ -218,6 +225,7 @@ describe("admin channel manual edit panel behavior", () => {
       handle: "@orbitaldeepdive",
       description: "",
       thumbnailUrl: "https://example.com/thumb.jpg",
+      countryRegion: "Croatia",
     });
     expect(setOperationStatusMock).toHaveBeenCalledWith({
       type: "success",
@@ -234,6 +242,7 @@ describe("admin channel manual edit panel behavior", () => {
         handle: "@orbitaldeepdive",
         description: "Weekly coverage of launch systems and creator strategy.",
         thumbnailUrl: "https://example.com/thumb.jpg",
+        countryRegion: "Croatia",
       },
     });
 
@@ -246,6 +255,33 @@ describe("admin channel manual edit panel behavior", () => {
       message: "Title is required.",
     });
     expect(setPendingOperationMock).toHaveBeenLastCalledWith(null);
+  });
+
+  it("saves a configured country as a manual override", async () => {
+    const responseChannel = createChannelDetail({ countryRegion: "Germany" });
+    patchAdminChannelManualOverridesMock.mockResolvedValueOnce({
+      channel: responseChannel,
+      applied: [{ field: "countryRegion", op: "set" }],
+    });
+    const { element, onChannelUpdated } = renderPanel({
+      drafts: {
+        title: "Orbital Deep Dive",
+        handle: "@orbitaldeepdive",
+        description: "Weekly coverage of launch systems and creator strategy.",
+        thumbnailUrl: "https://example.com/thumb.jpg",
+        countryRegion: "Germany",
+      },
+    });
+
+    await element.props.onSaveField("countryRegion");
+
+    expect(patchAdminChannelManualOverridesMock).toHaveBeenCalledWith(
+      "53adac17-f39d-4731-a61f-194150fbc431",
+      {
+        operations: [{ field: "countryRegion", op: "set", value: "Germany" }],
+      },
+    );
+    expect(onChannelUpdated).toHaveBeenCalledWith(responseChannel);
   });
 
   it("clears a field override and restores the latest channel detail", async () => {

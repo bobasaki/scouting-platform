@@ -75,10 +75,11 @@ enum RunMonth {
 }
 
 enum ChannelManualOverrideField {
-  TITLE         @map("title")
-  HANDLE        @map("handle")
-  DESCRIPTION   @map("description")
-  THUMBNAIL_URL @map("thumbnail_url")
+  TITLE          @map("title")
+  HANDLE         @map("handle")
+  DESCRIPTION    @map("description")
+  THUMBNAIL_URL  @map("thumbnail_url")
+  COUNTRY_REGION @map("country_region")
 
   @@map("channel_manual_override_field")
 }
@@ -533,18 +534,19 @@ model ChannelMetric {
 }
 
 model ChannelManualOverride {
-  id              String                     @id @default(uuid()) @db.Uuid
-  channelId       String                     @map("channel_id") @db.Uuid
-  field           ChannelManualOverrideField
-  value           String?                    @db.Text
-  fallbackValue   String?                    @map("fallback_value") @db.Text
-  createdByUserId String                     @map("created_by_user_id") @db.Uuid
-  updatedByUserId String                     @map("updated_by_user_id") @db.Uuid
-  createdAt       DateTime                   @default(now()) @map("created_at")
-  updatedAt       DateTime                   @updatedAt @map("updated_at")
-  channel         Channel                    @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  createdByUser   User                       @relation("ChannelManualOverrideCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  updatedByUser   User                       @relation("ChannelManualOverrideUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+  id                          String                     @id @default(uuid()) @db.Uuid
+  channelId                   String                     @map("channel_id") @db.Uuid
+  field                       ChannelManualOverrideField
+  value                       String?                    @db.Text
+  fallbackValue               String?                    @map("fallback_value") @db.Text
+  fallbackCountryRegionSource ChannelCountrySource?      @map("fallback_country_region_source")
+  createdByUserId             String                     @map("created_by_user_id") @db.Uuid
+  updatedByUserId             String                     @map("updated_by_user_id") @db.Uuid
+  createdAt                   DateTime                   @default(now()) @map("created_at")
+  updatedAt                   DateTime                   @updatedAt @map("updated_at")
+  channel                     Channel                    @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  createdByUser               User                       @relation("ChannelManualOverrideCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  updatedByUser               User                       @relation("ChannelManualOverrideUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
 
   @@unique([channelId, field], map: "channel_manual_overrides_channel_id_field_key")
   @@index([channelId], map: "channel_manual_overrides_channel_id_idx")

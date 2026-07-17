@@ -126,6 +126,22 @@ const channelCountryProvenanceMigrationPath = path.resolve(
   currentDir,
   "../prisma/migrations/20260714120000_channel_country_provenance/migration.sql",
 );
+const channelCountryManualOverrideMigrationPath = path.resolve(
+  currentDir,
+  "../prisma/migrations/20260717120000_channel_country_manual_override/migration.sql",
+);
+
+describe("channel country manual override migration", () => {
+  it("adds the country override field and fallback source without defensive DDL", () => {
+    const migrationSql = readFileSync(channelCountryManualOverrideMigrationPath, "utf-8");
+
+    expect(migrationSql).toContain('ALTER TYPE "channel_manual_override_field"');
+    expect(migrationSql).toContain("ADD VALUE 'country_region'");
+    expect(migrationSql).toContain('ADD COLUMN "fallback_country_region_source"');
+    expect(migrationSql).not.toContain("IF NOT EXISTS");
+    expect(migrationSql).not.toContain("DO $$");
+  });
+});
 
 describe("channel country provenance migration", () => {
   it("adds deterministic country source provenance and classifies legacy values", () => {

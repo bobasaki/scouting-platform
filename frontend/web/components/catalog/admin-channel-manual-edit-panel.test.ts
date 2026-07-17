@@ -8,11 +8,13 @@ describe("admin channel manual edit panel view", () => {
   it("renders field editors and manual override actions", () => {
     const html = renderToStaticMarkup(
       createElement(AdminChannelManualEditPanelView, {
+        countryRegionOptions: ["Croatia", "Germany"],
         drafts: {
           title: "Orbital Deep Dive",
           handle: "@orbitaldeepdive",
           description: "Weekly coverage of launch systems and creator strategy.",
           thumbnailUrl: "https://example.com/thumb.jpg",
+          countryRegion: "Croatia",
         },
         pendingOperation: null,
         operationStatus: {
@@ -31,6 +33,8 @@ describe("admin channel manual edit panel view", () => {
     expect(html).toContain("Restore fallback");
     expect(html).toContain("Leaving Handle, Thumbnail URL, or Description blank and saving");
     expect(html).toContain("textarea");
+    expect(html).toContain("Country/Region");
+    expect(html).toContain('<option value="Germany">Germany</option>');
     expect(html).toContain('value="Orbital Deep Dive"');
     expect(html).toContain('value="@orbitaldeepdive"');
   });
@@ -38,11 +42,13 @@ describe("admin channel manual edit panel view", () => {
   it("renders field-specific status feedback", () => {
     const html = renderToStaticMarkup(
       createElement(AdminChannelManualEditPanelView, {
+        countryRegionOptions: ["Croatia", "Germany"],
         drafts: {
           title: "Orbital Deep Dive",
           handle: "@orbitaldeepdive",
           description: "Weekly coverage of launch systems and creator strategy.",
           thumbnailUrl: "https://example.com/thumb.jpg",
+          countryRegion: "Croatia",
         },
         pendingOperation: null,
         operationStatus: {
