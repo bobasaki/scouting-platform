@@ -90,16 +90,22 @@ function renderReadyView(options?: {
     type: "idle" | "submitting" | "success" | "error";
     message: string;
   };
+  canManageManualEdits?: boolean;
 }): string {
   return renderToStaticMarkup(
     createElement(ChannelDetailShellView, {
       channelId: "53adac17-f39d-4731-a61f-194150fbc431",
+      ...(options?.canManageManualEdits !== undefined
+        ? { canManageManualEdits: options.canManageManualEdits }
+        : {}),
+      countryRegionOptions: ["Croatia", "Germany", "United States"],
       enrichmentActionState: options?.enrichmentActionState ?? {
         type: "idle",
         message: "",
       },
       onRequestEnrichment: vi.fn(),
       onRetry: vi.fn(),
+      onChannelUpdated: vi.fn(),
       requestState: {
         status: "ready",
         data: options?.channel ?? createChannelDetail(),
@@ -187,6 +193,15 @@ describe("channel detail shell view", () => {
     expect(html).toContain("No channel description has been captured yet.");
     expect(html).toContain("href=\"https://www.youtube.com/channel/UC123\"");
     expect(html).toContain("Not available");
+  });
+
+  it("renders protected country controls only for admins", () => {
+    const adminHtml = renderReadyView({ canManageManualEdits: true });
+    const userHtml = renderReadyView({ canManageManualEdits: false });
+
+    expect(adminHtml).toContain("Admin profile controls");
+    expect(adminHtml).toContain('<option value="Croatia">Croatia</option>');
+    expect(userHtml).not.toContain("Admin profile controls");
   });
 
   it("renders enrichment status tags for requestable states", () => {

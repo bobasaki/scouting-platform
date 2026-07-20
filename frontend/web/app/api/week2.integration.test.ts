@@ -1,4 +1,9 @@
-import { PrismaClient, Role } from "@prisma/client";
+import {
+  ChannelCountrySource,
+  DropdownValueFieldKey,
+  PrismaClient,
+  Role,
+} from "@prisma/client";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const databaseUrl = process.env.DATABASE_URL_TEST?.trim() ?? "";
@@ -38,6 +43,7 @@ integration("week 2 API integration", () => {
     await prisma.$executeRawUnsafe(`
       TRUNCATE TABLE
         channel_manual_overrides,
+        dropdown_values,
         saved_segments,
         run_results,
         run_requests,
@@ -277,11 +283,19 @@ integration("week 2 API integration", () => {
 
   it("patches manual overrides, applies set/clear semantics, and records audit event", async () => {
     const admin = await createAdminUser("admin@example.com");
+    await prisma.dropdownValue.createMany({
+      data: ["Croatia", "Germany"].map((value) => ({
+        fieldKey: DropdownValueFieldKey.COUNTRY_REGION,
+        value,
+      })),
+    });
     const channel = await prisma.channel.create({
       data: {
         youtubeChannelId: "UC-MANUAL-1",
         title: "Auto Title",
         description: "Auto Description",
+        countryRegion: "Croatia",
+        countryRegionSource: ChannelCountrySource.YOUTUBE_DECLARED,
       },
     });
 
@@ -295,6 +309,7 @@ integration("week 2 API integration", () => {
           operations: [
             { field: "title", op: "set", value: "Manual Title" },
             { field: "description", op: "set", value: "Manual Description" },
+            { field: "countryRegion", op: "set", value: "Germany" },
           ],
         }),
       }),
@@ -305,6 +320,11 @@ integration("week 2 API integration", () => {
     const setPayload = await setResponse.json();
     expect(setPayload.channel.title).toBe("Manual Title");
     expect(setPayload.channel.description).toBe("Manual Description");
+    expect(setPayload.channel.countryRegion).toBe("Germany");
+    await expect(prisma.channel.findUniqueOrThrow({
+      where: { id: channel.id },
+      select: { countryRegionSource: true },
+    })).resolves.toEqual({ countryRegionSource: ChannelCountrySource.ADMIN_MANUAL });
 
     const clearResponse = await adminChannelManualOverridesRoute.PATCH(
       new Request(`http://localhost/api/admin/channels/${channel.id}/manual-overrides`, {
@@ -314,6 +334,7 @@ integration("week 2 API integration", () => {
           operations: [
             { field: "title", op: "clear" },
             { field: "description", op: "clear" },
+            { field: "countryRegion", op: "clear" },
           ],
         }),
       }),
@@ -324,6 +345,11 @@ integration("week 2 API integration", () => {
     const clearPayload = await clearResponse.json();
     expect(clearPayload.channel.title).toBe("Auto Title");
     expect(clearPayload.channel.description).toBe("Auto Description");
+    expect(clearPayload.channel.countryRegion).toBe("Croatia");
+    await expect(prisma.channel.findUniqueOrThrow({
+      where: { id: channel.id },
+      select: { countryRegionSource: true },
+    })).resolves.toEqual({ countryRegionSource: ChannelCountrySource.YOUTUBE_DECLARED });
 
     const auditEvent = await prisma.auditEvent.findFirst({
       where: {

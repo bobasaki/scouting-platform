@@ -1,6 +1,8 @@
 import {
   AdvancedReportRequestStatus,
+  ChannelCountrySource,
   ChannelEnrichmentStatus,
+  DropdownValueFieldKey,
   PrismaClient,
   Role,
 } from "@prisma/client";
@@ -31,6 +33,7 @@ integration("week 2 core integration", () => {
     await prisma.$executeRawUnsafe(`
       TRUNCATE TABLE
         channel_manual_overrides,
+        dropdown_values,
         saved_segments,
         run_results,
         run_requests,
@@ -254,6 +257,56 @@ integration("week 2 core integration", () => {
       },
     });
     expect(auditEvent).not.toBeNull();
+  });
+
+  it("protects a manual country override and restores its prior value and source", async () => {
+    const admin = await prisma.user.create({
+      data: {
+        email: "country-admin@example.com",
+        name: "Country Admin",
+        role: Role.ADMIN,
+        passwordHash: "bootstrap-hash",
+        isActive: true,
+      },
+    });
+    await prisma.dropdownValue.createMany({
+      data: ["Croatia", "Germany"].map((value) => ({
+        fieldKey: DropdownValueFieldKey.COUNTRY_REGION,
+        value,
+      })),
+    });
+    const channel = await prisma.channel.create({
+      data: {
+        youtubeChannelId: "UC-COUNTRY-MANUAL",
+        title: "Country creator",
+        countryRegion: "Croatia",
+        countryRegionSource: ChannelCountrySource.YOUTUBE_DECLARED,
+      },
+    });
+
+    const patched = await core.patchChannelManualOverrides({
+      channelId: channel.id,
+      actorUserId: admin.id,
+      operations: [{ field: "countryRegion", op: "set", value: "Germany" }],
+    });
+
+    expect(patched.channel.countryRegion).toBe("Germany");
+    await expect(prisma.channel.findUniqueOrThrow({
+      where: { id: channel.id },
+      select: { countryRegionSource: true },
+    })).resolves.toEqual({ countryRegionSource: ChannelCountrySource.ADMIN_MANUAL });
+
+    const cleared = await core.patchChannelManualOverrides({
+      channelId: channel.id,
+      actorUserId: admin.id,
+      operations: [{ field: "countryRegion", op: "clear" }],
+    });
+
+    expect(cleared.channel.countryRegion).toBe("Croatia");
+    await expect(prisma.channel.findUniqueOrThrow({
+      where: { id: channel.id },
+      select: { countryRegionSource: true },
+    })).resolves.toEqual({ countryRegionSource: ChannelCountrySource.YOUTUBE_DECLARED });
   });
 
   it("returns not found when patching overrides for unknown channel", async () => {

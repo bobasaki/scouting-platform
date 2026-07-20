@@ -1,5 +1,6 @@
 import {
   AdvancedReportRequestStatus as PrismaAdvancedReportRequestStatus,
+  ChannelCountrySource,
   ChannelEnrichmentStatus as PrismaChannelEnrichmentStatus,
   ChannelManualOverrideField as PrismaChannelManualOverrideField,
   Prisma,
@@ -31,6 +32,7 @@ import {
   resolveChannelAdvancedReportStatus,
 } from "../approvals/status";
 import { ServiceError } from "../errors";
+import { listDropdownOptions } from "../dropdown-values";
 import {
   CHANNEL_ENRICHMENT_STALE_WINDOW_DAYS,
   resolveChannelEnrichmentStatus,
@@ -154,13 +156,19 @@ export type ChannelDetail = ChannelSummary & {
   insights: ChannelInsights;
 };
 
-type MutableChannelField = "title" | "handle" | "description" | "thumbnailUrl";
+type MutableChannelField =
+  | "title"
+  | "handle"
+  | "description"
+  | "thumbnailUrl"
+  | "countryRegion";
 
 type MutableChannelValues = {
   title: string;
   handle: string | null;
   description: string | null;
   thumbnailUrl: string | null;
+  countryRegion: string | null;
 };
 
 type ManualOverrideFieldConfig = {
@@ -359,6 +367,12 @@ const manualOverrideFieldConfigs: Record<ChannelManualOverrideField, ManualOverr
     channelField: "thumbnailUrl",
     nullable: true,
   },
+  countryRegion: {
+    contractField: "countryRegion",
+    prismaField: PrismaChannelManualOverrideField.COUNTRY_REGION,
+    channelField: "countryRegion",
+    nullable: false,
+  },
 };
 
 const manualOverrideConfigByPrismaField = new Map<
@@ -415,11 +429,17 @@ function setMutableChannelFieldValue(
     return;
   }
 
-  target.thumbnailUrl = value;
+  if (field === "thumbnailUrl") {
+    target.thumbnailUrl = value;
+    return;
+  }
+
+  target.countryRegion = value;
 }
 
 function normalizeManualSetValue(
   operation: Extract<ChannelManualOverrideOperation, { op: "set" }>,
+  countryRegionOptions: ReadonlySet<string>,
 ): string | null {
   const config = getManualOverrideConfigByContractField(operation.field);
   const rawValue = operation.value;
@@ -443,6 +463,14 @@ function normalizeManualSetValue(
       "INVALID_OVERRIDE_VALUE",
       400,
       `${operation.field} override cannot be empty`,
+    );
+  }
+
+  if (operation.field === "countryRegion" && !countryRegionOptions.has(value)) {
+    throw new ServiceError(
+      "INVALID_OVERRIDE_VALUE",
+      400,
+      "Country/Region override must match a configured dropdown value",
     );
   }
 
@@ -1337,6 +1365,7 @@ export async function upsertChannelSkeleton(input: {
     handle: input.handle ?? null,
     description: input.description ?? null,
     thumbnailUrl: input.thumbnailUrl ?? null,
+    countryRegion: null,
   };
 
   const channelId = await withDbTransaction(async (tx) => {
@@ -1404,6 +1433,14 @@ export async function upsertChannelSkeleton(input: {
     const manualOverrides = await tx.channelManualOverride.findMany({
       where: {
         channelId: existing.id,
+        field: {
+          in: [
+            PrismaChannelManualOverrideField.TITLE,
+            PrismaChannelManualOverrideField.HANDLE,
+            PrismaChannelManualOverrideField.DESCRIPTION,
+            PrismaChannelManualOverrideField.THUMBNAIL_URL,
+          ],
+        },
       },
       select: {
         id: true,
@@ -1461,6 +1498,21 @@ export async function patchChannelManualOverrides(input: {
   actorUserId: string;
   operations: ChannelManualOverrideOperation[];
 }): Promise<PatchChannelManualOverridesResponse> {
+  const requiresCountryRegionOptions = input.operations.some(
+    (operation) => operation.field === "countryRegion" && operation.op === "set",
+  );
+  const countryRegionOptions = requiresCountryRegionOptions
+    ? new Set((await listDropdownOptions()).countryRegion)
+    : new Set<string>();
+
+  if (requiresCountryRegionOptions && countryRegionOptions.size === 0) {
+    throw new ServiceError(
+      "COUNTRY_OPTIONS_REQUIRED",
+      409,
+      "Country/Region dropdown values must be synced before setting a manual override",
+    );
+  }
+
   const applied = await withDbTransaction(async (tx) => {
     const channel = await tx.channel.findUnique({
       where: {
@@ -1472,6 +1524,8 @@ export async function patchChannelManualOverrides(input: {
         handle: true,
         description: true,
         thumbnailUrl: true,
+        countryRegion: true,
+        countryRegionSource: true,
       },
     });
 
@@ -1508,6 +1562,7 @@ export async function patchChannelManualOverrides(input: {
         field: true,
         value: true,
         fallbackValue: true,
+        fallbackCountryRegionSource: true,
       },
     });
     const existingOverridesByField = new Map(
@@ -1522,10 +1577,15 @@ export async function patchChannelManualOverrides(input: {
       const existingManualOverride = existingOverridesByField.get(config.prismaField);
 
       if (operation.op === "set") {
-        const value = normalizeManualSetValue(operation);
-        const fallbackValue =
-          existingManualOverride?.fallbackValue ??
-          getMutableChannelFieldValue(channel, config.channelField);
+        const value = normalizeManualSetValue(operation, countryRegionOptions);
+        const fallbackValue = existingManualOverride
+          ? existingManualOverride.fallbackValue
+          : getMutableChannelFieldValue(channel, config.channelField);
+        const fallbackCountryRegionSource = existingManualOverride
+          ? existingManualOverride.fallbackCountryRegionSource
+          : operation.field === "countryRegion"
+            ? channel.countryRegionSource
+            : null;
 
         if (existingManualOverride) {
           await tx.channelManualOverride.update({
@@ -1535,6 +1595,7 @@ export async function patchChannelManualOverrides(input: {
             data: {
               value,
               fallbackValue,
+              fallbackCountryRegionSource,
               updatedByUserId: input.actorUserId,
             },
           });
@@ -1545,6 +1606,7 @@ export async function patchChannelManualOverrides(input: {
               field: config.prismaField,
               value,
               fallbackValue,
+              fallbackCountryRegionSource,
               createdByUserId: input.actorUserId,
               updatedByUserId: input.actorUserId,
             },
@@ -1552,6 +1614,10 @@ export async function patchChannelManualOverrides(input: {
         }
 
         setMutableChannelFieldValue(channelUpdateData, config.channelField, value);
+
+        if (operation.field === "countryRegion") {
+          channelUpdateData.countryRegionSource = ChannelCountrySource.ADMIN_MANUAL;
+        }
       } else if (existingManualOverride) {
         await tx.channelManualOverride.delete({
           where: {
@@ -1567,6 +1633,11 @@ export async function patchChannelManualOverrides(input: {
             config.channelField,
             existingManualOverride.fallbackValue,
           );
+        }
+
+        if (operation.field === "countryRegion") {
+          channelUpdateData.countryRegionSource =
+            existingManualOverride.fallbackCountryRegionSource;
         }
       }
 

@@ -1,4 +1,5 @@
 import {
+  ChannelCountrySource,
   ChannelEnrichmentStatus as PrismaChannelEnrichmentStatus,
   ChannelYoutubeRefreshStatus as PrismaChannelYoutubeRefreshStatus,
   CsvImportBatchStatus as PrismaCsvImportBatchStatus,
@@ -1142,6 +1143,7 @@ integration("week 4 core integration", () => {
         influencerType: "Streamer",
         influencerVertical: "Tech",
         countryRegion: "Croatia",
+        countryRegionSource: ChannelCountrySource.CSV_IMPORT,
         contentLanguage: "English",
       },
     });
@@ -1182,12 +1184,14 @@ integration("week 4 core integration", () => {
         influencerType: true,
         influencerVertical: true,
         countryRegion: true,
+        countryRegionSource: true,
         contentLanguage: true,
       },
     })).resolves.toEqual({
       influencerType: "Streamer",
       influencerVertical: "Tech",
       countryRegion: "Croatia",
+      countryRegionSource: ChannelCountrySource.CSV_IMPORT,
       contentLanguage: "English",
     });
   });
@@ -1543,7 +1547,10 @@ integration("week 4 core integration", () => {
     expect(enrichment.summary).toBe(ENRICHMENT_RESULT.profile.summary);
     expect(enrichment.brandFitNotes).toBe(ENRICHMENT_RESULT.profile.brandFitNotes);
     expect(enrichment.confidence).toBe(ENRICHMENT_RESULT.profile.confidence);
-    expect(enrichment.structuredProfile).toEqual(ENRICHMENT_RESULT.profile.structuredProfile);
+    expect(enrichment.structuredProfile).toEqual({
+      ...ENRICHMENT_RESULT.profile.structuredProfile,
+      accountType: "unknown",
+    });
   });
 
   it("completes legacy stored payload reuse with structuredProfile set to null", async () => {

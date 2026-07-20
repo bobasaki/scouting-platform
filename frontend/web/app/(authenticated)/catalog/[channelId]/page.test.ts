@@ -1,20 +1,28 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStringAsync } from "../../../../lib/test-render";
 
-const { getSessionMock, channelDetailShellMock, getChannelByIdMock } = vi.hoisted(() => ({
+const { getSessionMock, channelDetailShellMock, getChannelByIdMock, getDropdownValuesMock } = vi.hoisted(() => ({
   getSessionMock: vi.fn(),
   channelDetailShellMock: vi.fn(
     ({
       channelId,
       canManageManualEdits,
+      countryRegionOptions,
       initialData,
     }: {
       channelId: string;
       canManageManualEdits?: boolean;
+      countryRegionOptions?: readonly string[];
       initialData?: unknown;
-    }) => `channel-detail-shell:${channelId}:${String(canManageManualEdits)}:${initialData ? "with-data" : "no-data"}`,
+    }) => `channel-detail-shell:${channelId}:${String(canManageManualEdits)}:${countryRegionOptions?.join(",")}:${initialData ? "with-data" : "no-data"}`,
   ),
   getChannelByIdMock: vi.fn(async () => ({ id: "channel-123" })),
+  getDropdownValuesMock: vi.fn(async () => ({
+    items: [
+      { fieldKey: "countryRegion", value: "Croatia" },
+      { fieldKey: "language", value: "Croatian" },
+    ],
+  })),
 }));
 
 vi.mock("../../../../lib/cached-auth", () => ({
@@ -23,6 +31,7 @@ vi.mock("../../../../lib/cached-auth", () => ({
 
 vi.mock("../../../../lib/cached-data", () => ({
   getCachedChannelById: getChannelByIdMock,
+  getCachedDropdownValues: getDropdownValuesMock,
 }));
 
 vi.mock("../../../../components/catalog/channel-detail-shell", () => ({
@@ -62,11 +71,12 @@ describe("catalog channel detail page", () => {
     expect(channelDetailShellMock.mock.calls[0]?.[0]).toEqual({
       channelId: "channel-123",
       canManageManualEdits: true,
+      countryRegionOptions: ["Croatia"],
       initialData: { id: "channel-123" },
     });
     expect(html).toContain("Channel Detail");
     expect(html).toContain('href="/catalog"');
-    expect(html).toContain("channel-detail-shell:channel-123:true:with-data");
+    expect(html).toContain("channel-detail-shell:channel-123:true:Croatia:with-data");
   });
 
   it("only enables manual edit controls for admins", async () => {
@@ -86,8 +96,9 @@ describe("catalog channel detail page", () => {
     expect(channelDetailShellMock.mock.calls[0]?.[0]).toEqual({
       channelId: "channel-123",
       canManageManualEdits: false,
+      countryRegionOptions: ["Croatia"],
       initialData: { id: "channel-123" },
     });
-    expect(html).toContain("channel-detail-shell:channel-123:false:with-data");
+    expect(html).toContain("channel-detail-shell:channel-123:false:Croatia:with-data");
   });
 });
