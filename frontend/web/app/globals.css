@@ -3683,7 +3683,8 @@ a {
 }
 
 .channel-detail-shell__manual-edit-field input,
-.channel-detail-shell__manual-edit-field textarea {
+.channel-detail-shell__manual-edit-field textarea,
+.channel-detail-shell__manual-edit-field select {
   width: 100%;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -3699,7 +3700,8 @@ a {
 }
 
 .channel-detail-shell__manual-edit-field input:focus,
-.channel-detail-shell__manual-edit-field textarea:focus {
+.channel-detail-shell__manual-edit-field textarea:focus,
+.channel-detail-shell__manual-edit-field select:focus {
   outline: 2px solid rgba(15, 106, 104, 0.18);
   outline-offset: 0;
   border-color: rgba(15, 106, 104, 0.45);
@@ -5348,6 +5350,7 @@ h3 {
 .catalog-table__search input,
 .channel-detail-shell__manual-edit-field input,
 .channel-detail-shell__manual-edit-field textarea,
+.channel-detail-shell__manual-edit-field select,
 .export-prep__input {
   border: 1px solid rgba(0, 15, 65, 0.14);
   border-radius: 1rem;
@@ -5359,6 +5362,7 @@ h3 {
 .new-scouting__field input,
 .new-scouting__field select,
 .channel-detail-shell__manual-edit-field input,
+.channel-detail-shell__manual-edit-field select,
 .export-prep__input {
   min-height: 3rem;
 }
@@ -5379,6 +5383,7 @@ h3 {
 .catalog-table__search input:focus,
 .channel-detail-shell__manual-edit-field input:focus,
 .channel-detail-shell__manual-edit-field textarea:focus,
+.channel-detail-shell__manual-edit-field select:focus,
 .export-prep__input:focus {
   outline: 2px solid rgba(242, 255, 130, 0.9);
   outline-offset: 1px;
@@ -7765,7 +7770,8 @@ button:disabled,
 }
 
 .channel-detail-shell__manual-edit-field input,
-.channel-detail-shell__manual-edit-field textarea {
+.channel-detail-shell__manual-edit-field textarea,
+.channel-detail-shell__manual-edit-field select {
   border-radius: 0.9rem;
 }
 
@@ -11546,7 +11552,8 @@ textarea:focus-visible,
   .admin-users__field select,
   .admin-csv-imports__field input,
   .channel-detail-shell__manual-edit-field input,
-  .channel-detail-shell__manual-edit-field textarea {
+  .channel-detail-shell__manual-edit-field textarea,
+  .channel-detail-shell__manual-edit-field select {
     width: 100%;
     min-width: 0;
     box-sizing: border-box;

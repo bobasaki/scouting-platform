@@ -22,11 +22,13 @@ type ManualEditOperationStatus = {
 
 type AdminChannelManualEditPanelProps = Readonly<{
   channel: ChannelDetail;
+  countryRegionOptions: readonly string[];
   onChannelUpdated: (channel: ChannelDetail) => void;
 }>;
 
 type AdminChannelManualEditPanelViewProps = Readonly<{
   drafts: ManualEditDrafts;
+  countryRegionOptions: readonly string[];
   pendingOperation: PendingManualEditOperation;
   operationStatus: ManualEditOperationStatus;
   onDraftChange: (field: ChannelManualOverrideField, value: string) => void;
@@ -39,7 +41,7 @@ type ManualEditFieldConfig = Readonly<{
   label: string;
   description: string;
   placeholder: string;
-  input: "text" | "textarea";
+  input: "text" | "textarea" | "select";
 }>;
 
 const MANUAL_EDIT_FIELDS: readonly ManualEditFieldConfig[] = [
@@ -56,6 +58,13 @@ const MANUAL_EDIT_FIELDS: readonly ManualEditFieldConfig[] = [
     description: "Set or blank the public handle shown in catalog identity surfaces.",
     placeholder: "@channelhandle",
     input: "text",
+  },
+  {
+    field: "countryRegion",
+    label: "Country/Region",
+    description: "Override creator country when provider data is missing or incorrect.",
+    placeholder: "Select a country/region",
+    input: "select",
   },
   {
     field: "thumbnailUrl",
@@ -85,6 +94,7 @@ function createManualEditDrafts(channel: ChannelDetail): ManualEditDrafts {
     handle: channel.handle ?? "",
     description: channel.description ?? "",
     thumbnailUrl: channel.thumbnailUrl ?? "",
+    countryRegion: channel.countryRegion ?? "",
   };
 }
 
@@ -110,8 +120,8 @@ function toManualOverrideValue(field: ChannelManualOverrideField, value: string)
   const trimmed = value.trim();
 
   if (trimmed.length === 0) {
-    if (field === "title") {
-      throw new Error("Title is required.");
+    if (field === "title" || field === "countryRegion") {
+      throw new Error(field === "title" ? "Title is required." : "Country/Region is required.");
     }
 
     return null;
@@ -133,6 +143,7 @@ function getFieldStatus(
 
 export function AdminChannelManualEditPanelView({
   drafts,
+  countryRegionOptions,
   pendingOperation,
   operationStatus,
   onDraftChange,
@@ -155,8 +166,8 @@ export function AdminChannelManualEditPanelView({
       </header>
 
       <p className="channel-detail-shell__manual-edit-note">
-        Leaving Handle, Thumbnail URL, or Description blank and saving stores an intentional empty
-        manual value.
+        Country/Region must use a configured option. Leaving Handle, Thumbnail URL, or Description
+        blank and saving stores an intentional empty manual value.
       </p>
 
       <div className="channel-detail-shell__manual-edit-list">
@@ -186,6 +197,19 @@ export function AdminChannelManualEditPanelView({
                     rows={5}
                     value={drafts[fieldConfig.field]}
                   />
+                ) : fieldConfig.input === "select" ? (
+                  <select
+                    disabled={isBusy || countryRegionOptions.length === 0}
+                    onChange={(event) => {
+                      onDraftChange(fieldConfig.field, event.currentTarget.value);
+                    }}
+                    value={drafts[fieldConfig.field]}
+                  >
+                    <option value="">{fieldConfig.placeholder}</option>
+                    {countryRegionOptions.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
                 ) : (
                   <input
                     disabled={isBusy}
@@ -202,7 +226,10 @@ export function AdminChannelManualEditPanelView({
               <div className="channel-detail-shell__manual-edit-actions">
                 <button
                   className="channel-detail-shell__button"
-                  disabled={isBusy}
+                  disabled={
+                    isBusy
+                    || (fieldConfig.field === "countryRegion" && countryRegionOptions.length === 0)
+                  }
                   onClick={() => {
                     void onSaveField(fieldConfig.field);
                   }}
@@ -240,6 +267,7 @@ export function AdminChannelManualEditPanelView({
 
 export function AdminChannelManualEditPanel({
   channel,
+  countryRegionOptions,
   onChannelUpdated,
 }: AdminChannelManualEditPanelProps) {
   const [drafts, setDrafts] = useState<ManualEditDrafts>(() => createManualEditDrafts(channel));
@@ -249,7 +277,7 @@ export function AdminChannelManualEditPanel({
 
   useEffect(() => {
     setDrafts(createManualEditDrafts(channel));
-  }, [channel.description, channel.handle, channel.thumbnailUrl, channel.title]);
+  }, [channel]);
 
   function handleDraftChange(field: ChannelManualOverrideField, value: string): void {
     setDrafts((current) => ({
@@ -340,6 +368,7 @@ export function AdminChannelManualEditPanel({
 
   return (
     <AdminChannelManualEditPanelView
+      countryRegionOptions={countryRegionOptions}
       drafts={drafts}
       onClearField={handleClearField}
       onDraftChange={handleDraftChange}

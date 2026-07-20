@@ -170,6 +170,9 @@ jobs:
           git remote add dokku-web dokku-target:$DOKKU_WEB_APP
           git remote add dokku-worker dokku-target:$DOKKU_WORKER_APP
 
+      - name: Reclaim failed Dokku build artifacts
+        run: ssh dokku-target cleanup
+
       - name: Deploy worker
         run: git push dokku-worker HEAD:main
 
@@ -252,6 +255,9 @@ jobs:
         run: |
           git remote add dokku-web dokku-target:$DOKKU_WEB_APP
           git remote add dokku-worker dokku-target:$DOKKU_WORKER_APP
+
+      - name: Reclaim failed Dokku build artifacts
+        run: ssh dokku-target cleanup
 
       - name: Deploy worker
         run: git push dokku-worker HEAD:main

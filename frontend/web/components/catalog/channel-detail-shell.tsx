@@ -14,10 +14,12 @@ import {
   fetchChannelDetail,
   requestChannelEnrichment,
 } from "../../lib/channels-api";
+import { AdminChannelManualEditPanel } from "./admin-channel-manual-edit-panel";
 
 type ChannelDetailShellProps = Readonly<{
   channelId: string;
   canManageManualEdits?: boolean;
+  countryRegionOptions?: readonly string[];
   initialData?: ChannelDetail | null;
 }>;
 
@@ -52,10 +54,13 @@ type ChannelEnrichmentActionState = ChannelRequestActionState;
 
 type ChannelDetailShellViewProps = {
   channelId: string;
+  canManageManualEdits?: boolean;
+  countryRegionOptions?: readonly string[];
   requestState: ChannelDetailRequestState;
   enrichmentActionState: ChannelEnrichmentActionState;
   onRetry: () => void;
   onRequestEnrichment: () => void | Promise<void>;
+  onChannelUpdated?: (channel: ChannelDetail) => void;
 };
 
 type StatusPopoverTagProps = Readonly<{
@@ -861,7 +866,10 @@ function renderReadyState(
 
 export function ChannelDetailShellView({
   channelId,
+  canManageManualEdits = false,
+  countryRegionOptions = [],
   enrichmentActionState,
+  onChannelUpdated,
   onRequestEnrichment,
   onRetry,
   requestState,
@@ -898,12 +906,21 @@ export function ChannelDetailShellView({
             onRequestEnrichment,
           })
         : null}
+      {canManageManualEdits && onChannelUpdated && requestState.status === "ready" ? (
+        <AdminChannelManualEditPanel
+          channel={requestState.data}
+          countryRegionOptions={countryRegionOptions}
+          onChannelUpdated={onChannelUpdated}
+        />
+      ) : null}
     </div>
   );
 }
 
 export function ChannelDetailShell({
   channelId,
+  canManageManualEdits = false,
+  countryRegionOptions = [],
   initialData,
 }: ChannelDetailShellProps) {
   const [requestState, setRequestState] = useState<ChannelDetailRequestState>(
@@ -1051,8 +1068,17 @@ export function ChannelDetailShell({
 
   return (
     <ChannelDetailShellView
+      canManageManualEdits={canManageManualEdits}
       channelId={channelId}
+      countryRegionOptions={countryRegionOptions}
       enrichmentActionState={enrichmentActionState}
+      onChannelUpdated={(channel) => {
+        setRequestState({
+          status: "ready",
+          data: channel,
+          error: null,
+        });
+      }}
       onRequestEnrichment={handleRequestEnrichment}
       onRetry={() => {
         reloadOriginChannelIdRef.current = channelId;

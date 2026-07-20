@@ -1,7 +1,7 @@
 import React, { Suspense } from "react";
 
 import { getSession } from "../../../../lib/cached-auth";
-import { getCachedChannelById } from "../../../../lib/cached-data";
+import { getCachedChannelById, getCachedDropdownValues } from "../../../../lib/cached-data";
 import { ChannelDetailShell } from "../../../../components/catalog/channel-detail-shell";
 import { PageHeader } from "../../../../components/layout/PageHeader";
 import { Skeleton, SkeletonPageBody, SkeletonText } from "../../../../components/ui/skeleton";
@@ -12,14 +12,21 @@ type CatalogChannelDetailPageProps = Readonly<{
 }>;
 
 async function ChannelDetailData({ channelId }: { channelId: string }) {
-  const session = await getSession();
+  const [session, initialData, dropdownValues] = await Promise.all([
+    getSession(),
+    getCachedChannelById(channelId),
+    getCachedDropdownValues(),
+  ]);
   const canManageManualEdits = getRoleFromSession(session) === "admin";
-  const initialData = await getCachedChannelById(channelId);
+  const countryRegionOptions = dropdownValues.items
+    .filter((item) => item.fieldKey === "countryRegion")
+    .map((item) => item.value);
 
   return (
     <ChannelDetailShell
       canManageManualEdits={canManageManualEdits}
       channelId={channelId}
+      countryRegionOptions={countryRegionOptions}
       initialData={initialData}
     />
   );

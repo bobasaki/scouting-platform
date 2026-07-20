@@ -225,6 +225,7 @@ export const channelManualOverrideFieldSchema = z.enum([
   "handle",
   "description",
   "thumbnailUrl",
+  "countryRegion",
 ]);
 
 export const channelManualOverrideSetOperationSchema = z.object({

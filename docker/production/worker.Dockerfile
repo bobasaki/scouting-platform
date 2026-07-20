@@ -1,10 +1,11 @@
 # ---------------------------------------------------------------------------
 # Production Dockerfile for @scouting-platform/worker on Dokku
 #
-# Unlike the web image, the worker keeps the full workspace and dev
-# dependencies so it can:
-# - run directly from source via `node --import tsx`
+# Unlike the web image, the worker keeps the required workspace source and the
+# worker/DB development dependencies so it can:
+# - run directly from source via `tsx`
 # - reuse Prisma CLI for one-off migration commands via `dokku run`
+# Unrelated workspace dependencies are excluded to keep the image small.
 # ---------------------------------------------------------------------------
 
 FROM node:22-bookworm-slim
@@ -22,11 +23,13 @@ WORKDIR /workspace
 
 COPY . .
 
-# Prisma generate runs during root postinstall and only needs a syntactically
-# valid datasource URL while the image is being built.
-RUN DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build?schema=public \
-    pnpm install --frozen-lockfile
+# Prisma generate only needs a syntactically valid datasource URL while the
+# image is being built.
+RUN --mount=type=cache,target=/pnpm/store \
+    export DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build?schema=public \
+ && pnpm install --frozen-lockfile --filter '@scouting-platform/worker...' \
+ && pnpm --filter @scouting-platform/db db:generate
 
 ENV NODE_ENV=production
 
-CMD ["node", "--import", "tsx", "backend/worker/src/index.ts"]
+CMD ["backend/worker/node_modules/.bin/tsx", "backend/worker/src/index.ts"]
