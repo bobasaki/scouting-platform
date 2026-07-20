@@ -2202,7 +2202,10 @@ async function applyPendingRow(input: {
       ?? (resolvedYoutubeChannelId ? `https://www.youtube.com/channel/${resolvedYoutubeChannelId}` : null);
 
     let createdChannel = false;
-    let channel: { id: string } | null = null;
+    let channel: {
+      id: string;
+      countryRegionSource: ChannelCountrySource | null;
+    } | null = null;
 
     if (resolvedYoutubeChannelId) {
       if (!isLikelyCanonicalYoutubeChannelId(resolvedYoutubeChannelId)) {
@@ -2219,6 +2222,7 @@ async function applyPendingRow(input: {
         },
         select: {
           id: true,
+          countryRegionSource: true,
         },
       });
     }
@@ -2303,6 +2307,7 @@ async function applyPendingRow(input: {
           },
           select: {
             id: true,
+            countryRegionSource: true,
           },
         });
       } else {
@@ -2338,6 +2343,7 @@ async function applyPendingRow(input: {
             },
             select: {
               id: true,
+              countryRegionSource: true,
             },
           });
           break;
@@ -2379,6 +2385,7 @@ async function applyPendingRow(input: {
           },
           select: {
             id: true,
+            countryRegionSource: true,
           },
         });
         createdChannel = true;
@@ -2393,6 +2400,7 @@ async function applyPendingRow(input: {
           },
           select: {
             id: true,
+            countryRegionSource: true,
           },
         });
 
@@ -2454,6 +2462,7 @@ async function applyPendingRow(input: {
           ...(row.influencerType ? { influencerType: row.influencerType } : {}),
           ...(row.influencerVertical ? { influencerVertical: row.influencerVertical } : {}),
           ...(row.countryRegion
+            && channel.countryRegionSource !== ChannelCountrySource.ADMIN_MANUAL
             ? {
                 countryRegion: row.countryRegion,
                 countryRegionSource: ChannelCountrySource.CSV_IMPORT,

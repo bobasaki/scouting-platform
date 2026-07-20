@@ -70,6 +70,11 @@ export function resolveChannelCountryRegion(input: {
     return null;
   }
 
+  if (input.countryRegionOptions.length === 0) {
+    return null;
+  }
+
+  const hasYoutubeCountryDeclaration = Boolean(input.youtubeCountryCode?.trim());
   const youtubeCountry = normalizeCountryRegionOption(
     input.countryRegionOptions,
     input.youtubeCountryCode,
@@ -87,6 +92,10 @@ export function resolveChannelCountryRegion(input: {
       value: youtubeCountry,
       source: ChannelCountrySource.YOUTUBE_DECLARED,
     };
+  }
+
+  if (hasYoutubeCountryDeclaration) {
+    return null;
   }
 
   const llmCountry = normalizeCountryRegionOption(

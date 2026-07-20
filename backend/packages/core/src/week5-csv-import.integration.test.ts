@@ -1,4 +1,4 @@
-import { PrismaClient, Role } from "@prisma/client";
+import { ChannelCountrySource, PrismaClient, Role } from "@prisma/client";
 import {
   CSV_IMPORT_HEADER,
   CSV_IMPORT_LEGACY_V3_HEADER,
@@ -14,6 +14,7 @@ type ImportsQueueModule = typeof import("./imports/queue");
 
 const CSV_CHANNEL_ONE_ID = "UCcsvimport0000000000001";
 const CSV_CHANNEL_NINE_ID = "UCcsvimport0000000000009";
+const CSV_CHANNEL_MANUAL_COUNTRY_ID = "UCcsvmanualcountry000001";
 const DUPLICATE_URL_FORMAT_CHANNEL_ID = "UCdupeurls00000000000001";
 const SAME_TITLE_CHANNEL_ONE_ID = "UCsametitle0000000000001";
 const SAME_TITLE_CHANNEL_TWO_ID = "UCsametitle0000000000002";
@@ -404,6 +405,70 @@ integration("week 5 csv import core integration", () => {
       },
     });
     expect(completedAudit).not.toBeNull();
+  });
+
+  it("preserves an admin country override when importing a matching CSV channel", async () => {
+    const imports = await loadImports();
+    const admin = await createUser("admin@example.com");
+    await seedSyncedDropdownValues();
+    await prisma.dropdownValue.create({
+      data: { fieldKey: "COUNTRY_REGION", value: "Germany" },
+    });
+    const channel = await prisma.channel.create({
+      data: {
+        youtubeChannelId: CSV_CHANNEL_MANUAL_COUNTRY_ID,
+        title: "Manual Country Channel",
+        countryRegion: "Croatia",
+        countryRegionSource: ChannelCountrySource.ADMIN_MANUAL,
+      },
+    });
+    const csvRow = [
+      CSV_CHANNEL_MANUAL_COUNTRY_ID,
+      "Manual Country Channel",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "Germany",
+      "Croatian",
+    ].join(",");
+    const batch = await imports.createCsvImportBatch({
+      requestedByUserId: admin.id,
+      fileName: "manual-country.csv",
+      fileSize: 512,
+      csvText: makeLegacyCsv([csvRow]),
+    });
+
+    await prisma.$executeRawUnsafe(`
+      DELETE FROM pgboss.job WHERE name = 'imports.csv.process'
+    `);
+    await imports.executeCsvImportBatch({
+      importBatchId: batch.id,
+      requestedByUserId: admin.id,
+    });
+
+    await expect(prisma.csvImportBatch.findUniqueOrThrow({
+      where: { id: batch.id },
+      select: { status: true },
+    })).resolves.toEqual({ status: "COMPLETED" });
+    await expect(prisma.channel.findUniqueOrThrow({
+      where: { id: channel.id },
+      select: {
+        countryRegion: true,
+        countryRegionSource: true,
+        contentLanguage: true,
+      },
+    })).resolves.toEqual({
+      countryRegion: "Croatia",
+      countryRegionSource: ChannelCountrySource.ADMIN_MANUAL,
+      contentLanguage: "Croatian",
+    });
   });
 
   it("imports pending rows, dedupes contacts, preserves existing metric values on blank cells, and is retry-safe", async () => {

@@ -42,7 +42,7 @@ describe("creator country resolution", () => {
     })).toBeNull();
   });
 
-  it("uses LLM only when YouTube has no usable declaration", () => {
+  it("uses LLM only when YouTube has no declaration", () => {
     expect(resolveChannelCountryRegion({
       currentValue: null,
       currentSource: null,
@@ -53,6 +53,26 @@ describe("creator country resolution", () => {
       value: "Croatia",
       source: ChannelCountrySource.LLM,
     });
+  });
+
+  it("does not use LLM when YouTube declares a country missing from the dropdown", () => {
+    expect(resolveChannelCountryRegion({
+      currentValue: null,
+      currentSource: null,
+      countryRegionOptions: options,
+      youtubeCountryCode: "DE",
+      llmCountryRegion: "Croatia",
+    })).toBeNull();
+  });
+
+  it("does not change country values before dropdown options are available", () => {
+    expect(resolveChannelCountryRegion({
+      currentValue: "United States",
+      currentSource: ChannelCountrySource.LLM,
+      countryRegionOptions: [],
+      youtubeCountryCode: null,
+      llmCountryRegion: null,
+    })).toBeNull();
   });
 
   it("clears an unverified automated value when neither source supports it", () => {
