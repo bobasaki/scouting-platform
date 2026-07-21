@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import nextConfig from "./next.config";
+import nextConfig, {
+  CANONICAL_PRODUCTION_ORIGIN,
+  LEGACY_PRODUCTION_HOST,
+  productionHostRedirects,
+} from "./next.config";
 
 describe("next config", () => {
   it("keeps argon2 external to the server bundle", () => {
@@ -16,5 +20,16 @@ describe("next config", () => {
         })
       ])
     );
+  });
+
+  it("temporarily redirects every old-host path to the canonical origin", async () => {
+    await expect(productionHostRedirects()).resolves.toEqual([
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: LEGACY_PRODUCTION_HOST }],
+        destination: `${CANONICAL_PRODUCTION_ORIGIN}/:path*`,
+        permanent: false,
+      },
+    ]);
   });
 });
