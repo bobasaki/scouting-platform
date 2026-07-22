@@ -1,8 +1,6 @@
 "use client";
 
 import type {
-  ExportPreviewColumn,
-  ExportPreviewRow,
   ExportRunToGoogleSheetsRequest,
   HubspotPrepClearField,
   HubspotPrepUpdateDefaults,
@@ -10,10 +8,12 @@ import type {
   HubspotPrepUpdateRequest,
   HubspotExportPreview,
 } from "@scouting-platform/contracts";
-import React, { useMemo, useState } from "react";
+import { HUBSPOT_CONTACT_IDENTITY_COLUMN_KEY } from "@scouting-platform/contracts";
+import React, { useState } from "react";
 
 import { updateHubspotExportPreview } from "../../lib/export-previews-api";
 import { exportRunToGoogleSheets } from "../../lib/google-sheets-export-api";
+import { HubspotSyncPanel } from "./hubspot-sync-panel";
 import { SearchableSelect, type SearchableSelectOption } from "../ui/searchable-select";
 
 type ExportPreparationWorkspaceProps = Readonly<{
@@ -26,39 +26,14 @@ const RUN_DEFAULT_COLUMN_KEYS = new Set<keyof HubspotPrepUpdateDefaults>([
   "activationType",
 ]);
 
+const CONTACT_IDENTITY_FIELD_KEYS = new Set(["firstName", "lastName", "email"]);
+
 type HubspotDrafts = {
   defaults: HubspotPrepUpdateDefaults;
   touchedDefaults: Set<keyof HubspotPrepUpdateDefaults>;
   rowValues: Record<string, Record<string, string>>;
   touchedRowFields: Record<string, Set<HubspotPrepClearField["field"]>>;
 };
-
-function escapeCsvCell(value: string): string {
-  if (!/[",\n\r]/.test(value)) {
-    return value;
-  }
-
-  return `"${value.replaceAll(`"`, `""`)}"`;
-}
-
-function buildCsv(columns: ExportPreviewColumn[], rows: ExportPreviewRow[]): string {
-  const header = columns.map((column) => column.label).join(",");
-  const body = rows.map((row) =>
-    columns.map((column) => escapeCsvCell(row.values[column.key] ?? "")).join(","),
-  );
-
-  return [header, ...body].join("\n");
-}
-
-function downloadCsv(fileName: string, content: string): void {
-  const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = fileName;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
 
 function createEmptyDrafts(): HubspotDrafts {
   return {
@@ -153,9 +128,6 @@ export function ExportPreparationWorkspace({
     "idle" | "saving" | "success" | "error"
   >("idle");
   const [googleSheetsMessage, setGoogleSheetsMessage] = useState("");
-  const fileName = useMemo(() => {
-    return `${currentPreview.run.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-export.csv`;
-  }, [currentPreview.run.name]);
   const validationIssues = currentPreview.validationIssues;
   const hasPendingChanges =
     Object.values(drafts.touchedRowFields).some((fields) => fields.size > 0) ||
@@ -172,7 +144,6 @@ export function ExportPreparationWorkspace({
     hasGoogleSheetsTarget && hasPendingChanges
       ? "Save your edits before exporting to Google Sheets."
       : null;
-  const canDownloadCsv = googleSheetsState !== "saving" && requestState !== "saving";
 
   function updateDefault(field: keyof HubspotPrepUpdateDefaults, value: string) {
     setDrafts((current) => ({
@@ -309,10 +280,6 @@ export function ExportPreparationWorkspace({
     }
   }
 
-  function handleCsvDownload() {
-    downloadCsv(fileName, buildCsv(currentPreview.columns, currentPreview.rows));
-  }
-
   return (
     <div className="export-prep">
       <section className="export-prep__defaults">
@@ -387,9 +354,16 @@ export function ExportPreparationWorkspace({
       {validationIssues.length > 0 ? (
         <section className="workspace-callout workspace-callout--error">
           <h3>Missing required values</h3>
-          <p>{validationIssues.length} fields still need manual input before export.</p>
+          <p>{validationIssues.length} requirements still need manual input before export.</p>
         </section>
       ) : null}
+
+      <HubspotSyncPanel
+        hasPendingChanges={hasPendingChanges}
+        isSaving={requestState === "saving"}
+        runId={currentPreview.run.id}
+        validationIssueCount={validationIssues.length}
+      />
 
       <section className="export-prep__defaults">
         <div className="database-records__header export-prep__defaults-header">
@@ -470,14 +444,6 @@ export function ExportPreparationWorkspace({
 
       <div className="export-prep__actions">
         <button
-          className="workspace-button workspace-button--secondary"
-          disabled={!canDownloadCsv}
-          onClick={handleCsvDownload}
-          type="button"
-        >
-          CSV Download
-        </button>
-        <button
           className="database-records__cta"
           disabled={!hasPendingChanges || requestState === "saving"}
           onClick={() => void handleSave()}
@@ -487,6 +453,11 @@ export function ExportPreparationWorkspace({
         </button>
       </div>
 
+      <p className="workspace-copy">
+        Fields marked * are required. Each row must also have at least one of First Name, Last
+        Name, or Email (marked †).
+      </p>
+
       <div className="export-prep__table-shell">
         <table className="export-prep__table">
           <thead>
@@ -494,7 +465,11 @@ export function ExportPreparationWorkspace({
               {currentPreview.columns.map((column) => (
                 <th key={column.key}>
                   {column.label}
-                  {column.required ? " *" : ""}
+                  {column.required
+                    ? " *"
+                    : CONTACT_IDENTITY_FIELD_KEYS.has(column.key)
+                      ? " †"
+                      : ""}
                 </th>
               ))}
             </tr>
@@ -504,6 +479,16 @@ export function ExportPreparationWorkspace({
               <tr key={row.id}>
                 {currentPreview.columns.map((column) => {
                   const placeholderValue = row.values[column.key] ?? "";
+                  const isMissingContactIdentity =
+                    CONTACT_IDENTITY_FIELD_KEYS.has(column.key)
+                    && validationIssues.some(
+                      (issue) =>
+                        issue.rowId === row.id
+                        && issue.columnKey === HUBSPOT_CONTACT_IDENTITY_COLUMN_KEY,
+                    );
+                  const isMissingRequiredValue =
+                    !placeholderValue.trim()
+                    && (column.required || isMissingContactIdentity);
 
                   return (
                     <td key={column.key}>
@@ -533,7 +518,7 @@ export function ExportPreparationWorkspace({
                       ) : (
                         <div className="export-prep__cell-editor">
                           <input
-                            className={!placeholderValue.trim() && column.required ? "export-prep__input export-prep__input--missing" : "export-prep__input"}
+                            className={isMissingRequiredValue ? "export-prep__input export-prep__input--missing" : "export-prep__input"}
                             disabled={requestState === "saving"}
                             onChange={(event) =>
                               updateRowValue(
