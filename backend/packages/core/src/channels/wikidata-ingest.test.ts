@@ -7,11 +7,18 @@ type ExistingChannel = {
   countryRegion: string | null;
 };
 
-const { listDropdownOptionsMock, findManyMock, createManyMock, updateMock } = vi.hoisted(() => ({
+const {
+  listDropdownOptionsMock,
+  findManyMock,
+  createManyMock,
+  updateManyMock,
+  recordAuditEventMock,
+} = vi.hoisted(() => ({
   listDropdownOptionsMock: vi.fn(),
   findManyMock: vi.fn(),
   createManyMock: vi.fn(),
-  updateMock: vi.fn(),
+  updateManyMock: vi.fn(),
+  recordAuditEventMock: vi.fn(),
 }));
 
 vi.mock("@scouting-platform/db", () => ({
@@ -20,13 +27,17 @@ vi.mock("@scouting-platform/db", () => ({
       channel: {
         findMany: findManyMock,
         createMany: createManyMock,
-        update: updateMock,
+        updateMany: updateManyMock,
       },
     }),
 }));
 
 vi.mock("../dropdown-values", () => ({
   listDropdownOptions: listDropdownOptionsMock,
+}));
+
+vi.mock("../audit", () => ({
+  recordAuditEvent: recordAuditEventMock,
 }));
 
 import { ingestWikidataChannels } from "./wikidata-ingest";
@@ -44,12 +55,15 @@ function firstCreateManyData(): Array<Record<string, unknown>> {
   return (call[0] as { data: Array<Record<string, unknown>> }).data;
 }
 
-function firstUpdateArg(): { where: { id: string }; data: Record<string, unknown> } {
-  const call = updateMock.mock.calls[0];
+function firstUpdateManyArg(): {
+  where: { id: string; countryRegion: null };
+  data: Record<string, unknown>;
+} {
+  const call = updateManyMock.mock.calls[0];
   if (!call) {
-    throw new Error("update was not called");
+    throw new Error("updateMany was not called");
   }
-  return call[0] as { where: { id: string }; data: Record<string, unknown> };
+  return call[0] as { where: { id: string; countryRegion: null }; data: Record<string, unknown> };
 }
 
 const CROATIA = channelId("croatia");
@@ -61,7 +75,8 @@ beforeEach(() => {
   listDropdownOptionsMock.mockResolvedValue({ countryRegion: ["Croatia", "Germany"] });
   findManyMock.mockResolvedValue([] as ExistingChannel[]);
   createManyMock.mockImplementation(async ({ data }: { data: unknown[] }) => ({ count: data.length }));
-  updateMock.mockResolvedValue({});
+  updateManyMock.mockResolvedValue({ count: 1 });
+  recordAuditEventMock.mockResolvedValue(undefined);
 });
 
 describe("ingestWikidataChannels", () => {
@@ -108,12 +123,13 @@ describe("ingestWikidataChannels", () => {
     });
 
     expect(createManyMock).not.toHaveBeenCalled();
-    expect(updateMock).toHaveBeenCalledWith({
-      where: { id: "row-1" },
+    // Atomic guard: the WHERE clause requires countryRegion still null.
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { id: "row-1", countryRegion: null },
       data: { countryRegion: "Germany", countryRegionSource: ChannelCountrySource.WIKIDATA },
     });
     // No title/description/thumbnail in the update payload.
-    expect(firstUpdateArg().data).not.toHaveProperty("title");
+    expect(firstUpdateManyArg().data).not.toHaveProperty("title");
     expect(result).toEqual({ received: 1, created: 0, updated: 1, skipped: 0 });
   });
 
@@ -126,9 +142,36 @@ describe("ingestWikidataChannels", () => {
       channels: [{ youtubeChannelId: GERMANY, label: "Berlin Gaming", countries: ["DE"] }],
     });
 
-    expect(updateMock).not.toHaveBeenCalled();
+    expect(updateManyMock).not.toHaveBeenCalled();
     expect(createManyMock).not.toHaveBeenCalled();
     expect(result).toEqual({ received: 1, created: 0, updated: 0, skipped: 1 });
+  });
+
+  it("counts a lost backfill race as skipped, not updated", async () => {
+    findManyMock.mockResolvedValue([
+      { id: "row-1", youtubeChannelId: GERMANY, countryRegion: null },
+    ]);
+    updateManyMock.mockResolvedValue({ count: 0 }); // another source filled it first
+
+    const result = await ingestWikidataChannels({
+      channels: [{ youtubeChannelId: GERMANY, label: "Berlin Gaming", countries: ["DE"] }],
+    });
+
+    expect(result).toEqual({ received: 1, created: 0, updated: 0, skipped: 1 });
+  });
+
+  it("records an audit event with the batch tallies", async () => {
+    await ingestWikidataChannels({
+      channels: [{ youtubeChannelId: CROATIA, label: "Zagreb Creator", countries: ["HR"] }],
+    });
+
+    expect(recordAuditEventMock).toHaveBeenCalledTimes(1);
+    const [auditInput] = recordAuditEventMock.mock.calls[0] ?? [];
+    expect(auditInput).toMatchObject({
+      actorUserId: null,
+      action: "discovery.wikidata.ingest",
+      metadata: { received: 1, created: 1, updated: 0, skipped: 0 },
+    });
   });
 
   it("merges within-batch duplicates and counts the collapsed rows as skipped", async () => {

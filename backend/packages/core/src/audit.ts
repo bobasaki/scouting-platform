@@ -9,7 +9,14 @@ export type AuditInput = {
   metadata?: Record<string, unknown> | null;
 };
 
-export async function recordAuditEvent(input: AuditInput): Promise<void> {
+// Accepts either the shared client or an active transaction client so callers
+// can record the audit event atomically alongside the mutation it describes.
+type AuditDbClient = Prisma.TransactionClient | typeof prisma;
+
+export async function recordAuditEvent(
+  input: AuditInput,
+  client: AuditDbClient = prisma,
+): Promise<void> {
   const data: Prisma.AuditEventUncheckedCreateInput = {
     actorUserId: input.actorUserId ?? null,
     action: input.action,
@@ -22,7 +29,7 @@ export async function recordAuditEvent(input: AuditInput): Promise<void> {
       input.metadata === null ? Prisma.JsonNull : (input.metadata as Prisma.InputJsonValue);
   }
 
-  await prisma.auditEvent.create({
+  await client.auditEvent.create({
     data,
   });
 }

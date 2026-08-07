@@ -5,6 +5,7 @@ import type {
 } from "@scouting-platform/contracts";
 import { withDbTransaction } from "@scouting-platform/db";
 
+import { recordAuditEvent } from "../audit";
 import { listDropdownOptions } from "../dropdown-values";
 import { normalizeCountryRegionOption } from "../enrichment/country-resolution";
 
@@ -123,16 +124,24 @@ export async function ingestWikidataChannels(
         continue;
       }
 
-      // Only backfill a missing country; never clobber existing channel data.
+      // Only backfill a genuinely missing country; never clobber existing data.
+      // The `countryRegion: null` guard is applied in the WHERE clause so the
+      // write is atomic: if a higher-precedence source (admin, CSV, …) filled
+      // the country between the read above and this write, it affects no rows.
       if (region && !found.countryRegion) {
-        await tx.channel.update({
-          where: { id: found.id },
+        const backfill = await tx.channel.updateMany({
+          where: { id: found.id, countryRegion: null },
           data: {
             countryRegion: region,
             countryRegionSource: ChannelCountrySource.WIKIDATA,
           },
         });
-        updated += 1;
+        if (backfill.count > 0) {
+          updated += 1;
+        } else {
+          // Lost the race — another source set the country first. Leave it.
+          skipped += 1;
+        }
       } else {
         skipped += 1;
       }
@@ -144,6 +153,20 @@ export async function ingestWikidataChannels(
       // Any rows lost to a concurrent insert were not created — count as skipped.
       skipped += toCreate.length - result.count;
     }
+
+    // Privileged bearer-authenticated mutation — record an audit trail in the
+    // same transaction. No user actor exists for machine ingest, so the actor
+    // is null and the batch outcome is captured in metadata.
+    await recordAuditEvent(
+      {
+        actorUserId: null,
+        action: "discovery.wikidata.ingest",
+        entityType: "channel_discovery",
+        entityId: "wikidata",
+        metadata: { received, created, updated, skipped },
+      },
+      tx,
+    );
   });
 
   return { received, created, updated, skipped };
