@@ -1,3 +1,5 @@
+import { createHash, timingSafeEqual } from "node:crypto";
+
 import { getSessionUserAccess, ServiceError } from "@scouting-platform/core";
 import { NextResponse } from "next/server";
 
@@ -109,6 +111,45 @@ export async function requireAdminSession(): Promise<
   }
 
   return { ok: true, userId: session.userId };
+}
+
+/**
+ * Constant-time string comparison. Both values are hashed to a fixed-length
+ * digest first so the comparison never leaks the secret's length, and never
+ * short-circuits on the first differing byte.
+ */
+function safeCompare(a: string, b: string): boolean {
+  const aDigest = createHash("sha256").update(a).digest();
+  const bDigest = createHash("sha256").update(b).digest();
+
+  return timingSafeEqual(aDigest, bDigest);
+}
+
+/**
+ * Authenticate a machine-to-machine request via a static bearer token.
+ *
+ * Used by external ingestion clients (e.g. the off-platform Wikidata scraper)
+ * that cannot carry a browser session. The expected token comes from the
+ * `INGEST_API_KEY` environment variable; a missing variable fails closed.
+ */
+export function requireIngestKey(request: Request):
+  | { ok: true }
+  | { ok: false; response: NextResponse } {
+  const expected = process.env.INGEST_API_KEY?.trim();
+
+  if (!expected) {
+    console.error("[ingest-auth] INGEST_API_KEY is not configured");
+    return { ok: false, response: jsonError("Ingestion endpoint is not configured", 500) };
+  }
+
+  const header = request.headers.get("authorization")?.trim() ?? "";
+  const provided = /^Bearer\s+(.+)$/iu.exec(header)?.[1]?.trim();
+
+  if (!provided || !safeCompare(provided, expected)) {
+    return { ok: false, response: jsonError("Unauthorized", 401) };
+  }
+
+  return { ok: true };
 }
 
 export async function requireAuthenticatedSession(): Promise<
