@@ -141,6 +141,7 @@ enum ChannelCountrySource {
   HYPEAUDITOR      @map("hypeauditor")
   YOUTUBE_DECLARED @map("youtube_declared")
   LLM              @map("llm")
+  WIKIDATA         @map("wikidata")
 
   @@map("channel_country_source")
 }
