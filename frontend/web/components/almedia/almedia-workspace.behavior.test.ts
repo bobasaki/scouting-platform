@@ -1,4 +1,5 @@
 import type {
+  AlmediaBookingsResponse,
   AlmediaCampaignsResponse,
   AlmediaDealsResponse,
   AlmediaScorecardResponse,
@@ -11,6 +12,7 @@ const {
   fetchAlmediaDealsMock,
   fetchAlmediaCampaignsMock,
   fetchAlmediaScorecardMock,
+  fetchAlmediaBookingsMock,
   requestAlmediaSyncMock,
   isDocumentVisibleRef,
   searchParamsRef,
@@ -20,6 +22,7 @@ const {
   fetchAlmediaDealsMock: vi.fn(),
   fetchAlmediaCampaignsMock: vi.fn(),
   fetchAlmediaScorecardMock: vi.fn(),
+  fetchAlmediaBookingsMock: vi.fn(),
   requestAlmediaSyncMock: vi.fn(),
   isDocumentVisibleRef: { current: true },
   searchParamsRef: { current: new URLSearchParams() },
@@ -49,6 +52,7 @@ vi.mock("../../lib/almedia-api", () => ({
   fetchAlmediaDeals: fetchAlmediaDealsMock,
   fetchAlmediaCampaigns: fetchAlmediaCampaignsMock,
   fetchAlmediaScorecard: fetchAlmediaScorecardMock,
+  fetchAlmediaBookings: fetchAlmediaBookingsMock,
   requestAlmediaSync: requestAlmediaSyncMock,
 }));
 
@@ -66,6 +70,10 @@ vi.mock("./almedia-performance-tab", () => ({
 
 vi.mock("./almedia-scorecard-tab", () => ({
   AlmediaScorecardTab: () => null,
+}));
+
+vi.mock("./almedia-bookings-tab", () => ({
+  AlmediaBookingsTab: () => null,
 }));
 
 import { ALMEDIA_POLL_INTERVAL_MS, AlmediaWorkspace } from "./almedia-workspace";
@@ -102,6 +110,8 @@ const SCORECARD: AlmediaScorecardResponse = {
   rows: [],
   unscheduledCount: 0,
 };
+
+const BOOKINGS: AlmediaBookingsResponse = { bookings: [] };
 
 type WorkspaceState = {
   requestState: Parameters<typeof useStateMock>[0];
@@ -157,17 +167,19 @@ describe("almedia workspace behavior", () => {
     fetchAlmediaDealsMock.mockResolvedValue(DEALS);
     fetchAlmediaCampaignsMock.mockResolvedValue(CAMPAIGNS);
     fetchAlmediaScorecardMock.mockResolvedValue(SCORECARD);
+    fetchAlmediaBookingsMock.mockResolvedValue(BOOKINGS);
     requestAlmediaSyncMock.mockResolvedValue({
       runId: "0f6c2e2c-1f5f-4d7a-9b1a-6b6b2d3f7c11",
     });
   });
 
-  it("loads the three read models together on mount", async () => {
+  it("loads the four read models together on mount", async () => {
     const { setters } = renderWorkspace();
 
     expect(fetchAlmediaDealsMock).toHaveBeenCalledWith(expect.any(AbortSignal));
     expect(fetchAlmediaCampaignsMock).toHaveBeenCalledWith(expect.any(AbortSignal));
     expect(fetchAlmediaScorecardMock).toHaveBeenCalledWith(expect.any(AbortSignal));
+    expect(fetchAlmediaBookingsMock).toHaveBeenCalledWith(expect.any(AbortSignal));
 
     await Promise.resolve();
     await Promise.resolve();

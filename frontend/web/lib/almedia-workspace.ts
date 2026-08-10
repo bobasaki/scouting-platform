@@ -1,9 +1,10 @@
-const ALMEDIA_TABS = ["insights", "performance", "scorecard"] as const;
+const ALMEDIA_TABS = ["insights", "bookings", "performance", "scorecard"] as const;
 
 export type AlmediaTab = (typeof ALMEDIA_TABS)[number];
 
 export const ALMEDIA_TAB_LABELS = {
   insights: "Insights",
+  bookings: "Bookings",
   performance: "Performance",
   scorecard: "Scorecard",
 } as const satisfies Record<AlmediaTab, string>;

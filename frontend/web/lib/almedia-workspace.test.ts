@@ -51,6 +51,11 @@ describe("buildAlmediaWorkspaceHref", () => {
 
 describe("tab order", () => {
   it("renders Insights, Performance, then Scorecard", () => {
-    expect(ALMEDIA_TABS_IN_ORDER).toEqual(["insights", "performance", "scorecard"]);
+    expect(ALMEDIA_TABS_IN_ORDER).toEqual([
+      "insights",
+      "bookings",
+      "performance",
+      "scorecard",
+    ]);
   });
 });

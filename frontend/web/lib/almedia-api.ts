@@ -1,12 +1,18 @@
 import {
+  almediaBookingResponseSchema,
+  almediaBookingsResponseSchema,
   almediaCampaignsResponseSchema,
   almediaDealsResponseSchema,
   almediaScorecardResponseSchema,
   almediaSyncResponseSchema,
+  type AlmediaBookingResponse,
+  type AlmediaBookingsResponse,
   type AlmediaCampaignsResponse,
   type AlmediaDealsResponse,
   type AlmediaScorecardResponse,
   type AlmediaSyncResponse,
+  type BookingInput,
+  type BookingUpdateInput,
 } from "@scouting-platform/contracts";
 import type { ZodType } from "zod";
 
@@ -80,18 +86,36 @@ function normalizeRequestError(
   return new Error(normalizeErrorMessage(error, fallbackMessage));
 }
 
+type RequestMethod = "GET" | "POST" | "PATCH" | "DELETE";
+
+type RequestInitOptions = Readonly<{
+  method?: RequestMethod;
+  body?: unknown;
+  signal?: AbortSignal | undefined;
+}>;
+
+function buildRequestInit(init: RequestInitOptions): RequestInit {
+  return {
+    method: init.method ?? "GET",
+    cache: "no-store",
+    signal: init.signal ?? null,
+    ...(init.body === undefined
+      ? {}
+      : {
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(init.body),
+        }),
+  };
+}
+
 async function requestJson<T>(
   path: string,
   schema: ZodType<T>,
   invalidResponseMessage: string,
-  init: Readonly<{ method?: "GET" | "POST"; signal?: AbortSignal | undefined }> = {},
+  init: RequestInitOptions = {},
 ): Promise<T> {
   try {
-    const response = await fetch(path, {
-      method: init.method ?? "GET",
-      cache: "no-store",
-      signal: init.signal ?? null,
-    });
+    const response = await fetch(path, buildRequestInit(init));
     const payload = await readJsonPayload(response);
 
     if (!response.ok) {
@@ -144,6 +168,64 @@ export async function fetchAlmediaScorecard(
     "Received an invalid Almedia scorecard response.",
     { signal },
   );
+}
+
+export async function fetchAlmediaBookings(
+  signal?: AbortSignal,
+): Promise<AlmediaBookingsResponse> {
+  return requestJson(
+    "/api/almedia/bookings",
+    almediaBookingsResponseSchema,
+    "Received an invalid Almedia bookings response.",
+    { signal },
+  );
+}
+
+export async function createAlmediaBooking(
+  booking: BookingInput,
+  signal?: AbortSignal,
+): Promise<AlmediaBookingResponse> {
+  return requestJson(
+    "/api/almedia/bookings",
+    almediaBookingResponseSchema,
+    "Received an invalid Almedia booking response.",
+    { method: "POST", body: booking, signal },
+  );
+}
+
+export async function updateAlmediaBooking(
+  bookingId: string,
+  booking: BookingUpdateInput,
+  signal?: AbortSignal,
+): Promise<AlmediaBookingResponse> {
+  return requestJson(
+    `/api/almedia/bookings/${encodeURIComponent(bookingId)}`,
+    almediaBookingResponseSchema,
+    "Received an invalid Almedia booking response.",
+    { method: "PATCH", body: booking, signal },
+  );
+}
+
+/** Returns 204 with no body, so there is nothing to validate. */
+export async function deleteAlmediaBooking(
+  bookingId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  try {
+    const response = await fetch(
+      `/api/almedia/bookings/${encodeURIComponent(bookingId)}`,
+      buildRequestInit({ method: "DELETE", signal }),
+    );
+
+    if (!response.ok) {
+      throw new AlmediaApiRequestError(
+        getApiErrorMessage(response, await readJsonPayload(response)),
+        response.status,
+      );
+    }
+  } catch (error) {
+    throw normalizeRequestError(error);
+  }
 }
 
 export async function requestAlmediaSync(

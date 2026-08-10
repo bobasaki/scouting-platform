@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+  AlmediaBookingsResponse,
   AlmediaCampaignsResponse,
   AlmediaDealsResponse,
   AlmediaScorecardResponse,
@@ -10,6 +11,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import React, { useCallback, useEffect, useState } from "react";
 
 import {
+  fetchAlmediaBookings,
   fetchAlmediaCampaigns,
   fetchAlmediaDeals,
   fetchAlmediaScorecard,
@@ -26,6 +28,7 @@ import { useDocumentVisibility } from "../../lib/document-visibility";
 import { PageHeader } from "../layout/PageHeader";
 import { ErrorState } from "../ui/ErrorState";
 import { SkeletonPageBody, SkeletonTable } from "../ui/skeleton";
+import { AlmediaBookingsTab } from "./almedia-bookings-tab";
 import { AlmediaInsightsTab } from "./almedia-insights-tab";
 import { AlmediaPerformanceTab } from "./almedia-performance-tab";
 import { AlmediaScorecardTab } from "./almedia-scorecard-tab";
@@ -44,6 +47,7 @@ type AlmediaData = Readonly<{
   deals: AlmediaDealsResponse;
   campaigns: AlmediaCampaignsResponse;
   scorecard: AlmediaScorecardResponse;
+  bookings: AlmediaBookingsResponse;
   fetchedAt: Date;
 }>;
 
@@ -89,10 +93,11 @@ export function AlmediaWorkspace() {
       }
 
       try {
-        const [deals, campaigns, scorecard] = await Promise.all([
+        const [deals, campaigns, scorecard, bookings] = await Promise.all([
           fetchAlmediaDeals(abortController.signal),
           fetchAlmediaCampaigns(abortController.signal),
           fetchAlmediaScorecard(abortController.signal),
+          fetchAlmediaBookings(abortController.signal),
         ]);
 
         if (didCancel || abortController.signal.aborted) {
@@ -101,7 +106,7 @@ export function AlmediaWorkspace() {
 
         setRequestState({
           status: "ready",
-          data: { deals, campaigns, scorecard, fetchedAt: new Date() },
+          data: { deals, campaigns, scorecard, bookings, fetchedAt: new Date() },
           error: null,
         });
 
@@ -134,6 +139,12 @@ export function AlmediaWorkspace() {
       }
     };
   }, [isDocumentVisible, reloadToken]);
+
+  // A booking write changes the deal join and the scorecard, so the whole
+  // workspace reloads rather than just the tab that was edited.
+  const handleBookingsMutated = useCallback(() => {
+    setReloadToken((token) => token + 1);
+  }, []);
 
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
@@ -235,6 +246,12 @@ export function AlmediaWorkspace() {
               <AlmediaInsightsTab
                 deals={data.deals.deals}
                 options={data.deals.options}
+              />
+            ) : null}
+            {activeTab === "bookings" ? (
+              <AlmediaBookingsTab
+                bookings={data.bookings.bookings}
+                onMutated={handleBookingsMutated}
               />
             ) : null}
             {activeTab === "performance" ? (

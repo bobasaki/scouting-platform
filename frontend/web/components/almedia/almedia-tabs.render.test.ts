@@ -3,11 +3,13 @@ import type {
   AlmediaDeal,
   AlmediaDimensionOptions,
   AlmediaScorecardResponse,
+  Booking,
 } from "@scouting-platform/contracts";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import { AlmediaBookingsTab } from "./almedia-bookings-tab";
 import { AlmediaInsightsTab } from "./almedia-insights-tab";
 import { AlmediaPerformanceTab } from "./almedia-performance-tab";
 import { AlmediaScorecardTab } from "./almedia-scorecard-tab";
@@ -228,6 +230,32 @@ const EMPTY_SCORECARD: AlmediaScorecardResponse = {
   unscheduledCount: 0,
 };
 
+const BOOKING: Booking = {
+  id: "8f4b1b0e-4d3a-4d5e-9a6f-6e2c1a9b7d31",
+  channelName: "ASMR Fixy",
+  channelKey: "ASMRFIXY",
+  channelUrl: null,
+  country: "PL",
+  cm: "Lucija P",
+  platform: "youtube",
+  vertical: "Gaming",
+  category: "integration",
+  status: "published",
+  activation: null,
+  numActivations: null,
+  contractSigned: true,
+  contractUrl: null,
+  publishedAt: "2026-07-13",
+  intBudget: 12_000,
+  extBudget: 15_000,
+  currency: "EUR",
+  month: "2026-07",
+  note: null,
+  videoUrl: null,
+  createdAt: "2026-07-01T00:00:00.000Z",
+  updatedAt: "2026-07-02T00:00:00.000Z",
+};
+
 describe("almedia tabs render", () => {
   it("renders every insights widget against a populated snapshot", () => {
     const html = renderToStaticMarkup(
@@ -276,6 +304,27 @@ describe("almedia tabs render", () => {
     );
 
     expect(empty).toContain("Your campaigns, clearly measured");
+  });
+
+  it("renders the bookings tab, and invites the first booking when empty", () => {
+    const populated = renderToStaticMarkup(
+      createElement(AlmediaBookingsTab, {
+        bookings: [BOOKING],
+        onMutated: () => undefined,
+      }),
+    );
+
+    expect(populated).toContain("What have we booked?");
+    expect(populated).toContain("ASMR Fixy");
+    expect(populated).toContain("ASMRFIXY");
+    expect(populated).toContain("Published");
+    expect(populated).toContain("1 of 1");
+
+    const empty = renderToStaticMarkup(
+      createElement(AlmediaBookingsTab, { bookings: [], onMutated: () => undefined }),
+    );
+
+    expect(empty).toContain("No bookings yet");
   });
 
   it("renders the scorecard tab for populated and empty plans", () => {

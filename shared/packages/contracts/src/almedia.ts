@@ -104,6 +104,89 @@ export const bookingSchema = z.object({
   updatedAt: isoDatetimeSchema,
 });
 
+/**
+ * Write side (Phase 2). Bookings are typed by hand in the workspace, so every
+ * text field accepts the empty string a cleared form control sends and stores
+ * it as `null` — the read model never distinguishes "" from "not set".
+ */
+function nullableText(maxLength: number) {
+  return z
+    .string()
+    .trim()
+    .max(maxLength)
+    .nullable()
+    .transform((value) => (value === null || value.length === 0 ? null : value));
+}
+
+function nullablePattern<Schema extends z.ZodType<string>>(schema: Schema) {
+  return z
+    .union([schema, z.literal(""), z.null()])
+    .transform((value) => (value === null || value === "" ? null : value));
+}
+
+const nullableAmountSchema = z.number().finite().nonnegative().nullable();
+
+const currencySchema = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z]{3}$/u, "Currency must be a 3-letter code")
+  .transform((value) => value.toUpperCase());
+
+/**
+ * Everything a user can set on a booking. `channelKey` is derived from
+ * `channelName` when omitted; supplying it explicitly is the escape hatch for
+ * a creator whose Almedia campaign name does not normalize to their display
+ * name, which is the only thing standing between a booking and its campaign.
+ */
+const bookingWritableShape = {
+  channelName: z.string().trim().min(1, "Channel name is required").max(200),
+  channelKey: nullableText(120),
+  channelUrl: nullableText(2048),
+  country: nullableText(120),
+  cm: nullableText(120),
+  platform: nullableText(60),
+  vertical: nullableText(120),
+  category: nullableText(120),
+  status: bookingStatusSchema,
+  activation: nullableText(200),
+  numActivations: z.number().int().nonnegative().nullable(),
+  contractSigned: z.boolean(),
+  contractUrl: nullableText(2048),
+  publishedAt: nullablePattern(isoDaySchema),
+  intBudget: nullableAmountSchema,
+  extBudget: nullableAmountSchema,
+  currency: currencySchema,
+  month: nullablePattern(isoMonthSchema),
+  note: nullableText(2000),
+  videoUrl: nullableText(2048),
+} as const;
+
+/**
+ * Create: only the channel name is required. Omitted keys are left to the
+ * column defaults (`pipeline`, `EUR`, unsigned) rather than being defaulted
+ * here twice.
+ */
+export const bookingInputSchema = z
+  .object(bookingWritableShape)
+  .partial()
+  .extend({ channelName: bookingWritableShape.channelName });
+
+/** Partial update: only the supplied keys are written. */
+export const bookingUpdateInputSchema = z
+  .object(bookingWritableShape)
+  .partial()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "No booking fields to update",
+  });
+
+export const almediaBookingsResponseSchema = z.object({
+  bookings: z.array(bookingSchema),
+});
+
+export const almediaBookingResponseSchema = z.object({
+  booking: bookingSchema,
+});
+
 export const almediaMaturitySchema = z.object({
   status: almediaMaturityStatusSchema,
   daysRemaining: z.number().int().nullable(),
@@ -243,6 +326,10 @@ export type AlmediaSizeTier = z.infer<typeof almediaSizeTierSchema>;
 export type AlmediaDimensionId = z.infer<typeof almediaDimensionIdSchema>;
 export type AlmediaCampaignRow = z.infer<typeof almediaCampaignSchema>;
 export type Booking = z.infer<typeof bookingSchema>;
+export type BookingInput = z.infer<typeof bookingInputSchema>;
+export type BookingUpdateInput = z.infer<typeof bookingUpdateInputSchema>;
+export type AlmediaBookingsResponse = z.infer<typeof almediaBookingsResponseSchema>;
+export type AlmediaBookingResponse = z.infer<typeof almediaBookingResponseSchema>;
 export type AlmediaDeal = z.infer<typeof almediaDealSchema>;
 export type AlmediaDimensionOptions = z.infer<typeof almediaDimensionOptionsSchema>;
 export type AlmediaSyncStatus = z.infer<typeof almediaSyncStatusSchema>;

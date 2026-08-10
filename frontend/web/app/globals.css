@@ -14664,3 +14664,193 @@ select {
     grid-column: auto;
   }
 }
+
+/* ============================================================
+   ALMEDIA BOOKINGS (Phase 2)
+   The write surface of the workspace. Appended after the read-only
+   Almedia block so the two stay separable; every selector is scoped
+   to .almedia-booking* and cannot collide with anything above.
+   ============================================================ */
+
+.almedia-bookings {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.almedia-bookings__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.almedia-bookings__toolbar .almedia-field:first-child {
+  min-width: 16rem;
+  flex: 1 1 16rem;
+}
+
+.almedia-bookings__count {
+  margin: 0 auto 0 0;
+  font-size: var(--font-size-200);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-subtle);
+}
+
+.almedia-bookings__channel {
+  display: block;
+  font-weight: var(--font-weight-semibold);
+}
+
+.almedia-bookings__row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* ── Status pill ─────────────────────────────────────────── */
+
+.almedia-booking-status {
+  display: inline-block;
+  padding: 0.125rem var(--space-2);
+  font-size: var(--font-size-100);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+  background: var(--color-surface-muted);
+  border-radius: var(--radius-sm);
+}
+
+.almedia-booking-status--booked {
+  color: var(--brand-navy);
+  background: color-mix(in oklab, var(--brand-blue) 16%, transparent);
+}
+
+.almedia-booking-status--published,
+.almedia-booking-status--longterm {
+  color: var(--color-success);
+  background: color-mix(in oklab, var(--color-success) 14%, transparent);
+}
+
+.almedia-booking-status--dropped {
+  color: var(--color-danger);
+  background: color-mix(in oklab, var(--color-danger) 14%, transparent);
+}
+
+/* Two-step delete: the second click is the confirmation. */
+.almedia-booking-delete--armed {
+  color: var(--color-surface);
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+/* ── Create / edit form ──────────────────────────────────── */
+
+.almedia-booking-form {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong, var(--color-border));
+  border-radius: var(--radius-lg);
+}
+
+.almedia-booking-form__heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.almedia-booking-form__heading h3 {
+  margin: 0;
+}
+
+.almedia-booking-form__hint {
+  max-width: 30rem;
+  margin: 0;
+  font-size: var(--font-size-200);
+  color: var(--color-text-subtle);
+}
+
+.almedia-booking-form__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--space-3) var(--space-4);
+}
+
+.almedia-field--wide {
+  grid-column: span 2;
+}
+
+.almedia-field--full {
+  grid-column: 1 / -1;
+}
+
+.almedia-field--checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  align-self: end;
+  padding-bottom: var(--space-2);
+}
+
+.almedia-field--checkbox input {
+  width: 1rem;
+  height: 1rem;
+  padding: 0;
+}
+
+.almedia-field--checkbox > span {
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--color-text);
+}
+
+.almedia-booking-form textarea {
+  padding: var(--space-2) var(--space-3);
+  font: inherit;
+  font-size: var(--font-size-200);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  resize: vertical;
+}
+
+.almedia-booking-form textarea:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.almedia-booking-form__error {
+  margin: 0;
+  font-size: var(--font-size-200);
+  color: var(--color-danger);
+}
+
+.almedia-booking-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+@media (max-width: 768px) {
+  .almedia-bookings__toolbar {
+    align-items: stretch;
+  }
+
+  .almedia-bookings__count {
+    margin: 0;
+  }
+
+  .almedia-field--wide {
+    grid-column: 1 / -1;
+  }
+}

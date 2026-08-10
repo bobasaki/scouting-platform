@@ -1,9 +1,6 @@
 import process from "node:process";
 
-import {
-  AlmediaSyncRunStatus as PrismaAlmediaSyncRunStatus,
-  Role,
-} from "@prisma/client";
+import { AlmediaSyncRunStatus as PrismaAlmediaSyncRunStatus } from "@prisma/client";
 import type {
   AlmediaCampaignRow,
   AlmediaSyncStatus,
@@ -16,6 +13,7 @@ import {
 
 import { recordAuditEvent } from "../audit";
 import { ServiceError } from "../errors";
+import { requireAlmediaAdminUser } from "./access";
 import { enqueueAlmediaCampaignsSyncJob } from "./queue";
 
 /**
@@ -80,26 +78,11 @@ function dedupeCampaigns(campaigns: readonly AlmediaCampaign[]): {
   return { unique: [...byName.values()], duplicateCount };
 }
 
-async function requireAdminUser(userId: string): Promise<void> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { role: true },
-  });
-
-  if (!user) {
-    throw new ServiceError("USER_NOT_FOUND", 404, "User not found");
-  }
-
-  if (user.role !== Role.ADMIN) {
-    throw new ServiceError("ALMEDIA_SYNC_FORBIDDEN", 403, "Forbidden");
-  }
-}
-
 /** Queue a sync run and return its durable run id. */
 export async function requestAlmediaCampaignsSync(input: {
   requestedByUserId: string;
 }): Promise<{ runId: string }> {
-  await requireAdminUser(input.requestedByUserId);
+  await requireAlmediaAdminUser(input.requestedByUserId, "ALMEDIA_SYNC_FORBIDDEN");
 
   const run = await prisma.almediaSyncRun.create({
     data: {

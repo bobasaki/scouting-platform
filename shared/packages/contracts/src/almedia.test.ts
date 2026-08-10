@@ -6,7 +6,9 @@ import {
   almediaDealsResponseSchema,
   almediaScorecardResponseSchema,
   almediaSyncStatusSchema,
+  bookingInputSchema,
   bookingSchema,
+  bookingUpdateInputSchema,
   type AlmediaDeal,
 } from "./almedia";
 import { parseJobPayload } from "./jobs";
@@ -259,5 +261,79 @@ describe("almedia contracts", () => {
     expect(() =>
       parseJobPayload("almedia.campaigns.sync", { initiatedBy: "system" }),
     ).toThrow();
+  });
+});
+
+describe("booking write contracts", () => {
+  it("normalizes blank text to null and leaves omitted keys unset", () => {
+    const parsed = bookingInputSchema.parse({
+      channelName: "  ASMR Fixy  ",
+      channelKey: "",
+      channelUrl: "",
+      country: "DE",
+      cm: "",
+      platform: "youtube",
+      vertical: "",
+      category: "",
+      activation: "",
+      contractUrl: "",
+      publishedAt: "",
+      month: "",
+      note: "",
+      videoUrl: "",
+    });
+
+    expect(parsed).toEqual({
+      channelName: "ASMR Fixy",
+      channelKey: null,
+      channelUrl: null,
+      country: "DE",
+      cm: null,
+      platform: "youtube",
+      vertical: null,
+      category: null,
+      activation: null,
+      contractUrl: null,
+      publishedAt: null,
+      month: null,
+      note: null,
+      videoUrl: null,
+    });
+  });
+
+  it("uppercases the currency and keeps well-formed dates", () => {
+    const parsed = bookingInputSchema.parse({
+      channelName: "ASMR Fixy",
+      currency: "usd",
+      month: "2026-03",
+      publishedAt: "2026-03-14",
+      intBudget: 12_000,
+      extBudget: 15_000,
+      status: "booked",
+      numActivations: 2,
+      contractSigned: true,
+    });
+
+    expect(parsed.currency).toBe("USD");
+    expect(parsed.month).toBe("2026-03");
+    expect(parsed.publishedAt).toBe("2026-03-14");
+    expect(parsed.status).toBe("booked");
+  });
+
+  it("rejects an empty channel name, a bad month, and a negative budget", () => {
+    expect(() => bookingInputSchema.parse({ channelName: "   " })).toThrow();
+    expect(() =>
+      bookingInputSchema.parse({ channelName: "ASMR Fixy", month: "2026-3" }),
+    ).toThrow();
+    expect(() =>
+      bookingInputSchema.parse({ channelName: "ASMR Fixy", intBudget: -1 }),
+    ).toThrow();
+  });
+
+  it("accepts a partial update but rejects an empty one", () => {
+    expect(bookingUpdateInputSchema.parse({ status: "published" })).toEqual({
+      status: "published",
+    });
+    expect(() => bookingUpdateInputSchema.parse({})).toThrow();
   });
 });
