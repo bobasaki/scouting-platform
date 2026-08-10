@@ -13,5 +13,7 @@ export const JOB_NAMES = [
   "hubspot.object-sync.schedule",
   "hubspot.object-sync",
   "hubspot.webhook.process",
+  "almedia.campaigns.sync.schedule",
+  "almedia.campaigns.sync",
   "maintenance.refresh-stale",
 ] as const;

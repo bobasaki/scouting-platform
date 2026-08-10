@@ -326,6 +326,25 @@ enum CsvExportScopeType {
   @@map("csv_export_scope_type")
 }
 
+enum BookingStatus {
+  PIPELINE  @map("pipeline")
+  BOOKED    @map("booked")
+  PUBLISHED @map("published")
+  LONGTERM  @map("longterm")
+  DROPPED   @map("dropped")
+
+  @@map("booking_status")
+}
+
+enum AlmediaSyncRunStatus {
+  QUEUED    @map("queued")
+  RUNNING   @map("running")
+  COMPLETED @map("completed")
+  FAILED    @map("failed")
+
+  @@map("almedia_sync_run_status")
+}
+
 model User {
   id                                    String                        @id @default(uuid()) @db.Uuid
   name                                  String?
@@ -363,6 +382,7 @@ model User {
   requestedHubspotObjectSyncRuns        HubspotObjectSyncRun[]        @relation("HubspotObjectSyncRequestedBy")
   requestedHubspotHealthCheckRuns       HubspotHealthCheckRun[]       @relation("HubspotHealthCheckRequestedBy")
   resolvedHubspotConflicts              HubspotConflict[]             @relation("HubspotConflictResolvedBy")
+  requestedAlmediaSyncRuns              AlmediaSyncRun[]              @relation("AlmediaSyncRequestedBy")
   createdCampaigns                      Campaign[]                    @relation("CampaignCreatedBy")
   youtubeDiscoveryCache                 YoutubeDiscoveryCache[]
   ratedRunResults                       RunResult[]                   @relation("RunResultRatedBy")
@@ -1716,4 +1736,142 @@ model YoutubeDiscoveryCache {
   @@index([cacheKey], map: "youtube_discovery_cache_cache_key_idx")
   @@index([expiresAt], map: "youtube_discovery_cache_expires_at_idx")
   @@map("youtube_discovery_cache")
+}
+
+/// A creator booking (the Freecash x ARCH. tracker row). `month` and
+/// `publishedAt` stay strings — the domain compares them lexically as ISO
+/// `YYYY-MM` / `YYYY-MM-DD`, and the source tracker stores partial dates.
+model Booking {
+  id             String        @id @default(uuid()) @db.Uuid
+  /// Primary key from the imported SQLite tracker; the import idempotency key.
+  legacySourceId Int?          @unique @map("legacy_source_id")
+  channelName    String        @map("channel_name")
+  /// Normalized join key against Almedia campaign names (e.g. "ASMRFIXY").
+  channelKey     String        @map("channel_key")
+  channelUrl     String?       @map("channel_url")
+  country        String?
+  cm             String?
+  platform       String?
+  vertical       String?
+  category       String?
+  status         BookingStatus @default(PIPELINE)
+  activation     String?
+  numActivations Int?          @map("num_activations")
+  contractSigned Boolean       @default(false) @map("contract_signed")
+  contractUrl    String?       @map("contract_url")
+  publishedAt    String?       @map("published_at")
+  intBudget      Float?        @map("int_budget")
+  extBudget      Float?        @map("ext_budget")
+  currency       String        @default("EUR")
+  month          String?
+  note           String?       @db.Text
+  videoUrl       String?       @map("video_url")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  @@index([channelKey], map: "bookings_channel_key_idx")
+  @@index([month], map: "bookings_month_idx")
+  @@index([status], map: "bookings_status_idx")
+  @@index([createdAt], map: "bookings_created_at_idx")
+  @@map("bookings")
+}
+
+/// One CM x market x month plan target (the Plan tab of the source tracker).
+model BookingTarget {
+  id            String   @id @default(uuid()) @db.Uuid
+  cm            String
+  market        String
+  /// ISO YYYY-MM.
+  month         String
+  budgetEur     Float    @map("budget_eur")
+  tierUnder10k  Int      @default(0) @map("tier_under_10k")
+  tier10kTo20k  Int      @default(0) @map("tier_10k_20k")
+  tier20kTo50k  Int      @default(0) @map("tier_20k_50k")
+  tierOver50k   Int      @default(0) @map("tier_over_50k")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@unique([cm, market, month], map: "booking_targets_cm_market_month_key")
+  @@index([month], map: "booking_targets_month_idx")
+  @@map("booking_targets")
+}
+
+/// Company-level monthly revenue target (ISO YYYY-MM).
+model RevenueTarget {
+  id        String   @id @default(uuid()) @db.Uuid
+  month     String   @unique
+  totalEur  Float    @map("total_eur")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("revenue_targets")
+}
+
+/// A snapshot taken when a campaign is marked invoiced, keyed by its unique
+/// Almedia campaign name. Imported for data preservation; no Phase 1 routes.
+model BookingInvoice {
+  id               String   @id @default(uuid()) @db.Uuid
+  campaignName     String   @unique @map("campaign_name")
+  channelName      String   @map("channel_name")
+  invoicedAt       String   @map("invoiced_at")
+  maturedAtInvoice Boolean  @default(false) @map("matured_at_invoice")
+  cost             Float
+  returnPct        Float?   @map("return_pct")
+  /// Invoice-tier id at invoice time (kept as a string, as in the source app).
+  tier             String
+  amount           Float
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([invoicedAt], map: "booking_invoices_invoiced_at_idx")
+  @@map("booking_invoices")
+}
+
+/// One row per campaign in the Almedia agency-data feed, replaced wholesale by
+/// each successful worker sync so the web tier reads one consistent dataset.
+model AlmediaCampaignSnapshot {
+  id             String    @id @default(uuid()) @db.Uuid
+  campaignName   String    @unique @map("campaign_name")
+  campaignSource String    @map("campaign_source")
+  platform       String
+  country        String
+  publishedAt    DateTime? @map("published_at")
+  cost           Float?
+  expectedCpm    Float?    @map("expected_cpm")
+  viewCount      Float?    @map("view_count")
+  signupsPct     Float?    @map("signups_pct")
+  roasD7pD14     Float?    @map("roas_d7p_d14")
+  roasReturn     Float?    @map("roas_return")
+  returnPct      Float?    @map("return_pct")
+  appuD14        Float?    @map("appu_d14")
+  d7Purchases    Float?    @map("d7_purchases")
+  channelName    String?   @map("channel_name")
+  videoUrl       String?   @map("video_url")
+  syncedAt       DateTime  @map("synced_at")
+
+  @@index([syncedAt], map: "almedia_campaign_snapshots_synced_at_idx")
+  @@index([platform], map: "almedia_campaign_snapshots_platform_idx")
+  @@map("almedia_campaign_snapshots")
+}
+
+model AlmediaSyncRun {
+  id                String               @id @default(uuid()) @db.Uuid
+  /// Null for the hourly cron run; set when an admin triggers a manual refresh.
+  requestedByUserId String?              @map("requested_by_user_id") @db.Uuid
+  status            AlmediaSyncRunStatus @default(QUEUED)
+  agency            String?
+  campaignCount     Int                  @default(0) @map("campaign_count")
+  pageCount         Int                  @default(0) @map("page_count")
+  duplicateCount    Int                  @default(0) @map("duplicate_count")
+  startedAt         DateTime?            @map("started_at")
+  completedAt       DateTime?            @map("completed_at")
+  lastError         String?              @map("last_error") @db.Text
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+  requestedByUser   User?                @relation("AlmediaSyncRequestedBy", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([requestedByUserId], map: "almedia_sync_runs_requested_by_user_id_idx")
+  @@index([status], map: "almedia_sync_runs_status_idx")
+  @@index([createdAt], map: "almedia_sync_runs_created_at_idx")
+  @@map("almedia_sync_runs")
 }

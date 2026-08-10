@@ -11,13 +11,14 @@ import {
 } from "./navigation";
 
 describe("navigation config", () => {
-  it("defines dashboard, new scouting, catalog, database, feedback, and admin entries", () => {
+  it("defines dashboard, new scouting, catalog, database, feedback, almedia, and admin entries", () => {
     expect(APP_NAVIGATION_ITEMS.map((item) => item.key)).toEqual([
       "dashboard",
       "new-scouting",
       "catalog",
       "database",
       "feedback",
+      "almedia",
       "admin",
     ]);
     expect(APP_ROLES).toEqual(["admin", "user"]);
@@ -30,6 +31,7 @@ describe("navigation config", () => {
       "/catalog",
       "/database",
       "/feedback",
+      "/almedia",
       "/admin",
     ]);
   });
@@ -67,6 +69,7 @@ describe("navigation config", () => {
       "catalog",
       "database",
       "feedback",
+      "almedia",
       "admin",
     ]);
   });
@@ -75,9 +78,19 @@ describe("navigation config", () => {
     const globalOrder = APP_NAVIGATION_ITEMS.map((item) => item.key);
 
     expect(getNavigationForRole("user").map((item) => item.key)).toEqual(
-      globalOrder.filter((key) => key !== "admin")
+      globalOrder.filter((key) => key !== "almedia" && key !== "admin")
     );
     expect(getNavigationForRole("admin").map((item) => item.key)).toEqual(globalOrder);
+  });
+
+  it("keeps Almedia admin-only and placed just before Admin", () => {
+    const almediaEntry = APP_NAVIGATION_ITEMS.find((item) => item.key === "almedia");
+    const keys = APP_NAVIGATION_ITEMS.map((item) => item.key);
+
+    expect(almediaEntry?.visibleTo).toEqual(["admin"]);
+    expect(almediaEntry?.href).toBe("/almedia");
+    expect(keys.indexOf("almedia")).toBe(keys.indexOf("admin") - 1);
+    expect(isNavItemVisibleToRole(almediaEntry!, "user")).toBe(false);
   });
 
   it("validates and resolves known roles", () => {

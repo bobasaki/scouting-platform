@@ -1,4 +1,5 @@
 export * from "./admin";
+export * from "./almedia";
 export * from "./approvals";
 export * from "./audit";
 export * from "./auth";

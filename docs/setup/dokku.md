@@ -79,6 +79,27 @@ Set these on `scouting-worker`:
 - `OPENAI_API_KEY` if LLM enrichment is enabled
 - `HYPEAUDITOR_API_KEY` if advanced reports are enabled
 - `HUBSPOT_ACCESS_TOKEN` plus the same HubSpot V2 portal mapping when HubSpot is configured
+- `ALMEDIA_API_KEY` if Almedia tracking is enabled (worker only, see below)
+
+### Almedia campaign tracking
+
+The admin-only `/almedia` view reads a snapshot of the Almedia agency-data feed
+out of Postgres. Only `scouting-worker` calls the Almedia API, so the key MUST
+be set on the worker and MUST NOT be set on `scouting-web` — and never as a
+`NEXT_PUBLIC_*` variable.
+
+```bash
+dokku config:set scouting-worker \
+  ALMEDIA_API_KEY='<almedia-agency-key>'
+```
+
+Optional on the worker:
+
+- `ALMEDIA_BASE_URL` overrides the API base URL (defaults to production)
+- `WORKER_ALMEDIA_CAMPAIGNS_SYNC_CONCURRENCY` (defaults to `1`)
+
+The worker registers an hourly Almedia campaign sync (`0 * * * *`, timezone
+`Etc/GMT-2`). The Refresh button on `/almedia` enqueues the same durable job.
 
 ### HubSpot V2
 

@@ -7,6 +7,7 @@ export type AppNavigationKey =
   | "catalog"
   | "database"
   | "feedback"
+  | "almedia"
   | "admin";
 
 export type AppNavigationItem = Readonly<{
@@ -17,6 +18,7 @@ export type AppNavigationItem = Readonly<{
     | "/catalog"
     | "/database"
     | "/feedback"
+    | "/almedia"
     | "/admin";
   label: string;
   visibleTo: readonly AppRole[];
@@ -52,6 +54,12 @@ export const APP_NAVIGATION_ITEMS: readonly AppNavigationItem[] = [
     label: "Feedback",
     href: "/feedback",
     visibleTo: ["user", "admin"]
+  },
+  {
+    key: "almedia",
+    label: "Almedia",
+    href: "/almedia",
+    visibleTo: ["admin"]
   },
   {
     key: "admin",

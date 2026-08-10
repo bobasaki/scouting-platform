@@ -26,8 +26,10 @@ describe("app navigation", () => {
     expect(html).toContain('href="/database"');
     expect(html).toContain('href="/feedback"');
     expect(html).not.toContain('href="/admin"');
+    expect(html).not.toContain('href="/almedia"');
     expect(html).not.toContain(">Workspace<");
     expect(html).not.toContain(">Admin<");
+    expect(html).not.toContain(">Almedia<");
     expect(linkCount).toBe(5);
   });
 
@@ -40,9 +42,11 @@ describe("app navigation", () => {
     expect(html).toContain('href="/catalog"');
     expect(html).toContain('href="/database"');
     expect(html).toContain('href="/feedback"');
+    expect(html).toContain('href="/almedia"');
     expect(html).toContain('href="/admin"');
     expect(html).toContain(">New Scouting<");
+    expect(html).toContain(">Almedia<");
     expect(html).not.toContain(">Workspace<");
-    expect(linkCount).toBe(6);
+    expect(linkCount).toBe(7);
   });
 });

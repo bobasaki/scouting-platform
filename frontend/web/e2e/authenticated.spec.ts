@@ -359,4 +359,29 @@ test.describe("authenticated launch-readiness flows", () => {
     await expect(page.getByText("HubSpot sync queued.")).toBeVisible();
     await expect.poll(() => syncPostCalls).toBe(1);
   });
+
+  test("almedia tracking is admin-only and exposes its three views", async ({ page }) => {
+    const seedData = readSeedData();
+
+    await login(page, seedData.admin);
+    await page.goto("/almedia");
+
+    await expect(page.getByRole("heading", { level: 1, name: "Almedia" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Insights" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Performance" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Scorecard" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Refresh" })).toBeVisible();
+
+    await page.goto("/almedia?tab=scorecard");
+    await expect(page.getByRole("heading", { name: "Are we on pace?" })).toBeVisible();
+  });
+
+  test("non-admins cannot reach almedia tracking", async ({ page }) => {
+    const seedData = readSeedData();
+
+    await login(page, seedData.manager);
+    await page.goto("/almedia");
+
+    await expect(page).toHaveURL(/\/forbidden$/);
+  });
 });

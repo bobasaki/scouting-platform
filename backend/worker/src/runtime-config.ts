@@ -33,6 +33,8 @@ export type WorkerRuntimeConfig = Readonly<{
     hubspotObjectSyncSchedule: WorkerJobOptions;
     hubspotObjectSync: WorkerJobOptions;
     hubspotWebhook: WorkerJobOptions;
+    almediaCampaignsSyncSchedule: WorkerJobOptions;
+    almediaCampaignsSync: WorkerJobOptions;
   }>;
 }>;
 
@@ -226,6 +228,16 @@ export function getWorkerRuntimeConfig(
       ),
       hubspotObjectSync: buildWorkerJobOptions(env, "WORKER_HUBSPOT_OBJECT_SYNC_CONCURRENCY", 1),
       hubspotWebhook: buildWorkerJobOptions(env, "WORKER_HUBSPOT_WEBHOOK_CONCURRENCY", 2),
+      almediaCampaignsSyncSchedule: buildWorkerJobOptions(
+        env,
+        "WORKER_ALMEDIA_CAMPAIGNS_SYNC_CONCURRENCY",
+        1,
+      ),
+      almediaCampaignsSync: buildWorkerJobOptions(
+        env,
+        "WORKER_ALMEDIA_CAMPAIGNS_SYNC_CONCURRENCY",
+        1,
+      ),
     },
   };
 }
