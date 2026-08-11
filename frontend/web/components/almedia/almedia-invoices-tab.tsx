@@ -9,11 +9,9 @@ import {
   buildInvoiceBatches,
   buildInvoiceMonths,
   COST_INVOICED_THROUGH,
-  invoiceAmount,
   invoiceTotals,
   prevMonth,
   undatedSpend,
-  BASE_MARKUP,
   type BatchMember,
   type InvoiceBatch,
   type InvoiceMonth,
@@ -79,7 +77,9 @@ function InvoiceMonthCard({ entry }: Readonly<{ entry: InvoiceMonth }>) {
           </dt>
           <dd>
             <span className="almedia-invoice-card__amount">
-              {formatAmount(entry.newCost)}
+              {formatAmount(
+                entry.costInvoiced ? entry.invoicedCost : entry.newCost,
+              )}
             </span>
             {entry.costBatch ? (
               <span
@@ -312,7 +312,11 @@ function BatchRow({
       <div className="almedia-batch__body">
         <p className="almedia-batch__stages">
           <span>
-            <strong>Stage 1 · Cost</strong> {formatAmount(batch.baseTotal)},{" "}
+            <strong>Stage 1 · Cost</strong>{" "}
+            {formatAmount(
+              batch.costInvoiced ? batch.invoicedBaseTotal : batch.baseTotal,
+            )}
+            ,{" "}
             {batch.costInvoiced ? (
               <span className="almedia-tone-good">invoiced in {batch.label}</span>
             ) : (
@@ -453,19 +457,6 @@ export function AlmediaInvoicesTab({
 
   const handleRecord = useCallback(
     (member: BatchMember) => {
-      // Snapshot the full commissioned charge this campaign has earned, at the
-      // tier it earns on its own — that is the figure the bill goes out at.
-      const amount = invoiceAmount(
-        member.cost,
-        member.memberReturn === null
-          ? null
-          : member.memberReturn * (1 + BASE_MARKUP),
-      );
-
-      if (amount === null) {
-        return;
-      }
-
       setBusyCampaign(member.campaignName);
       setMutationError(null);
 
@@ -476,8 +467,8 @@ export function AlmediaInvoicesTab({
         maturedAtInvoice: member.status === "matured",
         cost: member.cost,
         returnPct: member.memberReturn,
-        tier: member.ownTier.id,
-        amount,
+        tier: member.batchTier.id,
+        amount: member.invoiceAmount,
       })
         .then(() => {
           onMutated();
@@ -590,7 +581,7 @@ export function AlmediaInvoicesTab({
           <p className="almedia-kpi__label">Cost to invoice</p>
           <strong className="almedia-kpi__value">{formatAmount(totals.costDue)}</strong>
           <span className="almedia-kpi__context">
-            publish months after {INVOICED_LABEL}
+            after {INVOICED_LABEL}, excluding recorded snapshots
           </span>
         </article>
         <article className="stat-card almedia-kpi">
@@ -599,7 +590,7 @@ export function AlmediaInvoicesTab({
             {formatAmount(totals.costInvoiced)}
           </strong>
           <span className="almedia-kpi__context">
-            cost up front through {INVOICED_LABEL}
+            historical cutoff plus recorded snapshots
           </span>
         </article>
       </section>

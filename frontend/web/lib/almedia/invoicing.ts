@@ -166,12 +166,16 @@ export interface BatchMember {
   included: boolean;
   /** Stage 1: the Almedia cost billed up front in the publish month. */
   baseAmount: number;
+  /** The blended batch tier used for this member's invoice allocation. */
+  batchTier: InvoiceTier;
   /**
    * Stage 2: this member's share of the batch performance fee, billed the next
    * calendar month — max(0, INT × (1 + batch commission) − cost). Zero for a
    * member not counted in the batch, or when the batch sits at the base tier.
    */
   performanceFee: number;
+  /** Full snapshot amount at the batch tier: cost + allocated performance fee. */
+  invoiceAmount: number;
   /** The recorded snapshot for this campaign, if a bill has been sent. */
   invoice: BookingInvoice | null;
   /**
@@ -212,15 +216,16 @@ export interface InvoiceBatch {
   tier: InvoiceTier;
   /** Σ INT price (cost ÷ 1.2) across the included members — the fee basis. */
   intTotal: number;
-  /** Stage 1: Σ Almedia cost of EVERY member — billed up front. */
+  /** Stage 1 cost still outstanding after the cutoff and recorded snapshots. */
   baseTotal: number;
+  /** Stage 1 cost already covered by the historical cutoff or invoice snapshots. */
+  invoicedBaseTotal: number;
   /**
-   * Stage 2: the performance fee on the matured cohort — Σ INT × (1 + commission)
-   * − Σ cost — billed the next calendar month. Floored at 0: at the base 20% tier
-   * INT × 1.2 = cost, so nothing extra is billed.
+   * Stage 2 fee still outstanding. Unrecorded members contribute their batch-tier
+   * allocation; recorded members contribute only a positive top-up.
    */
   performanceFee: number;
-  /** Total client bill for the month = baseTotal + performanceFee. */
+  /** Total still due for the month = baseTotal + performanceFee. */
   amount: number;
   /** The calendar month the fee is billed, e.g. publish "2026-06" → "2026-07". */
   feeMonth: string;
@@ -295,9 +300,10 @@ export interface InvoiceBatchOptions {
 /**
  * Group eligible campaigns by publish month into batch invoices. INT is derived
  * from the Almedia cost (cost ÷ 1.2), so every campaign with a cost is billable.
- * Stage 1 (cost up front) counts EVERY member — cost is billed the month a
- * campaign publishes, matured or not. Stage 2 (the fee) counts only matured
- * members, plus any opted-in maturing one. Most recent month first.
+ * Stage 1 (cost up front) starts with every member, then removes cost covered by
+ * the historical cutoff or a recorded snapshot. Stage 2 counts only matured
+ * members, plus any opted-in maturing one, and removes recorded charges except
+ * for a positive top-up. Most recent month first.
  */
 export function buildInvoiceBatches(
   deals: readonly AlmediaDeal[],
@@ -321,12 +327,6 @@ export function buildInvoiceBatches(
     const int = intPrice(deal.cost);
     const memberReturn = deal.returnPct;
     const invoice = invoices.get(deal.campaignName) ?? null;
-    // The full commissioned charge this campaign has earned on its own terms;
-    // anything already billed comes off it.
-    const earned = invoiceAmount(
-      deal.cost,
-      memberReturn === null ? null : memberReturn * (1 + BASE_MARKUP),
-    );
 
     byMonth.set(month, [
       ...(byMonth.get(month) ?? []),
@@ -348,12 +348,11 @@ export function buildInvoiceBatches(
           deal.maturity.status === "matured" ||
           includedCampaigns.has(deal.campaignName),
         baseAmount: deal.cost,
+        batchTier: BASE_TIER,
         performanceFee: 0,
+        invoiceAmount: deal.cost,
         invoice,
-        topUp:
-          invoice === null || earned === null
-            ? null
-            : toCents(Math.max(0, earned - invoice.amount)),
+        topUp: null,
       },
     ]);
   }
@@ -370,22 +369,53 @@ export function buildInvoiceBatches(
       const blended = blendedReturn(included);
       const tier = invoiceTier(blended);
       const intTotal = included.reduce((sum, member) => sum + member.int, 0);
-      const includedCost = included.reduce((sum, member) => sum + member.cost, 0);
-      // Stage 1 bills the cost of every campaign published this month.
-      const baseTotal = members.reduce((sum, member) => sum + member.cost, 0);
-      // Stage 2 tops the matured cohort's cost up to its commissioned charge.
-      const performanceFee = toCents(
-        Math.max(0, intTotal * (1 + tier.markup) - includedCost),
-      );
       const maturingCount = members.filter(
         (member) => member.status !== "matured",
       ).length;
-      const withFee = members.map((member) => ({
-        ...member,
-        performanceFee: member.included
+      const withFee = members.map((member) => {
+        const performanceFee = member.included
           ? memberFee(member.int, member.cost, tier.markup)
-          : 0,
-      }));
+          : 0;
+        const currentAmount = toCents(member.cost + performanceFee);
+
+        return {
+          ...member,
+          batchTier: tier,
+          performanceFee,
+          invoiceAmount: currentAmount,
+          topUp:
+            member.invoice === null
+              ? null
+              : toCents(Math.max(0, currentAmount - member.invoice.amount)),
+        };
+      });
+      // The historical cutoff covers every earlier cost. A later invoice
+      // snapshot covers that campaign's cost as well as its fee allocation.
+      const baseTotal = toCents(
+        withFee.reduce(
+          (sum, member) =>
+            sum +
+            (month > COST_INVOICED_THROUGH && member.invoice === null
+              ? member.cost
+              : 0),
+          0,
+        ),
+      );
+      const invoicedBaseTotal = toCents(
+        withFee.reduce((sum, member) => sum + member.cost, 0) - baseTotal,
+      );
+      // An unrecorded member owes its full batch fee allocation. A recorded
+      // member owes only a positive top-up if the batch later climbs a tier.
+      const performanceFee = toCents(
+        withFee.reduce(
+          (sum, member) =>
+            sum +
+            (member.invoice === null
+              ? member.performanceFee
+              : (member.topUp ?? 0)),
+          0,
+        ),
+      );
 
       return {
         month,
@@ -396,16 +426,17 @@ export function buildInvoiceBatches(
         maturingCount,
         invoicedCount: members.filter((member) => member.invoice !== null).length,
         topUpTotal: toCents(
-          members.reduce((sum, member) => sum + (member.topUp ?? 0), 0),
+          withFee.reduce((sum, member) => sum + (member.topUp ?? 0), 0),
         ),
         blendedReturn: blended,
         tier,
         intTotal,
         baseTotal,
+        invoicedBaseTotal,
         performanceFee,
-        amount: baseTotal + performanceFee,
+        amount: toCents(baseTotal + performanceFee),
         feeMonth: nextMonth(month),
-        costInvoiced: month <= COST_INVOICED_THROUGH,
+        costInvoiced: baseTotal === 0,
         feeSettled: maturingCount === 0,
       };
     });
@@ -420,9 +451,11 @@ export interface InvoiceMonth {
   /** The calendar month this invoice is sent, e.g. "2026-07". */
   month: string;
   label: string;
-  /** Stage 1 cost from campaigns published THIS month. */
+  /** Outstanding Stage 1 cost from campaigns published THIS month. */
   newCost: number;
-  /** Whether that cost has already been invoiced (publish month ≤ cutoff). */
+  /** Stage 1 cost already covered by the cutoff or recorded snapshots. */
+  invoicedCost: number;
+  /** Whether all cost is covered by the cutoff or recorded snapshots. */
   costInvoiced: boolean;
   /** The publish batch whose cost lands this month; null if none published. */
   costBatch: InvoiceBatch | null;
@@ -441,6 +474,7 @@ export interface InvoiceMonth {
 interface InvoiceMonthAccumulator {
   month: string;
   newCost: number;
+  invoicedCost: number;
   costInvoiced: boolean;
   costBatch: InvoiceBatch | null;
   carriedFee: number;
@@ -469,6 +503,7 @@ export function buildInvoiceMonths(
     const created: InvoiceMonthAccumulator = {
       month,
       newCost: 0,
+      invoicedCost: 0,
       costInvoiced: true,
       costBatch: null,
       carriedFee: 0,
@@ -483,11 +518,12 @@ export function buildInvoiceMonths(
   };
 
   for (const batch of batches) {
-    // Cost lands the month the batch publishes. One batch per publish month, so
-    // a direct assignment of the invoiced flag is correct.
+    // Outstanding cost lands the month the batch publishes. One batch per
+    // publish month, so a direct assignment of the invoiced flag is correct.
     const costRow = ensure(batch.month);
 
     costRow.newCost += batch.baseTotal;
+    costRow.invoicedCost += batch.invoicedBaseTotal;
     costRow.costBatch = batch;
     costRow.costInvoiced = batch.costInvoiced;
 
@@ -557,11 +593,8 @@ export function invoiceTotals(
   let feesPending = 0;
 
   for (const entry of months) {
-    if (entry.costInvoiced) {
-      costInvoiced += entry.newCost;
-    } else {
-      costDue += entry.newCost;
-    }
+    costInvoiced += entry.invoicedCost;
+    costDue += entry.newCost;
 
     feesDue += entry.carriedFee;
     feesPending += entry.feePending;

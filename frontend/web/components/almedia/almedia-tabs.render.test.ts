@@ -421,8 +421,9 @@ describe("almedia tabs render", () => {
     // July (cost 1,000) and August (cost 4,000) publish batches.
     expect(html).toContain("Jul 2026");
     expect(html).toContain("Aug 2026");
-    // Same formatter as every other tab.
-    expect(html).toContain("$5,000");
+    // The recorded July charge is excluded; only its $267 top-up plus August's
+    // $4,000 cost remains outstanding, through the shared formatter.
+    expect(html).toContain("$4,267");
     // The recorded snapshot for the July campaign, and the shortfall it leaves.
     expect(html).toContain("billed $900");
     expect(html).toContain("still owed");

@@ -100,13 +100,34 @@ export async function requestAlmediaCampaignsSync(input: {
     entityId: run.id,
   });
 
-  await enqueueAlmediaCampaignsSyncJob({
+  await enqueueOrFailRun(run.id, {
     initiatedBy: "admin",
     syncRunId: run.id,
     requestedByUserId: input.requestedByUserId,
   });
 
   return { runId: run.id };
+}
+
+/** Mark a run failed when no worker job was created to claim it. */
+async function enqueueOrFailRun(
+  runId: string,
+  payload: Parameters<typeof enqueueAlmediaCampaignsSyncJob>[0],
+): Promise<void> {
+  try {
+    await enqueueAlmediaCampaignsSyncJob(payload);
+  } catch (error) {
+    await prisma.almediaSyncRun.update({
+      where: { id: runId },
+      data: {
+        status: PrismaAlmediaSyncRunStatus.FAILED,
+        completedAt: new Date(),
+        lastError: describeError(error),
+      },
+    });
+
+    throw error;
+  }
 }
 
 /** Queue the hourly sync run (no requesting user). */
@@ -116,7 +137,7 @@ export async function createScheduledAlmediaSyncRun(): Promise<{ runId: string }
     select: { id: true },
   });
 
-  await enqueueAlmediaCampaignsSyncJob({
+  await enqueueOrFailRun(run.id, {
     initiatedBy: "system",
     syncRunId: run.id,
   });

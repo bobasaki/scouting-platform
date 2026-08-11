@@ -191,7 +191,11 @@ describe("buildInvoiceBatches", () => {
     expect(members.A?.int).toBe(5_000);
     expect(members.A?.mediaSpend).toBe(18_000);
     expect(members.A?.performanceFee).toBe(2_000);
+    expect(members.A?.batchTier.id).toBe("c60");
+    expect(members.A?.invoiceAmount).toBe(8_000);
     expect(members.B?.performanceFee).toBe(2_000);
+    expect(members.B?.batchTier.id).toBe("c60");
+    expect(members.B?.invoiceAmount).toBe(8_000);
   });
 
   it("bills cost up front for every campaign but fees only the matured cohort", () => {
@@ -233,7 +237,10 @@ describe("buildInvoiceBatches", () => {
     ]);
 
     expect(batchFor(batches, "2026-05").costInvoiced).toBe(true);
+    expect(batchFor(batches, "2026-05").baseTotal).toBe(0);
+    expect(batchFor(batches, "2026-05").invoicedBaseTotal).toBe(6_000);
     expect(batchFor(batches, "2026-07").costInvoiced).toBe(false);
+    expect(batchFor(batches, "2026-07").baseTotal).toBe(6_000);
   });
 
   it("floors the fee at zero when the blend sits at or below the base tier", () => {
@@ -369,6 +376,9 @@ describe("invoice snapshots", () => {
     expect(batch.members[0]?.invoice?.tier).toBe("c20");
     expect(batch.members[0]?.topUp).toBe(4_000);
     expect(batch.topUpTotal).toBe(4_000);
+    expect(batch.baseTotal).toBe(0);
+    expect(batch.performanceFee).toBe(4_000);
+    expect(batch.amount).toBe(4_000);
   });
 
   it("owes nothing further when the snapshot already covers the charge", () => {
@@ -393,6 +403,9 @@ describe("invoice snapshots", () => {
 
     expect(batch.members[0]?.topUp).toBe(0);
     expect(batch.topUpTotal).toBe(0);
+    expect(batch.baseTotal).toBe(0);
+    expect(batch.performanceFee).toBe(0);
+    expect(batch.amount).toBe(0);
   });
 
   it("leaves the top-up null for a campaign that was never invoiced", () => {
@@ -406,6 +419,35 @@ describe("invoice snapshots", () => {
     expect(batch.members[0]?.invoice).toBeNull();
     expect(batch.members[0]?.topUp).toBeNull();
     expect(batch.invoicedCount).toBe(0);
+  });
+
+  it("removes a recorded post-cutoff charge from outstanding totals", () => {
+    const batches = buildInvoiceBatches(
+      [
+        deal({
+          campaignName: "EARLY",
+          publishedAt: "2026-08-01",
+          cost: 6_000,
+          returnPct: 300,
+        }),
+      ],
+      {
+        invoices: new Map([
+          ["EARLY", snapshot({ tier: "c100", amount: 10_000 })],
+        ]),
+      },
+    );
+    const batch = batchFor(batches, "2026-08");
+    const totals = invoiceTotals(buildInvoiceMonths(batches));
+
+    expect(batch.costInvoiced).toBe(true);
+    expect(batch.invoicedBaseTotal).toBe(6_000);
+    expect(batch.baseTotal).toBe(0);
+    expect(batch.performanceFee).toBe(0);
+    expect(totals.costInvoiced).toBe(6_000);
+    expect(totals.costDue).toBe(0);
+    expect(totals.feesDue).toBe(0);
+    expect(totals.dueNow).toBe(0);
   });
 });
 
@@ -431,9 +473,10 @@ describe("buildInvoiceMonths", () => {
     // June carries no prior fee here — there is no May batch.
     const june = monthFor(months, "2026-06");
 
-    expect(june.newCost).toBe(12_000);
+    expect(june.newCost).toBe(0);
+    expect(june.invoicedCost).toBe(12_000);
     expect(june.carriedFee).toBe(0);
-    expect(june.total).toBe(12_000);
+    expect(june.total).toBe(0);
 
     // A trailing fee-only month appears for July's fee.
     const august = monthFor(months, "2026-08");
