@@ -3,6 +3,7 @@ import process from "node:process";
 import { parseJobPayload } from "@scouting-platform/contracts";
 import {
   createScheduledAlmediaSyncRun,
+  relinkAlmediaEnrichmentCatalogChannels,
   syncAlmediaCampaigns,
 } from "@scouting-platform/core";
 import type { PgBoss } from "pg-boss";
@@ -107,6 +108,14 @@ export async function registerAlmediaCampaignsSyncWorker(
         const payload = parseJobPayload("almedia.campaigns.sync", current.data);
 
         try {
+          const linkedCount = await relinkAlmediaEnrichmentCatalogChannels();
+
+          if (linkedCount > 0) {
+            process.stdout.write(
+              `[worker] linked ${linkedCount} Almedia enrichment(s) to catalog channels\n`,
+            );
+          }
+
           const result = await syncAlmediaCampaigns({ syncRunId: payload.syncRunId });
           process.stdout.write(
             `[worker] almedia.campaigns.sync ${payload.syncRunId} stored ${result.campaignCount} campaign(s) across ${result.pageCount} page(s)\n`,

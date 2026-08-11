@@ -9,6 +9,8 @@ import { describe, expect, it } from "vitest";
 import { dimensionOptions, joinDeals } from "./deals";
 import type { AlmediaEnrichmentLookup } from "./enrichments";
 
+const CATALOG_CHANNEL_ID = "6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b";
+
 const NOW = new Date("2026-08-10T00:00:00.000Z");
 
 function enrichment(
@@ -47,12 +49,17 @@ function lookup(
     channelKey?: AlmediaChannelEnrichment;
   }>,
 ): AlmediaEnrichmentLookup {
+  const resolved = (enrichmentValue: AlmediaChannelEnrichment) => ({
+    enrichment: enrichmentValue,
+    catalogChannelId: CATALOG_CHANNEL_ID,
+  });
+
   return {
     byCampaign: new Map(
-      links.campaign ? [["ASMRFIXY_YT_R1", links.campaign]] : [],
+      links.campaign ? [["ASMRFIXY_YT_R1", resolved(links.campaign)]] : [],
     ),
     byChannelKey: new Map(
-      links.channelKey ? [["ASMRFIXY", links.channelKey]] : [],
+      links.channelKey ? [["ASMRFIXY", resolved(links.channelKey)]] : [],
     ),
   };
 }
@@ -116,6 +123,7 @@ describe("joinDeals", () => {
     expect(deals[0]).toMatchObject({
       channelKey: "ASMRFIXY",
       channelName: "ASMR Fixy",
+      catalogChannelId: null,
       cm: "Lucija P",
       vertical: "Gaming",
       verticals: ["Gaming"],
@@ -223,6 +231,7 @@ describe("joinDeals", () => {
 
     expect(deal).toMatchObject({
       hasEnrichment: true,
+      catalogChannelId: CATALOG_CHANNEL_ID,
       creatorFollowers: 236_000,
       creatorTypicalViews: 30_542,
       creatorEngagementRatePct: 3.97,
@@ -265,6 +274,7 @@ describe("joinDeals", () => {
     expect(deal).toMatchObject({
       hasCampaign: false,
       hasEnrichment: true,
+      catalogChannelId: CATALOG_CHANNEL_ID,
       verticals: ["ASMR"],
     });
   });

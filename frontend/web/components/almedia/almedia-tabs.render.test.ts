@@ -27,6 +27,7 @@ function deal(overrides: Partial<AlmediaDeal> = {}): AlmediaDeal {
   return {
     channelKey: "CHAN",
     channelName: "Channel",
+    catalogChannelId: "6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b",
     campaignName: "CHAN_YT_R1",
     videoUrl: "https://youtu.be/abc",
     platform: "youtube",
@@ -71,6 +72,7 @@ const DEALS: readonly AlmediaDeal[] = [
   deal({
     channelKey: "SECOND",
     channelName: "Second",
+    catalogChannelId: null,
     campaignName: "SECOND_TT_R2",
     platform: "tiktok",
     country: "DE",
@@ -341,12 +343,25 @@ describe("almedia tabs render", () => {
 
   it("renders the performance tab for populated and empty campaign sets", () => {
     const populated = renderToStaticMarkup(
-      createElement(AlmediaPerformanceTab, { campaigns: CAMPAIGNS }),
+      createElement(AlmediaPerformanceTab, { campaigns: CAMPAIGNS, deals: DEALS }),
     );
 
     expect(populated).toContain("Your campaigns, clearly measured");
     expect(populated).toContain("Return action tiers");
     expect(populated).toContain("CHAN_YT_R1");
+    expect(populated).toContain(
+      'href="/catalog/6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b"',
+    );
+
+    const unlinked = renderToStaticMarkup(
+      createElement(AlmediaPerformanceTab, {
+        campaigns: CAMPAIGNS,
+        deals: [deal({ catalogChannelId: null })],
+      }),
+    );
+
+    expect(unlinked).toContain(">Channel</td>");
+    expect(unlinked).not.toContain('href="/catalog/');
 
     const empty = renderToStaticMarkup(
       createElement(AlmediaPerformanceTab, { campaigns: [] }),
@@ -359,6 +374,7 @@ describe("almedia tabs render", () => {
     const populated = renderToStaticMarkup(
       createElement(AlmediaBookingsTab, {
         bookings: [BOOKING],
+        deals: [deal({ channelKey: "ASMRFIXY" })],
         onMutated: () => undefined,
       }),
     );
@@ -368,6 +384,20 @@ describe("almedia tabs render", () => {
     expect(populated).toContain("ASMRFIXY");
     expect(populated).toContain("Published");
     expect(populated).toContain("1 of 1");
+    expect(populated).toContain(
+      'href="/catalog/6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b"',
+    );
+
+    const unlinked = renderToStaticMarkup(
+      createElement(AlmediaBookingsTab, {
+        bookings: [BOOKING],
+        deals: [deal({ channelKey: "ASMRFIXY", catalogChannelId: null })],
+        onMutated: () => undefined,
+      }),
+    );
+
+    expect(unlinked).toContain(">ASMR Fixy</span>");
+    expect(unlinked).not.toContain('href="/catalog/');
 
     const empty = renderToStaticMarkup(
       createElement(AlmediaBookingsTab, { bookings: [], onMutated: () => undefined }),

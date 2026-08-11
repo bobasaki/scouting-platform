@@ -655,6 +655,7 @@ model Channel {
   hubspotPushBatchRows   HubspotPushBatchRow[]
   hubspotImportBatchRows HubspotImportBatchRow[]
   channelAssessments     RunChannelAssessment[]
+  almediaEnrichments     AlmediaChannelEnrichment[]
 
   @@index([youtubeChannelId], map: "channels_youtube_channel_id_idx")
   @@index([countryRegion], map: "channels_country_region_idx")
@@ -1863,18 +1864,23 @@ model AlmediaCampaignSnapshot {
 /// exists in this platform; keeping the tracker's store separate avoids a
 /// collision on either the table name or the meaning of the word.
 model AlmediaChannelEnrichment {
-  id          String                         @id @default(uuid()) @db.Uuid
+  id               String                         @id @default(uuid()) @db.Uuid
   /// YouTube channel id (e.g. "UChoZqpn_fLmoExx2g4KL58A").
-  channelId   String                         @unique @map("channel_id")
+  channelId        String                         @unique @map("channel_id")
+  /// Catalog channel this creator resolves to, matched on YouTube channel id.
+  /// Null when the creator is not (yet) in the catalog.
+  catalogChannelId String?                        @map("catalog_channel_id") @db.Uuid
+  catalogChannel   Channel?                       @relation(fields: [catalogChannelId], references: [id], onDelete: SetNull)
   /// The enrichment document as produced. Read through a Zod projection, so
   /// unconsumed fields survive without the platform depending on them.
-  result      Json
+  result           Json
   /// When the enrichment run produced this document (source `updated_at`).
-  generatedAt DateTime                       @map("generated_at")
-  createdAt   DateTime                       @default(now()) @map("created_at")
-  updatedAt   DateTime                       @updatedAt @map("updated_at")
-  links       AlmediaChannelEnrichmentLink[]
+  generatedAt      DateTime                       @map("generated_at")
+  createdAt        DateTime                       @default(now()) @map("created_at")
+  updatedAt        DateTime                       @updatedAt @map("updated_at")
+  links            AlmediaChannelEnrichmentLink[]
 
+  @@index([catalogChannelId], map: "almedia_channel_enrichments_catalog_channel_id_idx")
   @@map("almedia_channel_enrichments")
 }
 
