@@ -46,6 +46,17 @@ export const almediaMaturityStatusSchema = z.enum([
 
 export const almediaSizeTierSchema = z.enum(["<10k", "10-20k", "20-50k", ">50k"]);
 
+export const almediaContentFormatSchema = z.enum([
+  "short",
+  "long_form",
+  "live",
+  "unknown",
+]);
+
+export const almediaBrandFitSchema = z.enum(["high", "medium", "low", "unknown"]);
+
+export const almediaSafetyRiskSchema = z.enum(["low", "medium", "high", "unknown"]);
+
 export const almediaDimensionIdSchema = z.enum([
   "cm",
   "country",
@@ -193,11 +204,49 @@ export const almediaMaturitySchema = z.object({
 });
 
 /**
+ * A YouTube channel enrichment as the workspace consumes it: the subset of the
+ * tracker's enrichment document that drives vertical derivation and the creator
+ * quality signals on a deal.
+ *
+ * Deliberately a projection, not a mirror. The stored JSON also carries recent
+ * uploads, confidence scores, and run metadata; parsing only what is read keeps
+ * the platform from depending on the producer's full shape, and unknown keys
+ * are stripped rather than rejected so a newer document still parses.
+ */
+export const almediaChannelEnrichmentSchema = z.object({
+  channel: z.object({
+    id: z.string(),
+    title: z.string(),
+    description: z.string(),
+    country: z.string().nullable(),
+    topics: z.array(z.string()),
+    keywords: z.array(z.string()),
+  }),
+  metrics: z.object({
+    followers: z.number().nullable(),
+    typicalViews: z.object({ median: z.number().nullable() }),
+    typicalEngagementRatePct: z.number().nullable(),
+    contentFormat: z.object({ dominant: almediaContentFormatSchema }),
+  }),
+  classification: z.object({
+    niche: z.string(),
+    topics: z.array(z.string()),
+    audiencePositioning: z.string(),
+    brandFit: z.object({
+      suitability: almediaBrandFitSchema,
+      categories: z.array(z.string()),
+    }),
+    brandSafety: z.object({ risk: almediaSafetyRiskSchema }),
+  }),
+  summary: z.string(),
+});
+
+/**
  * A booking joined with its Almedia campaign. Campaign-only and booking-only
  * rows are both kept, so nothing silently drops out of totals.
  *
- * Enrichment fields are nullable and stay null in Phase 1 — channel enrichment
- * is not ported yet, so verticals fall back to the booking's own value.
+ * Enrichment fields carry the creator signals from the channel enrichment the
+ * campaign resolves to; they stay null for deals with no enrichment on file.
  */
 export const almediaDealSchema = z.object({
   channelKey: z.string(),
@@ -227,9 +276,9 @@ export const almediaDealSchema = z.object({
   creatorFollowers: z.number().nullable(),
   creatorTypicalViews: z.number().nullable(),
   creatorEngagementRatePct: z.number().nullable(),
-  creatorContentFormat: z.string().nullable(),
-  creatorBrandFit: z.string().nullable(),
-  creatorSafetyRisk: z.string().nullable(),
+  creatorContentFormat: almediaContentFormatSchema.nullable(),
+  creatorBrandFit: almediaBrandFitSchema.nullable(),
+  creatorSafetyRisk: almediaSafetyRiskSchema.nullable(),
   status: bookingStatusSchema.nullable(),
   intBudget: z.number().nullable(),
   extBudget: z.number().nullable(),
@@ -325,6 +374,12 @@ export type AlmediaMaturity = z.infer<typeof almediaMaturitySchema>;
 export type AlmediaSizeTier = z.infer<typeof almediaSizeTierSchema>;
 export type AlmediaDimensionId = z.infer<typeof almediaDimensionIdSchema>;
 export type AlmediaCampaignRow = z.infer<typeof almediaCampaignSchema>;
+export type AlmediaContentFormat = z.infer<typeof almediaContentFormatSchema>;
+export type AlmediaBrandFit = z.infer<typeof almediaBrandFitSchema>;
+export type AlmediaSafetyRisk = z.infer<typeof almediaSafetyRiskSchema>;
+export type AlmediaChannelEnrichment = z.infer<
+  typeof almediaChannelEnrichmentSchema
+>;
 export type Booking = z.infer<typeof bookingSchema>;
 export type BookingInput = z.infer<typeof bookingInputSchema>;
 export type BookingUpdateInput = z.infer<typeof bookingUpdateInputSchema>;

@@ -18,8 +18,9 @@ import { disconnectPrisma } from "../backend/packages/db/src";
  *     --sqlite /Users/you/Projects/almedia_api/data/bookings.db
  *
  * Upserts are keyed so the script is idempotent: bookings on their SQLite id,
- * plan targets on (cm, market, month), revenue targets on month, and invoices
- * on campaign name.
+ * plan targets on (cm, market, month), revenue targets on month, invoices on
+ * campaign name, channel enrichments on YouTube channel id, and their links on
+ * (source type, source key).
  */
 
 function getFlagValue(name: string): string | undefined {
@@ -42,6 +43,8 @@ function formatCounts(counts: AlmediaImportCounts): string {
     `plan targets:    ${counts.targets}`,
     `revenue targets: ${counts.revenueTargets}`,
     `invoices:        ${counts.invoices}`,
+    `enrichments:     ${counts.enrichments}`,
+    `enrichment links:${counts.enrichmentLinks}`,
   ].join("\n");
 }
 

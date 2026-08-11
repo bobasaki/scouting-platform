@@ -1,5 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 
+import type { Prisma } from "@prisma/client";
 import { BookingStatus as PrismaBookingStatus } from "@prisma/client";
 import type { BookingStatus } from "@scouting-platform/contracts";
 import { withDbTransaction, type DbTransactionClient } from "@scouting-platform/db";
@@ -29,6 +30,8 @@ export interface AlmediaImportCounts {
   targets: number;
   revenueTargets: number;
   invoices: number;
+  enrichments: number;
+  enrichmentLinks: number;
 }
 
 const BOOKING_STATUS_BY_VALUE = {
@@ -244,6 +247,92 @@ async function importInvoices(
   return rows.length;
 }
 
+/**
+ * Channel enrichments arrive as a JSON blob per creator. It is stored as read,
+ * not reshaped: the platform parses a projection of it on the way out, so an
+ * import that pruned the document would throw away context the producer may
+ * add fields to later. A blob that is not a JSON object is skipped, since there
+ * is nothing meaningful to store for it.
+ */
+function parseEnrichmentDocument(raw: string): Prisma.InputJsonValue | null {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return null;
+  }
+
+  return parsed as Prisma.InputJsonValue;
+}
+
+async function importChannelEnrichments(
+  tx: DbTransactionClient,
+  rows: readonly SqliteRow[],
+): Promise<number> {
+  let imported = 0;
+
+  for (const row of rows) {
+    const channelId = requiredText(row, "channel_id");
+    const result = parseEnrichmentDocument(requiredText(row, "result_json"));
+
+    if (result === null) {
+      continue;
+    }
+
+    const generatedAt = timestamp(row, "updated_at") ?? new Date();
+
+    await tx.almediaChannelEnrichment.upsert({
+      where: { channelId },
+      create: { channelId, result, generatedAt },
+      update: { result, generatedAt },
+    });
+    imported += 1;
+  }
+
+  return imported;
+}
+
+/**
+ * Links resolve a campaign or creator key to an enrichment. A link whose
+ * enrichment did not import is dropped rather than failing the run — the link
+ * would point at nothing.
+ */
+async function importChannelEnrichmentLinks(
+  tx: DbTransactionClient,
+  rows: readonly SqliteRow[],
+): Promise<number> {
+  const known = new Set(
+    (
+      await tx.almediaChannelEnrichment.findMany({ select: { channelId: true } })
+    ).map((row) => row.channelId),
+  );
+  let imported = 0;
+
+  for (const row of rows) {
+    const sourceType = requiredText(row, "source_type");
+    const sourceKey = requiredText(row, "source_key");
+    const channelId = requiredText(row, "channel_id");
+
+    if (!known.has(channelId)) {
+      continue;
+    }
+
+    await tx.almediaChannelEnrichmentLink.upsert({
+      where: { sourceType_sourceKey: { sourceType, sourceKey } },
+      create: { sourceType, sourceKey, channelId },
+      update: { channelId },
+    });
+    imported += 1;
+  }
+
+  return imported;
+}
+
 /** Import from an already-open SQLite reader (used directly by tests). */
 export async function importAlmediaBookingsFromReader(
   db: SqliteReader,
@@ -252,6 +341,8 @@ export async function importAlmediaBookingsFromReader(
   const targets = selectAllIfPresent(db, "targets");
   const revenueTargets = selectAllIfPresent(db, "revenue_targets");
   const invoices = selectAllIfPresent(db, "invoices");
+  const enrichments = selectAllIfPresent(db, "channel_enrichments");
+  const enrichmentLinks = selectAllIfPresent(db, "channel_enrichment_links");
 
   return withDbTransaction(
     async (tx) => ({
@@ -259,6 +350,9 @@ export async function importAlmediaBookingsFromReader(
       targets: await importTargets(tx, targets),
       revenueTargets: await importRevenueTargets(tx, revenueTargets),
       invoices: await importInvoices(tx, invoices),
+      // Links reference enrichments, so they follow them.
+      enrichments: await importChannelEnrichments(tx, enrichments),
+      enrichmentLinks: await importChannelEnrichmentLinks(tx, enrichmentLinks),
     }),
     { timeout: 120_000 },
   );

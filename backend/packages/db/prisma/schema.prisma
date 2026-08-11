@@ -1854,6 +1854,45 @@ model AlmediaCampaignSnapshot {
   @@map("almedia_campaign_snapshots")
 }
 
+/// A YouTube channel enrichment produced by the standalone tracker's enrichment
+/// service: channel profile, recent-upload metrics, and a niche/brand-fit
+/// classification, as one JSON document keyed by YouTube channel id.
+///
+/// Named `almedia_*` because an unrelated `channel_enrichments` concept already
+/// exists in this platform; keeping the tracker's store separate avoids a
+/// collision on either the table name or the meaning of the word.
+model AlmediaChannelEnrichment {
+  id          String                         @id @default(uuid()) @db.Uuid
+  /// YouTube channel id (e.g. "UChoZqpn_fLmoExx2g4KL58A").
+  channelId   String                         @unique @map("channel_id")
+  /// The enrichment document as produced. Read through a Zod projection, so
+  /// unconsumed fields survive without the platform depending on them.
+  result      Json
+  /// When the enrichment run produced this document (source `updated_at`).
+  generatedAt DateTime                       @map("generated_at")
+  createdAt   DateTime                       @default(now()) @map("created_at")
+  updatedAt   DateTime                       @updatedAt @map("updated_at")
+  links       AlmediaChannelEnrichmentLink[]
+
+  @@map("almedia_channel_enrichments")
+}
+
+/// How an enrichment is found. `campaign` links an exact Almedia campaign name;
+/// `channel_key` links the normalized creator key, which covers campaign
+/// variants (`_R2`, `_LB`) added after the enrichment run.
+model AlmediaChannelEnrichmentLink {
+  id         String                   @id @default(uuid()) @db.Uuid
+  sourceType String                   @map("source_type")
+  sourceKey  String                   @map("source_key")
+  channelId  String                   @map("channel_id")
+  createdAt  DateTime                 @default(now()) @map("created_at")
+  enrichment AlmediaChannelEnrichment @relation(fields: [channelId], references: [channelId], onDelete: Cascade)
+
+  @@unique([sourceType, sourceKey], map: "almedia_channel_enrichment_links_source_key")
+  @@index([channelId], map: "almedia_channel_enrichment_links_channel_id_idx")
+  @@map("almedia_channel_enrichment_links")
+}
+
 model AlmediaSyncRun {
   id                String               @id @default(uuid()) @db.Uuid
   /// Null for the hourly cron run; set when an admin triggers a manual refresh.

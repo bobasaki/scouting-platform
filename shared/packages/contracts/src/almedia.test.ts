@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   ALMEDIA_DIMENSIONS,
   almediaCampaignsResponseSchema,
+  almediaChannelEnrichmentSchema,
   almediaDealsResponseSchema,
   almediaScorecardResponseSchema,
   almediaSyncStatusSchema,
@@ -261,6 +262,84 @@ describe("almedia contracts", () => {
     expect(() =>
       parseJobPayload("almedia.campaigns.sync", { initiatedBy: "system" }),
     ).toThrow();
+  });
+});
+
+/** Shaped like a real tracker document, trimmed to the projected keys. */
+const enrichmentDocument = {
+  channel: {
+    id: "UChoZqpn_fLmoExx2g4KL58A",
+    title: "Damon Verial",
+    description: "True Crime.",
+    country: null,
+    topics: ["Entertainment", "Society"],
+    keywords: ["true crime", "interrogation analysis"],
+  },
+  metrics: {
+    followers: 236_000,
+    typicalViews: { median: 30_542 },
+    typicalEngagementRatePct: 3.97,
+    contentFormat: { dominant: "long_form" },
+  },
+  classification: {
+    niche: "finance",
+    topics: ["true crime", "criminal psychology"],
+    audiencePositioning: "finance creator publishing primarily long form content",
+    brandFit: { suitability: "medium", categories: ["fintech", "finance"] },
+    brandSafety: { risk: "low" },
+  },
+  summary: "Damon Verial is classified as a finance YouTube creator.",
+};
+
+describe("channel enrichment contract", () => {
+  it("parses a tracker document and strips the keys the workspace never reads", () => {
+    const parsed = almediaChannelEnrichmentSchema.parse({
+      ...enrichmentDocument,
+      schemaVersion: "1.0",
+      recentContent: [{ id: "4Om3pODlh24", views: 27_967 }],
+      confidence: { overall: 0.86 },
+      meta: { analyzer: "rule_based_metadata_v1" },
+      channel: { ...enrichmentDocument.channel, subscribersHidden: false },
+    });
+
+    expect(parsed).toEqual(enrichmentDocument);
+  });
+
+  it("rejects a document with an unknown brand-fit or safety value", () => {
+    expect(
+      almediaChannelEnrichmentSchema.safeParse({
+        ...enrichmentDocument,
+        classification: {
+          ...enrichmentDocument.classification,
+          brandFit: { suitability: "excellent", categories: [] },
+        },
+      }).success,
+    ).toBe(false);
+
+    expect(
+      almediaChannelEnrichmentSchema.safeParse({
+        ...enrichmentDocument,
+        classification: {
+          ...enrichmentDocument.classification,
+          brandSafety: { risk: "catastrophic" },
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("keeps a creator whose metrics were never measured", () => {
+    const parsed = almediaChannelEnrichmentSchema.parse({
+      ...enrichmentDocument,
+      metrics: {
+        followers: null,
+        typicalViews: { median: null },
+        typicalEngagementRatePct: null,
+        contentFormat: { dominant: "unknown" },
+      },
+    });
+
+    expect(parsed.metrics.followers).toBeNull();
+    expect(parsed.metrics.contentFormat.dominant).toBe("unknown");
   });
 });
 

@@ -64,7 +64,26 @@ CREATE TABLE invoices (
   tier TEXT NOT NULL,
   amount REAL NOT NULL
 );
+
+CREATE TABLE channel_enrichments (
+  channel_id TEXT PRIMARY KEY,
+  result_json TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE channel_enrichment_links (
+  source_type TEXT NOT NULL,
+  source_key TEXT NOT NULL,
+  channel_id TEXT NOT NULL,
+  PRIMARY KEY (source_type, source_key)
+);
 `;
+
+const ENRICHMENT_JSON = JSON.stringify({
+  schemaVersion: "1.0",
+  channel: { id: "UCasmrfixy", title: "ASMR Fixy", topics: ["Entertainment"] },
+  classification: { niche: "asmr" },
+});
 
 function createSourceDatabase(): DatabaseSync {
   const db = new DatabaseSync(":memory:");
@@ -99,6 +118,20 @@ function createSourceDatabase(): DatabaseSync {
        (campaign_name, channel_name, invoiced_at, matured_at_invoice, cost, return_pct, tier, amount)
      VALUES ('ASMRFIXY_YT_R1', 'ASMR Fixy', '2026-07-30T00:00:00.000Z', 1, 1000, 90, 'rebooking', 950)`,
   ).run();
+  db.prepare(
+    `INSERT INTO channel_enrichments (channel_id, result_json, updated_at)
+     VALUES ('UCasmrfixy', ?, '2026-07-23T09:45:55.624Z')`,
+  ).run(ENRICHMENT_JSON);
+  db.prepare(
+    `INSERT INTO channel_enrichments (channel_id, result_json, updated_at)
+     VALUES ('UCbroken', 'not json', '2026-07-23T09:45:55.624Z')`,
+  ).run();
+  db.prepare(
+    `INSERT INTO channel_enrichment_links (source_type, source_key, channel_id) VALUES
+       ('channel_key', 'ASMRFIXY', 'UCasmrfixy'),
+       ('campaign', 'ASMRFIXY_YT_R1', 'UCasmrfixy'),
+       ('channel_key', 'GHOST', 'UCneverimported')`,
+  ).run();
 
   return db;
 }
@@ -124,7 +157,9 @@ integration("almedia SQLite import", () => {
         bookings,
         booking_targets,
         revenue_targets,
-        booking_invoices
+        booking_invoices,
+        almedia_channel_enrichments,
+        almedia_channel_enrichment_links
       RESTART IDENTITY CASCADE
     `);
 
@@ -154,6 +189,9 @@ integration("almedia SQLite import", () => {
         targets: 1,
         revenueTargets: 1,
         invoices: 1,
+        // The unparseable blob is skipped, as is the link pointing at it.
+        enrichments: 1,
+        enrichmentLinks: 2,
       });
     } finally {
       source.close();
@@ -195,6 +233,22 @@ integration("almedia SQLite import", () => {
       maturedAtInvoice: true,
       amount: 950,
     });
+
+    const enrichment = await prisma.almediaChannelEnrichment.findUnique({
+      where: { channelId: "UCasmrfixy" },
+      include: { links: { orderBy: { sourceKey: "asc" } } },
+    });
+
+    // Stored as produced, so a later projection can read fields we skip today.
+    expect(enrichment?.result).toMatchObject({
+      schemaVersion: "1.0",
+      classification: { niche: "asmr" },
+    });
+    expect(enrichment?.generatedAt.toISOString()).toBe("2026-07-23T09:45:55.624Z");
+    expect(enrichment?.links.map((link) => link.sourceKey)).toEqual([
+      "ASMRFIXY",
+      "ASMRFIXY_YT_R1",
+    ]);
   });
 
   it("falls back to pipeline for an unrecognized source status", async () => {
@@ -233,6 +287,8 @@ integration("almedia SQLite import", () => {
 
     expect(await prisma.booking.count()).toBe(2);
     expect(await prisma.bookingTarget.count()).toBe(1);
+    expect(await prisma.almediaChannelEnrichment.count()).toBe(1);
+    expect(await prisma.almediaChannelEnrichmentLink.count()).toBe(2);
     expect(
       await prisma.booking.findFirst({ where: { legacySourceId: 1 } }),
     ).toMatchObject({ intBudget: 25_000, status: "LONGTERM" });
@@ -257,6 +313,8 @@ integration("almedia SQLite import", () => {
         targets: 0,
         revenueTargets: 1,
         invoices: 0,
+        enrichments: 0,
+        enrichmentLinks: 0,
       });
     } finally {
       source.close();

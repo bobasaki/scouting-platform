@@ -1,13 +1,61 @@
 import type {
   AlmediaCampaignRow,
+  AlmediaChannelEnrichment,
   Booking,
 } from "@scouting-platform/contracts";
 import { ALMEDIA_UNASSIGNED } from "@scouting-platform/contracts";
 import { describe, expect, it } from "vitest";
 
 import { dimensionOptions, joinDeals } from "./deals";
+import type { AlmediaEnrichmentLookup } from "./enrichments";
 
 const NOW = new Date("2026-08-10T00:00:00.000Z");
+
+function enrichment(
+  overrides: Partial<{ niche: string; followers: number }> = {},
+): AlmediaChannelEnrichment {
+  return {
+    channel: {
+      id: "UCasmrfixy",
+      title: "ASMR Fixy",
+      description: "Sleep and relaxation.",
+      country: "PL",
+      topics: [],
+      keywords: [],
+    },
+    metrics: {
+      followers: overrides.followers ?? 236_000,
+      typicalViews: { median: 30_542 },
+      typicalEngagementRatePct: 3.97,
+      contentFormat: { dominant: "long_form" },
+    },
+    classification: {
+      niche: overrides.niche ?? "asmr",
+      topics: [],
+      audiencePositioning: "",
+      brandFit: { suitability: "medium", categories: [] },
+      brandSafety: { risk: "low" },
+    },
+    summary: "",
+  };
+}
+
+/** The two link types, keyed the way the campaign resolution reads them. */
+function lookup(
+  links: Readonly<{
+    campaign?: AlmediaChannelEnrichment;
+    channelKey?: AlmediaChannelEnrichment;
+  }>,
+): AlmediaEnrichmentLookup {
+  return {
+    byCampaign: new Map(
+      links.campaign ? [["ASMRFIXY_YT_R1", links.campaign]] : [],
+    ),
+    byChannelKey: new Map(
+      links.channelKey ? [["ASMRFIXY", links.channelKey]] : [],
+    ),
+  };
+}
 
 function campaign(overrides: Partial<AlmediaCampaignRow> = {}): AlmediaCampaignRow {
   return {
@@ -62,7 +110,7 @@ function booking(overrides: Partial<Booking> = {}): Booking {
 
 describe("joinDeals", () => {
   it("joins campaigns to bookings via the normalized channel key", () => {
-    const deals = joinDeals([campaign()], [booking()], NOW);
+    const deals = joinDeals([campaign()], [booking()], { now: NOW });
 
     expect(deals).toHaveLength(1);
     expect(deals[0]).toMatchObject({
@@ -80,11 +128,11 @@ describe("joinDeals", () => {
   });
 
   it("stamps the return tier and maturity onto each deal", () => {
-    const [matured] = joinDeals([campaign()], [booking()], NOW);
+    const [matured] = joinDeals([campaign()], [booking()], { now: NOW });
     const [maturing] = joinDeals(
       [campaign({ publishedAt: "2026-08-05T00:00:00.000Z", returnPct: 20 })],
       [],
-      NOW,
+      { now: NOW },
     );
 
     expect(matured).toMatchObject({
@@ -98,7 +146,7 @@ describe("joinDeals", () => {
   });
 
   it("leaves the return tier null when a campaign has no measured return", () => {
-    const [deal] = joinDeals([campaign({ returnPct: null })], [], NOW);
+    const [deal] = joinDeals([campaign({ returnPct: null })], [], { now: NOW });
 
     expect(deal?.returnTier).toBeNull();
   });
@@ -107,7 +155,7 @@ describe("joinDeals", () => {
     const [deal] = joinDeals(
       [campaign({ country: "DE" })],
       [booking({ country: "PL" })],
-      NOW,
+      { now: NOW },
     );
 
     expect(deal?.country).toBe("DE");
@@ -117,7 +165,7 @@ describe("joinDeals", () => {
     const deals = joinDeals(
       [campaign({ campaignName: "PHILFLIX_YT_R1" })],
       [booking({ channelKey: "DIABEUU", channelName: "Diabeuu", status: "pipeline" })],
-      NOW,
+      { now: NOW },
     );
 
     expect(deals).toHaveLength(2);
@@ -133,7 +181,7 @@ describe("joinDeals", () => {
     const deals = joinDeals(
       [campaign(), campaign({ campaignName: "ASMRFIXY_YT_R2", returnPct: 120 })],
       [booking()],
-      NOW,
+      { now: NOW },
     );
 
     expect(deals).toHaveLength(2);
@@ -142,11 +190,11 @@ describe("joinDeals", () => {
   });
 
   it("canonicalizes the booking vertical and keeps unknown ones verbatim", () => {
-    const [canonical] = joinDeals([campaign()], [booking({ vertical: "finance" })], NOW);
+    const [canonical] = joinDeals([campaign()], [booking({ vertical: "finance" })], { now: NOW });
     const [unknown] = joinDeals(
       [campaign()],
       [booking({ vertical: "crypto shilling" })],
-      NOW,
+      { now: NOW },
     );
 
     expect(canonical).toMatchObject({ vertical: "Finance", verticals: ["Finance"] });
@@ -156,8 +204,8 @@ describe("joinDeals", () => {
     });
   });
 
-  it("reports no enrichment in Phase 1", () => {
-    const [deal] = joinDeals([campaign()], [booking()], NOW);
+  it("reports no enrichment when the creator has none on file", () => {
+    const [deal] = joinDeals([campaign()], [booking()], { now: NOW });
 
     expect(deal).toMatchObject({
       hasEnrichment: false,
@@ -167,8 +215,71 @@ describe("joinDeals", () => {
     });
   });
 
+  it("stamps creator signals and derived verticals from the enrichment", () => {
+    const [deal] = joinDeals([campaign()], [booking()], {
+      enrichments: lookup({ channelKey: enrichment() }),
+      now: NOW,
+    });
+
+    expect(deal).toMatchObject({
+      hasEnrichment: true,
+      creatorFollowers: 236_000,
+      creatorTypicalViews: 30_542,
+      creatorEngagementRatePct: 3.97,
+      creatorContentFormat: "long_form",
+      creatorBrandFit: "medium",
+      creatorSafetyRisk: "low",
+      // Derived from the creator's own content, not the booking's "gaming".
+      vertical: "ASMR",
+      verticals: ["ASMR"],
+    });
+  });
+
+  it("prefers the campaign's own enrichment over the creator's", () => {
+    const [deal] = joinDeals([campaign()], [], {
+      enrichments: lookup({
+        channelKey: enrichment({ niche: "asmr" }),
+        campaign: enrichment({ niche: "gaming", followers: 10 }),
+      }),
+      now: NOW,
+    });
+
+    expect(deal).toMatchObject({ verticals: ["Gaming"], creatorFollowers: 10 });
+  });
+
+  it("resolves a later campaign round through the creator key", () => {
+    const [deal] = joinDeals([campaign({ campaignName: "ASMRFIXY_YT_R4_LB" })], [], {
+      enrichments: lookup({ channelKey: enrichment() }),
+      now: NOW,
+    });
+
+    expect(deal).toMatchObject({ hasEnrichment: true, verticals: ["ASMR"] });
+  });
+
+  it("enriches a pipeline booking that has no campaign yet", () => {
+    const [deal] = joinDeals([], [booking({ status: "pipeline" })], {
+      enrichments: lookup({ channelKey: enrichment() }),
+      now: NOW,
+    });
+
+    expect(deal).toMatchObject({
+      hasCampaign: false,
+      hasEnrichment: true,
+      verticals: ["ASMR"],
+    });
+  });
+
+  it("keeps the booking vertical when the enrichment derives nothing", () => {
+    const [deal] = joinDeals([campaign()], [booking()], {
+      enrichments: lookup({ channelKey: enrichment({ niche: "unclassifiable" }) }),
+      now: NOW,
+    });
+
+    expect(deal).toMatchObject({ hasEnrichment: true, verticals: ["Gaming"] });
+  });
+
   it("falls back to the campaign publish month when the booking has none", () => {
-    const [deal] = joinDeals([campaign()], [booking({ month: null })], NOW);
+    const [deal] = joinDeals([campaign()], [booking({ month: null })], { now: NOW });
 
     expect(deal?.month).toBe("2026-07");
   });
@@ -192,7 +303,7 @@ describe("dimensionOptions", () => {
         vertical: "entertainment",
       }),
     ],
-    NOW,
+    { now: NOW },
   );
 
   it("lists every dimension, sorted, with Unassigned last", () => {

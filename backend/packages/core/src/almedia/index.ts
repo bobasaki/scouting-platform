@@ -4,6 +4,7 @@ export * from "./bookings";
 export * from "./campaigns";
 export * from "./channel-key";
 export * from "./deals";
+export * from "./enrichments";
 export * from "./import-sqlite";
 export * from "./insights";
 export * from "./queue";

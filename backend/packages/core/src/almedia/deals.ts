@@ -1,5 +1,6 @@
 import type {
   AlmediaCampaignRow,
+  AlmediaChannelEnrichment,
   AlmediaDeal,
   AlmediaDimensionId,
   AlmediaDimensionOptions,
@@ -9,7 +10,13 @@ import { ALMEDIA_DIMENSIONS, ALMEDIA_UNASSIGNED } from "@scouting-platform/contr
 
 import { getMaturityInfo, getReturnTier, getSizeTier } from "./analytics";
 import { campaignBaseKey } from "./channel-key";
-import { canonicalVertical } from "./verticals";
+import {
+  EMPTY_ALMEDIA_ENRICHMENT_LOOKUP,
+  findCampaignEnrichment,
+  findChannelEnrichment,
+  type AlmediaEnrichmentLookup,
+} from "./enrichments";
+import { canonicalVertical, deriveVerticals } from "./verticals";
 
 /**
  * The join behind the Insights view: internal bookings matched to the live
@@ -44,6 +51,64 @@ function deliveryOf(
   return (viewCount / expectedViews) * 100;
 }
 
+/** The enrichment-derived half of a deal, or its all-null absence. */
+type CreatorSignals = Pick<
+  AlmediaDeal,
+  | "hasEnrichment"
+  | "creatorFollowers"
+  | "creatorTypicalViews"
+  | "creatorEngagementRatePct"
+  | "creatorContentFormat"
+  | "creatorBrandFit"
+  | "creatorSafetyRisk"
+> & { verticals: string[] };
+
+const NO_CREATOR_SIGNALS: CreatorSignals = {
+  hasEnrichment: false,
+  creatorFollowers: null,
+  creatorTypicalViews: null,
+  creatorEngagementRatePct: null,
+  creatorContentFormat: null,
+  creatorBrandFit: null,
+  creatorSafetyRisk: null,
+  verticals: [],
+};
+
+function creatorSignalsOf(
+  enrichment: AlmediaChannelEnrichment | null,
+): CreatorSignals {
+  if (!enrichment) {
+    return NO_CREATOR_SIGNALS;
+  }
+
+  return {
+    hasEnrichment: true,
+    creatorFollowers: enrichment.metrics.followers,
+    creatorTypicalViews: enrichment.metrics.typicalViews.median,
+    creatorEngagementRatePct: enrichment.metrics.typicalEngagementRatePct,
+    creatorContentFormat: enrichment.metrics.contentFormat.dominant,
+    creatorBrandFit: enrichment.classification.brandFit.suitability,
+    creatorSafetyRisk: enrichment.classification.brandSafety.risk,
+    verticals: deriveVerticals(enrichment),
+  };
+}
+
+/**
+ * Derived verticals win over the booking's own field: the derivation reads the
+ * creator's actual content, while the booking value is hand-typed and often
+ * blank. The booking value is the fallback when no enrichment exists.
+ */
+function verticalsOf(
+  signals: CreatorSignals,
+  bookingVertical: string | null,
+): string[] {
+  if (signals.verticals.length > 0) {
+    return signals.verticals;
+  }
+
+  return bookingVertical ? [bookingVertical] : [];
+}
+
 function classify(
   deal: Omit<AlmediaDeal, "returnTier" | "maturity">,
   now: Date,
@@ -58,15 +123,15 @@ function classify(
 function dealFromCampaign(
   campaign: AlmediaCampaignRow,
   booking: Booking | undefined,
+  enrichment: AlmediaChannelEnrichment | null,
   now: Date,
 ): AlmediaDeal {
   const expectedViews = expectedViewsOf(campaign.cost, campaign.expectedCpm);
   const budgetForTier = booking?.intBudget ?? campaign.cost;
-  // Channel enrichment is not integrated yet (Phase 2), so a deal's verticals
-  // come from its booking's own value.
   const bookingVertical =
     canonicalVertical(booking?.vertical) ?? booking?.vertical ?? null;
-  const verticals = bookingVertical ? [bookingVertical] : [];
+  const signals = creatorSignalsOf(enrichment);
+  const verticals = verticalsOf(signals, bookingVertical);
 
   return classify(
     {
@@ -91,14 +156,14 @@ function dealFromCampaign(
       country: campaign.country || booking?.country || null,
       vertical: verticals[0] ?? null,
       verticals,
-      category: booking?.category ?? null,
-      hasEnrichment: false,
-      creatorFollowers: null,
-      creatorTypicalViews: null,
-      creatorEngagementRatePct: null,
-      creatorContentFormat: null,
-      creatorBrandFit: null,
-      creatorSafetyRisk: null,
+      category: booking?.category ?? signals.creatorContentFormat,
+      hasEnrichment: signals.hasEnrichment,
+      creatorFollowers: signals.creatorFollowers,
+      creatorTypicalViews: signals.creatorTypicalViews,
+      creatorEngagementRatePct: signals.creatorEngagementRatePct,
+      creatorContentFormat: signals.creatorContentFormat,
+      creatorBrandFit: signals.creatorBrandFit,
+      creatorSafetyRisk: signals.creatorSafetyRisk,
       status: booking?.status ?? null,
       intBudget: booking?.intBudget ?? null,
       extBudget: booking?.extBudget ?? null,
@@ -111,8 +176,14 @@ function dealFromCampaign(
   );
 }
 
-function dealFromBooking(booking: Booking, now: Date): AlmediaDeal {
-  const vertical = canonicalVertical(booking.vertical) ?? booking.vertical;
+function dealFromBooking(
+  booking: Booking,
+  enrichment: AlmediaChannelEnrichment | null,
+  now: Date,
+): AlmediaDeal {
+  const bookingVertical = canonicalVertical(booking.vertical) ?? booking.vertical;
+  const signals = creatorSignalsOf(enrichment);
+  const verticals = verticalsOf(signals, bookingVertical);
 
   return classify(
     {
@@ -134,16 +205,16 @@ function dealFromBooking(booking: Booking, now: Date): AlmediaDeal {
       deliveryPct: null,
       cm: booking.cm,
       country: booking.country,
-      vertical,
-      verticals: vertical ? [vertical] : [],
-      category: booking.category,
-      hasEnrichment: false,
-      creatorFollowers: null,
-      creatorTypicalViews: null,
-      creatorEngagementRatePct: null,
-      creatorContentFormat: null,
-      creatorBrandFit: null,
-      creatorSafetyRisk: null,
+      vertical: verticals[0] ?? null,
+      verticals,
+      category: booking.category ?? signals.creatorContentFormat,
+      hasEnrichment: signals.hasEnrichment,
+      creatorFollowers: signals.creatorFollowers,
+      creatorTypicalViews: signals.creatorTypicalViews,
+      creatorEngagementRatePct: signals.creatorEngagementRatePct,
+      creatorContentFormat: signals.creatorContentFormat,
+      creatorBrandFit: signals.creatorBrandFit,
+      creatorSafetyRisk: signals.creatorSafetyRisk,
       status: booking.status,
       intBudget: booking.intBudget,
       extBudget: booking.extBudget,
@@ -156,16 +227,28 @@ function dealFromBooking(booking: Booking, now: Date): AlmediaDeal {
   );
 }
 
+export interface JoinDealsOptions {
+  /** Creator signals to stamp onto each row. Defaults to none on file. */
+  enrichments?: AlmediaEnrichmentLookup;
+  now?: Date;
+}
+
 /**
- * Join live campaigns with internal bookings by normalized channel key.
+ * Join live campaigns with internal bookings by normalized channel key, and
+ * stamp each row with its creator's enrichment.
+ *
  * One deal row per campaign; bookings without a matching campaign (pipeline,
  * not yet live) become metric-less rows so budgets and counts stay complete.
+ * Those rows still carry creator signals when the creator has been enriched —
+ * a pipeline booking is exactly where a brand-fit read is worth having.
  */
 export function joinDeals(
   campaigns: readonly AlmediaCampaignRow[],
   bookings: readonly Booking[],
-  now: Date = new Date(),
+  options: JoinDealsOptions = {},
 ): AlmediaDeal[] {
+  const enrichments = options.enrichments ?? EMPTY_ALMEDIA_ENRICHMENT_LOOKUP;
+  const now = options.now ?? new Date();
   const byKey = new Map<string, Booking>();
 
   for (const booking of bookings) {
@@ -184,12 +267,23 @@ export function joinDeals(
       matchedKeys.add(key);
     }
 
-    return dealFromCampaign(campaign, booking, now);
+    return dealFromCampaign(
+      campaign,
+      booking,
+      findCampaignEnrichment(enrichments, campaign.campaignName),
+      now,
+    );
   });
 
   const unmatched = bookings
     .filter((booking) => !matchedKeys.has(booking.channelKey))
-    .map((booking) => dealFromBooking(booking, now));
+    .map((booking) =>
+      dealFromBooking(
+        booking,
+        findChannelEnrichment(enrichments, booking.channelKey),
+        now,
+      ),
+    );
 
   return [...deals, ...unmatched];
 }

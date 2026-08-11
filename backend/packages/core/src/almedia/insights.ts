@@ -11,6 +11,7 @@ import {
 } from "./bookings";
 import { getAlmediaSyncStatus, listAlmediaCampaigns } from "./campaigns";
 import { dimensionOptions, joinDeals } from "./deals";
+import { loadAlmediaEnrichmentLookup } from "./enrichments";
 import { buildScorecard } from "./scorecard";
 
 /**
@@ -23,12 +24,13 @@ import { buildScorecard } from "./scorecard";
 export async function getAlmediaDeals(
   now: Date = new Date(),
 ): Promise<AlmediaDealsResponse> {
-  const [campaigns, bookings, sync] = await Promise.all([
+  const [campaigns, bookings, sync, enrichments] = await Promise.all([
     listAlmediaCampaigns(),
     listBookings(),
     getAlmediaSyncStatus(),
+    loadAlmediaEnrichmentLookup(),
   ]);
-  const deals = joinDeals(campaigns, bookings, now);
+  const deals = joinDeals(campaigns, bookings, { enrichments, now });
 
   return { deals, options: dimensionOptions(deals), sync };
 }

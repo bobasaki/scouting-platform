@@ -22,6 +22,7 @@ import {
 } from "../../lib/almedia/labels";
 import { ALL_ALMEDIA_FILTERS, type AlmediaFilters } from "../../lib/almedia/types";
 import { SearchableSelect } from "../ui/searchable-select";
+import { AlmediaVerticalInsightsPanel } from "./almedia-vertical-insights-panel";
 import { AlmediaWidgetCard } from "./almedia-widget-card";
 import { BestDealsWidget } from "./widgets/best-deals-widget";
 import { BudgetWidget } from "./widgets/budget-widget";
@@ -43,10 +44,9 @@ import { ViewsWidget } from "./widgets/views-widget";
  * Insights tab — live Almedia data joined with the internal booking tracker.
  * One filter bar drives every widget below.
  *
- * Two things from the standalone tracker are deliberately absent in Phase 1:
- * the drag-and-resize grid (this is a fixed CSS grid) and the AI analyst,
- * action plan, and vertical-enrichment panel, which all depend on work that
- * ships in Phase 2.
+ * Two things from the standalone tracker are still absent: the drag-and-resize
+ * grid (this is a fixed CSS grid) and the AI analyst and action plan, which are
+ * later Phase 2 work.
  */
 
 /** High-cardinality dimensions get a searchable combobox instead of a select. */
@@ -421,6 +421,13 @@ export function AlmediaInsightsTab({ deals, options }: AlmediaInsightsTabProps) 
           value={formatMoney(totals.avgAppuD14)}
         />
       </section>
+
+      <AlmediaVerticalInsightsPanel
+        deals={filtered}
+        onSelectVertical={(vertical) => {
+          setFilter("vertical", vertical);
+        }}
+      />
 
       <div className="almedia-widget-grid">
         {WIDGETS.map((widget) => (

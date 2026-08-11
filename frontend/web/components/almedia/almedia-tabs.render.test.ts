@@ -44,13 +44,13 @@ function deal(overrides: Partial<AlmediaDeal> = {}): AlmediaDeal {
     vertical: "Gaming",
     verticals: ["Gaming"],
     category: "integration",
-    hasEnrichment: false,
-    creatorFollowers: null,
-    creatorTypicalViews: null,
-    creatorEngagementRatePct: null,
-    creatorContentFormat: null,
-    creatorBrandFit: null,
-    creatorSafetyRisk: null,
+    hasEnrichment: true,
+    creatorFollowers: 236_000,
+    creatorTypicalViews: 30_000,
+    creatorEngagementRatePct: 4.2,
+    creatorContentFormat: "long_form",
+    creatorBrandFit: "medium",
+    creatorSafetyRisk: "low",
     status: "published",
     intBudget: 12_000,
     extBudget: 15_000,
@@ -73,6 +73,7 @@ const DEALS: readonly AlmediaDeal[] = [
     platform: "tiktok",
     country: "DE",
     vertical: "Lifestyle",
+    verticals: ["Lifestyle"],
     cm: "Ana K",
     cost: 4000,
     returnPct: 42,
@@ -281,6 +282,18 @@ describe("almedia tabs render", () => {
     expect(html).toContain("€5,000");
   });
 
+  it("renders the vertical panel with coverage over campaigns only", () => {
+    const html = renderToStaticMarkup(
+      createElement(AlmediaInsightsTab, { deals: DEALS, options: OPTIONS }),
+    );
+
+    expect(html).toContain("Which verticals pay off?");
+    // Both campaigns are enriched; the pipeline booking is not counted.
+    expect(html).toContain("2 of 2 campaigns");
+    expect(html).toContain("Gaming");
+    expect(html).toContain("Lifestyle");
+  });
+
   it("renders the insights tab without any deals", () => {
     const html = renderToStaticMarkup(
       createElement(AlmediaInsightsTab, { deals: [], options: EMPTY_OPTIONS }),
@@ -288,6 +301,7 @@ describe("almedia tabs render", () => {
 
     expect(html).toContain("Booking suggestions");
     expect(html).toContain("almedia-widget__empty");
+    expect(html).toContain("No campaigns in view carry a vertical yet");
   });
 
   it("renders the performance tab for populated and empty campaign sets", () => {

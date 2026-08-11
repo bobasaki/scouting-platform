@@ -61,6 +61,35 @@ export interface AlmediaTotals {
   avgAppuD14: number | null;
 }
 
+/** How much of the cohort in view has creator enrichment behind it. */
+export interface EnrichmentOverview {
+  campaigns: number;
+  enrichedCampaigns: number;
+  /** 0..1, or null when there are no campaigns to cover. */
+  coverageShare: number | null;
+  /** Distinct enriched creators, not campaigns. */
+  enrichedCreators: number;
+  verticals: number;
+  avgEngagementRatePct: number | null;
+  /** Share of assessed creators rated low brand-safety risk. */
+  brandSafeShare: number | null;
+}
+
+/** Commercial performance and creator quality attributed to one vertical. */
+export interface VerticalPerformance {
+  vertical: string;
+  campaigns: number;
+  measuredReturns: number;
+  enrichedCreators: number;
+  cost: number;
+  views: number;
+  d7Purchases: number;
+  avgReturnPct: number | null;
+  avgEngagementRatePct: number | null;
+  avgFollowers: number | null;
+  brandSafeShare: number | null;
+}
+
 export interface PainPoint {
   dimension: AlmediaDimensionId;
   key: string;
