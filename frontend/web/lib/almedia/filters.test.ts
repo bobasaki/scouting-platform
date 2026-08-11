@@ -14,6 +14,7 @@ function deal(overrides: Partial<AlmediaDeal> = {}): AlmediaDeal {
   const result: AlmediaDeal = {
     channelKey: "ASMRFIXY",
     channelName: "ASMR Fixy",
+    catalogChannelId: null,
     campaignName: "ASMRFIXY_YT_R1",
     videoUrl: null,
     platform: "youtube",

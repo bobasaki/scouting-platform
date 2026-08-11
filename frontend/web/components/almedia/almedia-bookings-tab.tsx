@@ -1,10 +1,12 @@
 "use client";
 
 import type {
+  AlmediaDeal,
   Booking,
   BookingInput,
   BookingStatus,
 } from "@scouting-platform/contracts";
+import Link from "next/link";
 import React, { useMemo, useState } from "react";
 
 import {
@@ -66,9 +68,14 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 export function AlmediaBookingsTab({
+  deals = [],
   bookings,
   onMutated,
-}: Readonly<{ bookings: readonly Booking[]; onMutated: () => void }>) {
+}: Readonly<{
+  deals?: readonly AlmediaDeal[];
+  bookings: readonly Booking[];
+  onMutated: () => void;
+}>) {
   const [editor, setEditor] = useState<EditorState>({ mode: "closed" });
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<BookingStatus | "all">("all");
@@ -112,6 +119,17 @@ export function AlmediaBookingsTab({
       );
     });
   }, [bookings, search, statusFilter, monthFilter]);
+  const catalogChannelIdByChannelKey = useMemo(
+    () =>
+      new Map(
+        deals.flatMap((deal) =>
+          deal.catalogChannelId
+            ? [[deal.channelKey, deal.catalogChannelId] as const]
+            : [],
+        ),
+      ),
+    [deals],
+  );
 
   function handleSubmit(input: BookingInput): void {
     if (editor.mode === "closed") {
@@ -298,62 +316,77 @@ export function AlmediaBookingsTab({
             </tr>
           </thead>
           <tbody>
-            {visibleBookings.map((booking) => (
-              <tr key={booking.id}>
-                <td>
-                  <span className="almedia-bookings__channel">
-                    {booking.channelName}
-                  </span>
-                  <span className="almedia-subnote">{booking.channelKey}</span>
-                </td>
-                <td>{booking.cm ?? "—"}</td>
-                <td>{booking.country ?? "—"}</td>
-                <td>{booking.vertical ?? "—"}</td>
-                <td>
-                  <span
-                    className={`almedia-booking-status almedia-booking-status--${booking.status}`}
-                  >
-                    {STATUS_LABELS[booking.status]}
-                  </span>
-                </td>
-                <td>{booking.month ? monthLabel(booking.month) : "—"}</td>
-                <td className="almedia-numeric">
-                  {formatBudget(booking.intBudget, booking.currency)}
-                </td>
-                <td className="almedia-numeric almedia-numeric--emphasis">
-                  {formatBudget(booking.extBudget, booking.currency)}
-                </td>
-                <td>{booking.contractSigned ? "Signed" : "—"}</td>
-                <td>
-                  <div className="almedia-bookings__row-actions">
-                    <button
-                      className="workspace-button workspace-button--small workspace-button--secondary"
-                      onClick={() => {
-                        setEditor({ mode: "edit", booking });
-                        setPendingDeleteId(null);
-                        setMutationError(null);
-                      }}
-                      type="button"
+            {visibleBookings.map((booking) => {
+              const catalogChannelId = catalogChannelIdByChannelKey.get(
+                booking.channelKey,
+              );
+
+              return (
+                <tr key={booking.id}>
+                  <td>
+                    <span className="almedia-bookings__channel">
+                      {catalogChannelId ? (
+                        <Link
+                          className="almedia-link"
+                          href={`/catalog/${catalogChannelId}`}
+                        >
+                          {booking.channelName}
+                        </Link>
+                      ) : (
+                        booking.channelName
+                      )}
+                    </span>
+                    <span className="almedia-subnote">{booking.channelKey}</span>
+                  </td>
+                  <td>{booking.cm ?? "—"}</td>
+                  <td>{booking.country ?? "—"}</td>
+                  <td>{booking.vertical ?? "—"}</td>
+                  <td>
+                    <span
+                      className={`almedia-booking-status almedia-booking-status--${booking.status}`}
                     >
-                      Edit
-                    </button>
-                    <button
-                      className={
-                        pendingDeleteId === booking.id
-                          ? "workspace-button workspace-button--small almedia-booking-delete almedia-booking-delete--armed"
-                          : "workspace-button workspace-button--small workspace-button--secondary almedia-booking-delete"
-                      }
-                      onClick={() => {
-                        handleDelete(booking.id);
-                      }}
-                      type="button"
-                    >
-                      {pendingDeleteId === booking.id ? "Confirm" : "Delete"}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                      {STATUS_LABELS[booking.status]}
+                    </span>
+                  </td>
+                  <td>{booking.month ? monthLabel(booking.month) : "—"}</td>
+                  <td className="almedia-numeric">
+                    {formatBudget(booking.intBudget, booking.currency)}
+                  </td>
+                  <td className="almedia-numeric almedia-numeric--emphasis">
+                    {formatBudget(booking.extBudget, booking.currency)}
+                  </td>
+                  <td>{booking.contractSigned ? "Signed" : "—"}</td>
+                  <td>
+                    <div className="almedia-bookings__row-actions">
+                      <button
+                        className="workspace-button workspace-button--small workspace-button--secondary"
+                        onClick={() => {
+                          setEditor({ mode: "edit", booking });
+                          setPendingDeleteId(null);
+                          setMutationError(null);
+                        }}
+                        type="button"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className={
+                          pendingDeleteId === booking.id
+                            ? "workspace-button workspace-button--small almedia-booking-delete almedia-booking-delete--armed"
+                            : "workspace-button workspace-button--small workspace-button--secondary almedia-booking-delete"
+                        }
+                        onClick={() => {
+                          handleDelete(booking.id);
+                        }}
+                        type="button"
+                      >
+                        {pendingDeleteId === booking.id ? "Confirm" : "Delete"}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </DataTable>
       )}

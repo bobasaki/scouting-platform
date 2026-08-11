@@ -28,6 +28,7 @@ function deal(
   return {
     channelKey: overrides.campaignName,
     channelName: overrides.campaignName,
+    catalogChannelId: null,
     videoUrl: null,
     platform: null,
     publishedAt: null,

@@ -15,6 +15,7 @@ import {
   findCampaignEnrichment,
   findChannelEnrichment,
   type AlmediaEnrichmentLookup,
+  type AlmediaEnrichmentLookupValue,
 } from "./enrichments";
 import { canonicalVertical, deriveVerticals } from "./verticals";
 
@@ -123,14 +124,14 @@ function classify(
 function dealFromCampaign(
   campaign: AlmediaCampaignRow,
   booking: Booking | undefined,
-  enrichment: AlmediaChannelEnrichment | null,
+  resolvedEnrichment: AlmediaEnrichmentLookupValue | null,
   now: Date,
 ): AlmediaDeal {
   const expectedViews = expectedViewsOf(campaign.cost, campaign.expectedCpm);
   const budgetForTier = booking?.intBudget ?? campaign.cost;
   const bookingVertical =
     canonicalVertical(booking?.vertical) ?? booking?.vertical ?? null;
-  const signals = creatorSignalsOf(enrichment);
+  const signals = creatorSignalsOf(resolvedEnrichment?.enrichment ?? null);
   const verticals = verticalsOf(signals, bookingVertical);
 
   return classify(
@@ -138,6 +139,7 @@ function dealFromCampaign(
       channelKey: campaignBaseKey(campaign.campaignName),
       channelName:
         booking?.channelName ?? campaign.channelName ?? campaign.campaignName,
+      catalogChannelId: resolvedEnrichment?.catalogChannelId ?? null,
       campaignName: campaign.campaignName,
       videoUrl: campaign.videoUrl ?? booking?.videoUrl ?? null,
       platform: booking?.platform ?? campaign.platform,
@@ -178,17 +180,18 @@ function dealFromCampaign(
 
 function dealFromBooking(
   booking: Booking,
-  enrichment: AlmediaChannelEnrichment | null,
+  resolvedEnrichment: AlmediaEnrichmentLookupValue | null,
   now: Date,
 ): AlmediaDeal {
   const bookingVertical = canonicalVertical(booking.vertical) ?? booking.vertical;
-  const signals = creatorSignalsOf(enrichment);
+  const signals = creatorSignalsOf(resolvedEnrichment?.enrichment ?? null);
   const verticals = verticalsOf(signals, bookingVertical);
 
   return classify(
     {
       channelKey: booking.channelKey,
       channelName: booking.channelName,
+      catalogChannelId: resolvedEnrichment?.catalogChannelId ?? null,
       campaignName: null,
       videoUrl: booking.videoUrl,
       platform: booking.platform,

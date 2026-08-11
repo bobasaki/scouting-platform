@@ -39,6 +39,7 @@ const options = {
 const deal = {
   channelKey: "ASMRFIXY",
   channelName: "ASMR Fixy",
+  catalogChannelId: "6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b",
   campaignName: "ASMRFIXY_YT_R1",
   videoUrl: null,
   platform: "youtube",

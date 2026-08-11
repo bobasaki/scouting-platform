@@ -308,6 +308,7 @@ export const almediaChannelEnrichmentSchema = z.object({
 export const almediaDealSchema = z.object({
   channelKey: z.string(),
   channelName: z.string(),
+  catalogChannelId: z.string().nullable(),
   campaignName: z.string().nullable(),
   videoUrl: z.string().nullable(),
   platform: z.string().nullable(),

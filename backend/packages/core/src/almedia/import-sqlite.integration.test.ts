@@ -85,6 +85,12 @@ const ENRICHMENT_JSON = JSON.stringify({
   classification: { niche: "asmr" },
 });
 
+const UNMATCHED_ENRICHMENT_JSON = JSON.stringify({
+  schemaVersion: "1.0",
+  channel: { id: "UCunmatched", title: "Unmatched Creator", topics: [] },
+  classification: { niche: "gaming" },
+});
+
 function createSourceDatabase(): DatabaseSync {
   const db = new DatabaseSync(":memory:");
 
@@ -127,6 +133,10 @@ function createSourceDatabase(): DatabaseSync {
      VALUES ('UCbroken', 'not json', '2026-07-23T09:45:55.624Z')`,
   ).run();
   db.prepare(
+    `INSERT INTO channel_enrichments (channel_id, result_json, updated_at)
+     VALUES ('UCunmatched', ?, '2026-07-23T09:45:55.624Z')`,
+  ).run(UNMATCHED_ENRICHMENT_JSON);
+  db.prepare(
     `INSERT INTO channel_enrichment_links (source_type, source_key, channel_id) VALUES
        ('channel_key', 'ASMRFIXY', 'UCasmrfixy'),
        ('campaign', 'ASMRFIXY_YT_R1', 'UCasmrfixy'),
@@ -159,7 +169,8 @@ integration("almedia SQLite import", () => {
         revenue_targets,
         booking_invoices,
         almedia_channel_enrichments,
-        almedia_channel_enrichment_links
+        almedia_channel_enrichment_links,
+        channels
       RESTART IDENTITY CASCADE
     `);
 
@@ -182,6 +193,9 @@ integration("almedia SQLite import", () => {
   it("imports every table and reports per-table counts", async () => {
     const source = createSourceDatabase();
     const { importAlmediaBookingsFromReader } = await loadImporter();
+    const catalogChannel = await prisma.channel.create({
+      data: { youtubeChannelId: "UCasmrfixy", title: "Catalog ASMR Fixy" },
+    });
 
     try {
       expect(await importAlmediaBookingsFromReader(source)).toEqual({
@@ -190,7 +204,7 @@ integration("almedia SQLite import", () => {
         revenueTargets: 1,
         invoices: 1,
         // The unparseable blob is skipped, as is the link pointing at it.
-        enrichments: 1,
+        enrichments: 2,
         enrichmentLinks: 2,
       });
     } finally {
@@ -245,10 +259,17 @@ integration("almedia SQLite import", () => {
       classification: { niche: "asmr" },
     });
     expect(enrichment?.generatedAt.toISOString()).toBe("2026-07-23T09:45:55.624Z");
+    expect(enrichment?.catalogChannelId).toBe(catalogChannel.id);
     expect(enrichment?.links.map((link) => link.sourceKey)).toEqual([
       "ASMRFIXY",
       "ASMRFIXY_YT_R1",
     ]);
+    expect(
+      await prisma.almediaChannelEnrichment.findUnique({
+        where: { channelId: "UCunmatched" },
+        select: { catalogChannelId: true },
+      }),
+    ).toEqual({ catalogChannelId: null });
   });
 
   it("falls back to pipeline for an unrecognized source status", async () => {
@@ -287,7 +308,7 @@ integration("almedia SQLite import", () => {
 
     expect(await prisma.booking.count()).toBe(2);
     expect(await prisma.bookingTarget.count()).toBe(1);
-    expect(await prisma.almediaChannelEnrichment.count()).toBe(1);
+    expect(await prisma.almediaChannelEnrichment.count()).toBe(2);
     expect(await prisma.almediaChannelEnrichmentLink.count()).toBe(2);
     expect(
       await prisma.booking.findFirst({ where: { legacySourceId: 1 } }),

@@ -264,11 +264,15 @@ export function AlmediaWorkspace() {
             {activeTab === "bookings" ? (
               <AlmediaBookingsTab
                 bookings={data.bookings.bookings}
+                deals={data.deals.deals}
                 onMutated={handleWorkspaceMutated}
               />
             ) : null}
             {activeTab === "performance" ? (
-              <AlmediaPerformanceTab campaigns={data.campaigns.campaigns} />
+              <AlmediaPerformanceTab
+                campaigns={data.campaigns.campaigns}
+                deals={data.deals.deals}
+              />
             ) : null}
             {activeTab === "scorecard" ? (
               <AlmediaScorecardTab scorecard={data.scorecard} />

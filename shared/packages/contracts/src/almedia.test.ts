@@ -41,6 +41,7 @@ const allOptions = {
 const deal: AlmediaDeal = {
   channelKey: "ASMRFIXY",
   channelName: "ASMR Fixy",
+  catalogChannelId: TEST_UUID,
   campaignName: "ASMRFIXY_YT_R1",
   videoUrl: "https://www.youtube.com/watch?v=abc",
   platform: "youtube",
@@ -87,6 +88,16 @@ describe("almedia contracts", () => {
     };
 
     expect(almediaDealsResponseSchema.parse(payload)).toEqual(payload);
+  });
+
+  it("allows a deal to have no catalog channel link", () => {
+    expect(
+      almediaDealsResponseSchema.parse({
+        deals: [{ ...deal, catalogChannelId: null }],
+        options: allOptions,
+        sync: syncStatus,
+      }).deals[0]?.catalogChannelId,
+    ).toBeNull();
   });
 
   it("rejects a deal whose month is not ISO YYYY-MM", () => {
