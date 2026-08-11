@@ -23,6 +23,7 @@ vi.mock("@scouting-platform/core", () => ({
     campaignCount: 3,
     pageCount: 1,
     duplicateCount: 0,
+    linkedEnrichmentCount: 0,
   })),
 }));
 
@@ -109,6 +110,34 @@ describe("almedia.campaigns.sync worker", () => {
     expect(vi.mocked(syncAlmediaCampaigns)).toHaveBeenCalledWith({
       syncRunId: SYNC_RUN_ID,
     });
+  });
+
+  it("logs only a non-zero catalog re-link count", async () => {
+    vi.mocked(syncAlmediaCampaigns).mockResolvedValueOnce({
+      runId: SYNC_RUN_ID,
+      agency: "ARCH.",
+      campaignCount: 3,
+      pageCount: 1,
+      duplicateCount: 0,
+      linkedEnrichmentCount: 2,
+    });
+    const stdout = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation(() => true);
+    const work = vi.fn(async () => "almedia-campaigns-sync-worker");
+
+    await registerAlmediaCampaignsSyncWorker({
+      work,
+    } as unknown as Pick<PgBoss, "work">);
+
+    const [, , handler] = takeWorkRegistration(work);
+
+    await handler({ data: { initiatedBy: "system", syncRunId: SYNC_RUN_ID } });
+
+    expect(stdout).toHaveBeenCalledWith(
+      "[worker] linked 2 Almedia enrichment(s) to catalog channels\n",
+    );
+    stdout.mockRestore();
   });
 
   it("rethrows so pg-boss retries when the sync fails", async () => {

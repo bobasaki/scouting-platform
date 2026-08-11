@@ -281,6 +281,14 @@ async function importChannelEnrichments(
   tx: DbTransactionClient,
   rows: readonly SqliteRow[],
 ): Promise<number> {
+  const channelIds = [...new Set(rows.map((row) => requiredText(row, "channel_id")))];
+  const catalogChannels = await tx.channel.findMany({
+    where: { youtubeChannelId: { in: channelIds } },
+    select: { id: true, youtubeChannelId: true },
+  });
+  const catalogChannelIdByYoutubeId = new Map(
+    catalogChannels.map((channel) => [channel.youtubeChannelId, channel.id]),
+  );
   let imported = 0;
 
   for (const row of rows) {
@@ -292,11 +300,12 @@ async function importChannelEnrichments(
     }
 
     const generatedAt = timestamp(row, "updated_at") ?? new Date();
+    const catalogChannelId = catalogChannelIdByYoutubeId.get(channelId) ?? null;
 
     await tx.almediaChannelEnrichment.upsert({
       where: { channelId },
-      create: { channelId, result, generatedAt },
-      update: { result, generatedAt },
+      create: { channelId, catalogChannelId, result, generatedAt },
+      update: { catalogChannelId, result, generatedAt },
     });
     imported += 1;
   }

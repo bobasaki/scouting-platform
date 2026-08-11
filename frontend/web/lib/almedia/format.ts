@@ -31,6 +31,7 @@ export function formatAmountCompact(value: number | null): string {
     style: "currency",
     currency: ALMEDIA_CURRENCY,
     notation: "compact",
+    minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   }).format(value);
 }

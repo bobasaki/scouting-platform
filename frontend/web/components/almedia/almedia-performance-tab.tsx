@@ -1,6 +1,7 @@
 "use client";
 
-import type { AlmediaCampaignRow } from "@scouting-platform/contracts";
+import type { AlmediaCampaignRow, AlmediaDeal } from "@scouting-platform/contracts";
+import Link from "next/link";
 import React, { useMemo, useState } from "react";
 
 import {
@@ -158,7 +159,11 @@ function KpiCard({
 
 export function AlmediaPerformanceTab({
   campaigns,
-}: Readonly<{ campaigns: readonly AlmediaCampaignRow[] }>) {
+  deals = [],
+}: Readonly<{
+  campaigns: readonly AlmediaCampaignRow[];
+  deals?: readonly AlmediaDeal[];
+}>) {
   const [filters, setFilters] = useState<CampaignFilters>(EMPTY_CAMPAIGN_FILTERS);
   const [sort, setSort] = useState<SortState>({
     key: "publishedAt",
@@ -186,6 +191,17 @@ export function AlmediaPerformanceTab({
   const months = useMemo(() => monthlyPerformance(filtered), [filtered]);
   const platformStats = useMemo(() => platformGroups(filtered), [filtered]);
   const rows = useMemo(() => sortCampaigns(filtered, sort), [filtered, sort]);
+  const catalogChannelIdByCampaign = useMemo(
+    () =>
+      new Map(
+        deals.flatMap((deal) =>
+          deal.campaignName
+            ? [[deal.campaignName, deal.catalogChannelId] as const]
+            : [],
+        ),
+      ),
+    [deals],
+  );
 
   const totalCost = sumCampaigns(filtered, "cost");
   const totalViews = sumCampaigns(filtered, "viewCount");
@@ -563,6 +579,8 @@ export function AlmediaPerformanceTab({
             <tbody>
               {rows.map((campaign, index) => {
                 const maturity = maturityBadge(campaign.publishedAt);
+                const catalogChannelId =
+                  catalogChannelIdByCampaign.get(campaign.campaignName) ?? null;
 
                 return (
                   <tr
@@ -570,7 +588,22 @@ export function AlmediaPerformanceTab({
                   >
                     <td>{campaign.campaignName}</td>
                     <td>{campaign.campaignSource}</td>
-                    <td>{campaign.channelName ?? "—"}</td>
+                    <td>
+                      {campaign.channelName ? (
+                        catalogChannelId ? (
+                          <Link
+                            className="almedia-link"
+                            href={`/catalog/${catalogChannelId}`}
+                          >
+                            {campaign.channelName}
+                          </Link>
+                        ) : (
+                          campaign.channelName
+                        )
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td>{platformLabel(campaign.platform)}</td>
                     <td>{campaign.country}</td>
                     <td>{formatDate(campaign.publishedAt)}</td>

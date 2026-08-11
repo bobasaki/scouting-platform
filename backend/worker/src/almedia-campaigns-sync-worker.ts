@@ -108,6 +108,13 @@ export async function registerAlmediaCampaignsSyncWorker(
 
         try {
           const result = await syncAlmediaCampaigns({ syncRunId: payload.syncRunId });
+
+          if (result.linkedEnrichmentCount > 0) {
+            process.stdout.write(
+              `[worker] linked ${result.linkedEnrichmentCount} Almedia enrichment(s) to catalog channels\n`,
+            );
+          }
+
           process.stdout.write(
             `[worker] almedia.campaigns.sync ${payload.syncRunId} stored ${result.campaignCount} campaign(s) across ${result.pageCount} page(s)\n`,
           );

@@ -22,15 +22,20 @@ export const ALMEDIA_ENRICHMENT_LINK_TYPES = {
   channelKey: "channel_key",
 } as const;
 
+export type AlmediaEnrichmentLookupValue = Readonly<{
+  enrichment: AlmediaChannelEnrichment;
+  catalogChannelId: string | null;
+}>;
+
 /**
  * Enrichments indexed by link, ready for the deal join. Built once per request
  * rather than queried per campaign — the whole table is a few hundred rows.
  */
 export interface AlmediaEnrichmentLookup {
   /** Exact Almedia campaign name -> enrichment. */
-  readonly byCampaign: ReadonlyMap<string, AlmediaChannelEnrichment>;
+  readonly byCampaign: ReadonlyMap<string, AlmediaEnrichmentLookupValue>;
   /** Normalized creator key -> enrichment. */
-  readonly byChannelKey: ReadonlyMap<string, AlmediaChannelEnrichment>;
+  readonly byChannelKey: ReadonlyMap<string, AlmediaEnrichmentLookupValue>;
 }
 
 export const EMPTY_ALMEDIA_ENRICHMENT_LOOKUP: AlmediaEnrichmentLookup = {
@@ -45,7 +50,7 @@ export const EMPTY_ALMEDIA_ENRICHMENT_LOOKUP: AlmediaEnrichmentLookup = {
 export function findCampaignEnrichment(
   lookup: AlmediaEnrichmentLookup,
   campaignName: string,
-): AlmediaChannelEnrichment | null {
+): AlmediaEnrichmentLookupValue | null {
   return (
     lookup.byCampaign.get(campaignName) ??
     lookup.byChannelKey.get(campaignBaseKey(campaignName)) ??
@@ -57,7 +62,7 @@ export function findCampaignEnrichment(
 export function findChannelEnrichment(
   lookup: AlmediaEnrichmentLookup,
   channelKey: string,
-): AlmediaChannelEnrichment | null {
+): AlmediaEnrichmentLookupValue | null {
   return lookup.byChannelKey.get(channelKey) ?? null;
 }
 
@@ -72,13 +77,14 @@ export async function loadAlmediaEnrichmentLookup(): Promise<AlmediaEnrichmentLo
   const rows = await prisma.almediaChannelEnrichment.findMany({
     select: {
       channelId: true,
+      catalogChannelId: true,
       result: true,
       links: { select: { sourceType: true, sourceKey: true } },
     },
   });
 
-  const byCampaign = new Map<string, AlmediaChannelEnrichment>();
-  const byChannelKey = new Map<string, AlmediaChannelEnrichment>();
+  const byCampaign = new Map<string, AlmediaEnrichmentLookupValue>();
+  const byChannelKey = new Map<string, AlmediaEnrichmentLookupValue>();
   let skipped = 0;
 
   for (const row of rows) {
@@ -97,7 +103,10 @@ export async function loadAlmediaEnrichmentLookup(): Promise<AlmediaEnrichmentLo
             ? byChannelKey
             : null;
 
-      target?.set(link.sourceKey, parsed.data);
+      target?.set(link.sourceKey, {
+        enrichment: parsed.data,
+        catalogChannelId: row.catalogChannelId,
+      });
     }
   }
 
@@ -108,4 +117,15 @@ export async function loadAlmediaEnrichmentLookup(): Promise<AlmediaEnrichmentLo
   }
 
   return { byCampaign, byChannelKey };
+}
+
+/** Link enrichments to catalog channels that appeared since the last import. Idempotent. */
+export async function relinkAlmediaEnrichmentCatalogChannels(): Promise<number> {
+  return prisma.$executeRaw`
+    UPDATE almedia_channel_enrichments a
+    SET catalog_channel_id = c.id
+    FROM channels c
+    WHERE c.youtube_channel_id = a.channel_id
+      AND a.catalog_channel_id IS NULL
+  `;
 }
