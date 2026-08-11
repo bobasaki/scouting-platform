@@ -2,7 +2,7 @@ import type { AlmediaDeal } from "@scouting-platform/contracts";
 
 import { crossTab } from "./charts";
 import { groupByDimension } from "./filters";
-import { formatCount, formatEur, formatPct } from "./format";
+import { formatCount, formatAmount, formatPct } from "./format";
 import { platformLabel } from "./labels";
 import { ALMEDIA_UNASSIGNED } from "./types";
 
@@ -33,7 +33,7 @@ export interface Suggestion {
   headline: string;
   /** Full sentence with the supporting evidence. */
   detail: string;
-  /** Compact stat chip, e.g. "128% return · €42k · 6 deals". */
+  /** Compact stat chip, e.g. "128% return · $42k · 6 deals". */
   metric: string;
 }
 
@@ -85,7 +85,7 @@ export function bookingSuggestions(deals: readonly AlmediaDeal[]): Suggestion[] 
       priority: (group.avgReturnPct ?? 0) >= 100 ? "high" : "medium",
       headline: `Book more ${group.key}`,
       detail: `${group.key} creators return ${formatPct(group.avgReturnPct)} cost-weighted across ${group.measured} matured deals, one of the strongest niches. Book more of it next month.`,
-      metric: `${formatPct(group.avgReturnPct)} return · ${formatEur(group.cost)} · ${group.measured} deals`,
+      metric: `${formatPct(group.avgReturnPct)} return · ${formatAmount(group.cost)} · ${group.measured} deals`,
     });
   }
 
@@ -109,7 +109,7 @@ export function bookingSuggestions(deals: readonly AlmediaDeal[]): Suggestion[] 
       priority: "high",
       headline: `Book more ${cell.col} in ${cell.row}`,
       detail: `${cell.col} in ${cell.row} returns ${formatPct(cell.avgReturnPct)} across ${cell.measured} matured deals. Ask CMs to source more ${cell.col} creators in ${cell.row}.`,
-      metric: `${formatPct(cell.avgReturnPct)} return · ${formatEur(cell.cost)} · ${cell.deals} deals`,
+      metric: `${formatPct(cell.avgReturnPct)} return · ${formatAmount(cell.cost)} · ${cell.deals} deals`,
     });
   }
 
@@ -237,7 +237,7 @@ export function bookingSuggestions(deals: readonly AlmediaDeal[]): Suggestion[] 
         priority: "medium",
         headline: `Ease off ${worst.key}`,
         detail: `${worst.key} is returning only ${formatPct(worst.avgReturnPct)} across ${worst.measured} matured deals. Pause new bookings or renegotiate price before committing more.`,
-        metric: `${formatPct(worst.avgReturnPct)} return · ${formatEur(worst.cost)}`,
+        metric: `${formatPct(worst.avgReturnPct)} return · ${formatAmount(worst.cost)}`,
       });
     }
   }

@@ -1,57 +1,49 @@
 /** Display formatters shared by the Almedia tabs and widgets. */
 
-export function formatEur(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) {
-    return "–";
-  }
-
-  return new Intl.NumberFormat("en", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
+import { ALMEDIA_CURRENCY } from "@scouting-platform/contracts";
 
 /**
- * USD whole-dollar amounts. The Almedia `cost` field and the whole invoicing
- * model are dollar-denominated, unlike the EUR booking budgets, so the billing
- * views must not borrow the EUR formatter.
+ * Re-exported so a view can name the currency it is rendering without reaching
+ * past this module. There is only ever one, defined in contracts.
  */
-export function formatUsd(value: number | null): string {
+export { ALMEDIA_CURRENCY };
+
+/** Whole units, e.g. "$1,234". */
+export function formatAmount(value: number | null): string {
   if (value === null || !Number.isFinite(value)) {
     return "–";
   }
 
   return new Intl.NumberFormat("en", {
     style: "currency",
-    currency: "USD",
+    currency: ALMEDIA_CURRENCY,
     maximumFractionDigits: 0,
   }).format(value);
 }
 
-/** Compact EUR for dense cards, e.g. "€42K". */
-export function formatEurCompact(value: number | null): string {
+/** Compact, for dense cards, e.g. "$42.0K". */
+export function formatAmountCompact(value: number | null): string {
   if (value === null || !Number.isFinite(value)) {
     return "–";
   }
 
   return new Intl.NumberFormat("en", {
     style: "currency",
-    currency: "EUR",
+    currency: ALMEDIA_CURRENCY,
     notation: "compact",
     maximumFractionDigits: 1,
   }).format(value);
 }
 
-/** Precise EUR with cents — for small per-user values like APPU. */
-export function formatMoney(value: number | null, digits = 2): string {
+/** Precise, with cents — for small per-user values like APPU. */
+export function formatAmountPrecise(value: number | null, digits = 2): string {
   if (value === null || !Number.isFinite(value)) {
     return "–";
   }
 
   return new Intl.NumberFormat("en", {
     style: "currency",
-    currency: "EUR",
+    currency: ALMEDIA_CURRENCY,
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   }).format(value);

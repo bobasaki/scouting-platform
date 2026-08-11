@@ -1,9 +1,10 @@
 "use client";
 
-import type {
-  Booking,
-  BookingInput,
-  BookingStatus,
+import {
+  ALMEDIA_CURRENCY,
+  type Booking,
+  type BookingInput,
+  type BookingStatus,
 } from "@scouting-platform/contracts";
 import React, { useState } from "react";
 
@@ -62,7 +63,7 @@ const EMPTY_VALUES: BookingFormValues = {
   publishedAt: "",
   intBudget: "",
   extBudget: "",
-  currency: "EUR",
+  currency: ALMEDIA_CURRENCY,
   month: "",
   note: "",
   videoUrl: "",
@@ -177,7 +178,7 @@ export function toBookingInput(
       publishedAt: values.publishedAt,
       intBudget,
       extBudget,
-      currency: values.currency.trim().length === 0 ? "EUR" : values.currency,
+      currency: values.currency.trim().length === 0 ? ALMEDIA_CURRENCY : values.currency,
       month: values.month,
       note: values.note,
       videoUrl: values.videoUrl,

@@ -4,7 +4,7 @@ import type { AlmediaDeal } from "@scouting-platform/contracts";
 import React, { useMemo } from "react";
 
 import { maturityMix } from "../../../lib/almedia/charts";
-import { formatEur, formatPct } from "../../../lib/almedia/format";
+import { formatAmount, formatPct } from "../../../lib/almedia/format";
 import { returnTone } from "./bar-list";
 
 /**
@@ -40,7 +40,7 @@ export function MaturityWidget({ deals }: Readonly<{ deals: readonly AlmediaDeal
               className={`almedia-maturity-bar__seg almedia-tone--${segment.tone}`}
               key={segment.key}
               style={{ width: `${(segment.bucket.cost / totalCost) * 100}%` }}
-              title={`${segment.label}: ${formatEur(segment.bucket.cost)} · ${segment.bucket.deals} deals`}
+              title={`${segment.label}: ${formatAmount(segment.bucket.cost)} · ${segment.bucket.deals} deals`}
             />
           ),
         )}

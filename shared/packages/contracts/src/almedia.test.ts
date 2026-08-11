@@ -151,8 +151,8 @@ describe("almedia contracts", () => {
       months: [
         {
           month: "2026-03",
-          targetEur: 50_000,
-          bookedEur: 42_000,
+          targetAmount: 50_000,
+          bookedAmount: 42_000,
           counts,
           utilization: 0.84,
           pace: null,
@@ -164,9 +164,9 @@ describe("almedia contracts", () => {
           cm: "Marin",
           market: "DE",
           month: "2026-03",
-          targetEur: 50_000,
+          targetAmount: 50_000,
           targetTiers: tiers,
-          bookedEur: 42_000,
+          bookedAmount: 42_000,
           bookedTiers: tiers,
           counts,
           utilization: 0.84,

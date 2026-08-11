@@ -12,7 +12,7 @@ import {
   deleteAlmediaBooking,
   updateAlmediaBooking,
 } from "../../lib/almedia-api";
-import { formatEurCompact } from "../../lib/almedia/format";
+import { ALMEDIA_CURRENCY, formatAmountCompact } from "../../lib/almedia/format";
 import { monthLabel } from "../../lib/almedia/labels";
 import { DataTable } from "../ui/DataTable";
 import { EmptyState } from "../ui/EmptyState";
@@ -52,8 +52,11 @@ function formatBudget(value: number | null, currency: string): string {
     return "—";
   }
 
-  return currency === "EUR"
-    ? formatEurCompact(value)
+  // A booking typed in some other currency is rendered with its own code
+  // rather than through the workspace formatter, so it reads as the exception
+  // it is instead of silently joining the single-currency totals.
+  return currency === ALMEDIA_CURRENCY
+    ? formatAmountCompact(value)
     : `${value.toLocaleString("en-GB")} ${currency}`;
 }
 

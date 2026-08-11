@@ -96,7 +96,7 @@ function booking(overrides: Partial<Booking> = {}): Booking {
     publishedAt: "2026-07-13",
     intBudget: 12_000,
     extBudget: 15_000,
-    currency: "EUR",
+    currency: "USD",
     month: "2026-07",
     note: null,
     videoUrl: null,

@@ -179,8 +179,8 @@ const SCORECARD: AlmediaScorecardResponse = {
   months: [
     {
       month: "2026-07",
-      targetEur: 40_000,
-      bookedEur: 27_000,
+      targetAmount: 40_000,
+      bookedAmount: 27_000,
       counts: {
         pipeline: 1,
         booked: 2,
@@ -198,14 +198,14 @@ const SCORECARD: AlmediaScorecardResponse = {
       cm: "Lucija P",
       market: "PL",
       month: "2026-07",
-      targetEur: 40_000,
+      targetAmount: 40_000,
       targetTiers: {
         under10k: 1,
         from10kTo20k: 2,
         from20kTo50k: 1,
         over50k: 0,
       },
-      bookedEur: 27_000,
+      bookedAmount: 27_000,
       bookedTiers: {
         under10k: 1,
         from10kTo20k: 1,
@@ -251,7 +251,7 @@ const BOOKING: Booking = {
   publishedAt: "2026-07-13",
   intBudget: 12_000,
   extBudget: 15_000,
-  currency: "EUR",
+  currency: "USD",
   month: "2026-07",
   note: null,
   videoUrl: null,
@@ -301,7 +301,7 @@ describe("almedia tabs render", () => {
     expect(html).toContain("Maturity mix");
     expect(html).toContain("AI analyst");
     // Live spend across the two campaigns that carry a cost.
-    expect(html).toContain("€5,000");
+    expect(html).toContain("$5,000");
   });
 
   it("offers the analyst's starter questions before the status probe lands", () => {
@@ -391,7 +391,7 @@ describe("almedia tabs render", () => {
     // July (cost 1,000) and August (cost 4,000) publish batches.
     expect(html).toContain("Jul 2026");
     expect(html).toContain("Aug 2026");
-    // Dollar-denominated, not the EUR the other tabs show.
+    // Same formatter as every other tab.
     expect(html).toContain("$5,000");
     // The recorded snapshot for the July campaign, and the shortfall it leaves.
     expect(html).toContain("billed $900");

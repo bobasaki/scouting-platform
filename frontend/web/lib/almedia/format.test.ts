@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 
 import { buildCampaignsCsv } from "./csv-export";
 import {
+  ALMEDIA_CURRENCY,
+  formatAmount,
+  formatAmountCompact,
+  formatAmountPrecise,
   formatCount,
-  formatEur,
-  formatMoney,
   formatPct,
   formatShare,
   timeAgo,
@@ -13,14 +15,33 @@ import {
 import { bookingStatusLabel, monthLabel, platformLabel } from "./labels";
 
 describe("formatters", () => {
-  it("renders whole-euro amounts and a dash for missing values", () => {
-    expect(formatEur(1234)).toBe("€1,234");
-    expect(formatEur(null)).toBe("–");
-    expect(formatEur(Number.NaN)).toBe("–");
+  it("renders whole amounts and a dash for missing values", () => {
+    expect(formatAmount(1234)).toBe("$1,234");
+    expect(formatAmount(null)).toBe("–");
+    expect(formatAmount(Number.NaN)).toBe("–");
   });
 
   it("renders precise money for small per-user values", () => {
-    expect(formatMoney(3.456)).toBe("€3.46");
+    expect(formatAmountPrecise(3.456)).toBe("$3.46");
+  });
+
+  it("compacts large amounts", () => {
+    expect(formatAmountCompact(42_000)).toBe("$42.0K");
+    expect(formatAmountCompact(1_477_974)).toBe("$1.5M");
+  });
+
+  // The whole point of the constant is that no view can pick its own currency.
+  it("drives every money formatter from one currency", () => {
+    expect(ALMEDIA_CURRENCY).toBe("USD");
+
+    for (const rendered of [
+      formatAmount(1000),
+      formatAmountCompact(1000),
+      formatAmountPrecise(1000),
+    ]) {
+      expect(rendered.startsWith("$")).toBe(true);
+      expect(rendered).not.toContain("€");
+    }
   });
 
   it("abbreviates large counts", () => {

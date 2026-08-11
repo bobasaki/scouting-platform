@@ -1762,7 +1762,8 @@ model Booking {
   publishedAt    String?       @map("published_at")
   intBudget      Float?        @map("int_budget")
   extBudget      Float?        @map("ext_budget")
-  currency       String        @default("EUR")
+  /// The Almedia workspace bills in one currency; see ALMEDIA_CURRENCY.
+  currency       String        @default("USD")
   month          String?
   note           String?       @db.Text
   videoUrl       String?       @map("video_url")

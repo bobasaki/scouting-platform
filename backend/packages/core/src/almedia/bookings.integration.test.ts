@@ -74,7 +74,7 @@ integration("almedia booking CRUD", () => {
 
     expect(created.channelKey).toBe("ASMRFIXY");
     expect(created.status).toBe("pipeline");
-    expect(created.currency).toBe("EUR");
+    expect(created.currency).toBe("USD");
     expect(created.contractSigned).toBe(false);
     expect(created.month).toBe("2026-09");
 

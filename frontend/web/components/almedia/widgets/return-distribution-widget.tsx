@@ -4,7 +4,7 @@ import type { AlmediaDeal } from "@scouting-platform/contracts";
 import React, { useMemo } from "react";
 
 import { returnDistribution } from "../../../lib/almedia/charts";
-import { formatEur, formatPct } from "../../../lib/almedia/format";
+import { formatAmount, formatPct } from "../../../lib/almedia/format";
 
 /**
  * Return distribution — how the measured portfolio spreads across the decision
@@ -46,7 +46,7 @@ export function ReturnDistributionWidget({
               />
             </div>
             <span className="almedia-histogram__label">{band.label}</span>
-            <span className="almedia-histogram__meta">{formatEur(band.cost)}</span>
+            <span className="almedia-histogram__meta">{formatAmount(band.cost)}</span>
           </div>
         ))}
       </div>

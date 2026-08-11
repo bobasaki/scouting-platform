@@ -8,6 +8,7 @@ import {
 
 import { enrichmentOverview, verticalPerformance } from "./enrichment";
 import { groupByDimension, painPoints, totalsOf } from "./filters";
+import { ALMEDIA_CURRENCY } from "./format";
 import type { AlmediaFilters } from "./types";
 
 /**
@@ -112,18 +113,18 @@ function dealLine(deal: AlmediaDeal): Record<string, unknown> {
     publishedAt: deal.publishedAt,
     maturity: deal.maturity,
     returnTier: deal.returnTier,
-    costEur: round(deal.cost),
-    intBudgetEur: round(deal.intBudget),
-    extBudgetEur: round(deal.extBudget),
-    expectedCpmEur: round(deal.expectedCpm),
-    realisedCpmEur:
+    cost: round(deal.cost),
+    intBudget: round(deal.intBudget),
+    extBudget: round(deal.extBudget),
+    expectedCpm: round(deal.expectedCpm),
+    realisedCpm:
       deal.cost !== null && deal.viewCount !== null && deal.viewCount > 0
         ? round((deal.cost / deal.viewCount) * 1000)
         : null,
     // The cost that would have matched the original expected CPM at realised
     // views — a factual anchor for an under-delivery renegotiation, never a
     // recommended price.
-    deliveryAlignedCostEur:
+    deliveryAlignedCost:
       deal.cost !== null && deal.deliveryPct !== null
         ? round((deal.cost * Math.min(deal.deliveryPct, 100)) / 100)
         : null,
@@ -143,8 +144,8 @@ function groupSummary(
   const rows = groups.slice(0, MAX_SEGMENT_ROWS).map((group) => ({
     [dimension]: group.key,
     deals: group.deals,
-    costEur: Math.round(group.cost),
-    intBudgetEur: Math.round(group.intBudget),
+    cost: Math.round(group.cost),
+    intBudget: Math.round(group.intBudget),
     avgReturnPct: round(group.avgReturnPct),
     measuredReturns: group.measured,
     deliveryPct: round(group.deliveryPct),
@@ -216,12 +217,12 @@ export function buildAlmediaDigest(input: AlmediaDigestInput): string {
       cm: row.cm,
       market: row.market,
       month: row.month,
-      targetEur: row.targetEur,
-      committedEur: row.bookedEur,
-      remainingEur:
-        row.targetEur === null ? null : Math.max(0, row.targetEur - row.bookedEur),
-      overTargetEur:
-        row.targetEur === null ? null : Math.max(0, row.bookedEur - row.targetEur),
+      targetAmount: row.targetAmount,
+      committed: row.bookedAmount,
+      remaining:
+        row.targetAmount === null ? null : Math.max(0, row.targetAmount - row.bookedAmount),
+      overTarget:
+        row.targetAmount === null ? null : Math.max(0, row.bookedAmount - row.targetAmount),
       utilizationPct: round(row.utilization === null ? null : row.utilization * 100),
       pacePct: round(row.pace === null ? null : row.pace * 100),
       targetTiers: row.targetTiers,
@@ -229,7 +230,7 @@ export function buildAlmediaDigest(input: AlmediaDigestInput): string {
       counts: row.counts,
       dropoutPct: round(row.dropoutRate === null ? null : row.dropoutRate * 100),
     }))
-    .sort((a, b) => (b.remainingEur ?? -1) - (a.remainingEur ?? -1));
+    .sort((a, b) => (b.remaining ?? -1) - (a.remaining ?? -1));
 
   const buckets = candidateBuckets(deals);
   const bucketRows = Object.values(buckets);
@@ -259,6 +260,9 @@ export function buildAlmediaDigest(input: AlmediaDigestInput): string {
         generatedAt: now.toISOString(),
         currentMonth: now.toISOString().slice(0, 7),
         nextCalendarMonth: nextIsoMonth(now),
+        // Stated once, from the same constant the UI formats with, so the
+        // analyst quotes the currency the reader is actually looking at.
+        currency: ALMEDIA_CURRENCY,
         activeFilters,
       },
       evidenceRules: {
@@ -293,7 +297,7 @@ export function buildAlmediaDigest(input: AlmediaDigestInput): string {
           campaigns: vertical.campaigns,
           measuredReturns: vertical.measuredReturns,
           enrichedCreators: vertical.enrichedCreators,
-          costEur: Math.round(vertical.cost),
+          cost: Math.round(vertical.cost),
           views: Math.round(vertical.views),
           d7Purchases: Math.round(vertical.d7Purchases),
           avgReturnPct: round(vertical.avgReturnPct),

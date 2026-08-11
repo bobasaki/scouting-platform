@@ -246,12 +246,12 @@ integration("almedia API integration", () => {
       cm: "Lucija P",
       market: "PL",
       month: "2026-07",
-      targetEur: 60_000,
-      bookedEur: 12_000,
+      targetAmount: 60_000,
+      bookedAmount: 12_000,
     });
     expect(payload.months[0]).toMatchObject({
       month: "2026-07",
-      targetEur: 500_000,
+      targetAmount: 500_000,
     });
   });
 

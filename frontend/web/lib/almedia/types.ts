@@ -31,9 +31,9 @@ export const ALL_ALMEDIA_FILTERS: AlmediaFilters = {
 export interface DimensionGroup {
   key: string;
   deals: number;
-  /** Almedia spend (EUR). */
+  /** Almedia spend, in ALMEDIA_CURRENCY. */
   cost: number;
-  /** Internal booked budget (EUR, INT). */
+  /** Internal booked budget (INT), in ALMEDIA_CURRENCY. */
   intBudget: number;
   expectedViews: number;
   actualViews: number;

@@ -266,6 +266,24 @@ integration("almedia SQLite import", () => {
     ).toMatchObject({ status: "PIPELINE" });
   });
 
+  it("normalises the source currency label instead of carrying EUR over", async () => {
+    const source = createSourceDatabase();
+    const { importAlmediaBookingsFromReader } = await loadImporter();
+
+    try {
+      await importAlmediaBookingsFromReader(source);
+    } finally {
+      source.close();
+    }
+
+    // The source rows say EUR, but nothing was ever converted — the label was
+    // the only wrong part. Re-running must not undo the currency migration.
+    const currencies = await prisma.booking.findMany({ select: { currency: true } });
+
+    expect(currencies.length).toBeGreaterThan(0);
+    expect([...new Set(currencies.map((row) => row.currency))]).toEqual(["USD"]);
+  });
+
   it("is idempotent and picks up source edits on a re-run", async () => {
     const source = createSourceDatabase();
     const { importAlmediaBookingsFromReader } = await loadImporter();

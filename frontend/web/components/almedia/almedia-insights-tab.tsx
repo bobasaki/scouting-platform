@@ -12,8 +12,8 @@ import React, { useMemo, useState, type ReactNode } from "react";
 import { filterDeals, totalsOf } from "../../lib/almedia/filters";
 import {
   formatCount,
-  formatEur,
-  formatMoney,
+  formatAmount,
+  formatAmountPrecise,
   formatPct,
 } from "../../lib/almedia/format";
 import {
@@ -405,12 +405,12 @@ export function AlmediaInsightsTab({
             totals.markets === 1 ? "market" : "markets"
           }`}
           label="Live spend"
-          value={formatEur(totals.cost)}
+          value={formatAmount(totals.cost)}
         />
         <KpiCard
           context="from the internal tracker"
           label="Booked budget (INT)"
-          value={formatEur(totals.intBudget)}
+          value={formatAmount(totals.intBudget)}
         />
         <KpiCard
           context="cost-weighted · >100% goes longterm"
@@ -425,7 +425,7 @@ export function AlmediaInsightsTab({
         <KpiCard
           context="avg. payment per user · weighted by users"
           label="APPU · D14"
-          value={formatMoney(totals.avgAppuD14)}
+          value={formatAmountPrecise(totals.avgAppuD14)}
         />
       </section>
 

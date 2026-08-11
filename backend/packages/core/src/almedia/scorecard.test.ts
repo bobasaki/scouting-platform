@@ -28,7 +28,7 @@ function booking(overrides: Partial<Booking> = {}): Booking {
     publishedAt: null,
     intBudget: null,
     extBudget: null,
-    currency: "EUR",
+    currency: "USD",
     month: "2026-08",
     note: null,
     videoUrl: null,
@@ -80,8 +80,8 @@ describe("buildScorecard", () => {
     expect(row).toMatchObject({
       market: "PL",
       month: "2026-08",
-      targetEur: 70_000,
-      bookedEur: 43_000,
+      targetAmount: 70_000,
+      bookedAmount: 43_000,
       bookedTiers: { under10k: 1, from10kTo20k: 1, from20kTo50k: 1, over50k: 0 },
       counts: { pipeline: 1, booked: 1, published: 1, longterm: 1, dropped: 1 },
     });
@@ -96,7 +96,7 @@ describe("buildScorecard", () => {
     const scorecard = buildScorecard([], TARGETS, REVENUE, MID_AUGUST);
     const miro = scorecard.rows.find((entry) => entry.cm === "Miro");
 
-    expect(miro).toMatchObject({ bookedEur: 0, utilization: 0, dropoutRate: null });
+    expect(miro).toMatchObject({ bookedAmount: 0, utilization: 0, dropoutRate: null });
     expect(scorecard.rows).toHaveLength(2);
   });
 
@@ -110,9 +110,9 @@ describe("buildScorecard", () => {
 
     expect(scorecard.rows.find((entry) => entry.cm === "JB")).toMatchObject({
       market: "BR",
-      targetEur: null,
+      targetAmount: null,
       utilization: null,
-      bookedEur: 5_000,
+      bookedAmount: 5_000,
     });
   });
 
@@ -142,8 +142,8 @@ describe("buildScorecard", () => {
     expect(scorecard.months).toHaveLength(1);
     expect(scorecard.months[0]).toMatchObject({
       month: "2026-08",
-      targetEur: 560_000,
-      bookedEur: 56_000,
+      targetAmount: 560_000,
+      bookedAmount: 56_000,
     });
     expect(scorecard.months[0]?.utilization).toBeCloseTo(0.1, 10);
     expect(scorecard.months[0]?.pace).toBeCloseTo(0.2, 10);
@@ -177,7 +177,7 @@ describe("buildScorecard", () => {
     );
 
     expect(scorecard.unscheduledCount).toBe(1);
-    expect(scorecard.rows.find((row) => row.cm === "Lucija P")?.bookedEur).toBe(0);
+    expect(scorecard.rows.find((row) => row.cm === "Lucija P")?.bookedAmount).toBe(0);
   });
 });
 

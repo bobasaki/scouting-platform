@@ -4,7 +4,7 @@ import type { AlmediaDeal } from "@scouting-platform/contracts";
 import React, { useMemo } from "react";
 
 import { efficiencyPoints } from "../../../lib/almedia/charts";
-import { formatCount, formatEur, formatPct } from "../../../lib/almedia/format";
+import { formatCount, formatAmount, formatPct } from "../../../lib/almedia/format";
 
 /**
  * Efficiency scatter — spend (X) against return % (Y), bubble size by views.
@@ -99,7 +99,7 @@ export function EfficiencyWidget({ deals }: Readonly<{ deals: readonly AlmediaDe
           >
             {/* SVG <title> takes a single text node, so build one string. */}
             <title>
-              {`${point.channelName}: ${formatPct(point.returnPct)} return · ${formatEur(point.cost)} · ${formatCount(point.views)} views`}
+              {`${point.channelName}: ${formatPct(point.returnPct)} return · ${formatAmount(point.cost)} · ${formatCount(point.views)} views`}
             </title>
           </circle>
         ))}
@@ -110,7 +110,7 @@ export function EfficiencyWidget({ deals }: Readonly<{ deals: readonly AlmediaDe
           x={PAD.left}
           y={HEIGHT - 8}
         >
-          €0
+          {formatAmount(0)}
         </text>
         <text
           className="almedia-scatter__axis"
@@ -118,7 +118,7 @@ export function EfficiencyWidget({ deals }: Readonly<{ deals: readonly AlmediaDe
           x={WIDTH - PAD.right}
           y={HEIGHT - 8}
         >
-          {formatEur(scales.maxCost)}
+          {formatAmount(scales.maxCost)}
         </text>
       </svg>
 

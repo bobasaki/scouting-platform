@@ -4,7 +4,7 @@ import type { AlmediaDeal } from "@scouting-platform/contracts";
 import React, { useMemo } from "react";
 
 import { bestDealsByCm } from "../../../lib/almedia/filters";
-import { formatEur, formatPct } from "../../../lib/almedia/format";
+import { formatAmount, formatPct } from "../../../lib/almedia/format";
 
 /** Per-CM leaderboard: who is landing the best-returning deals right now. */
 
@@ -56,7 +56,7 @@ export function BestDealsWidget({ deals }: Readonly<{ deals: readonly AlmediaDea
                     <span>{deal.channelName}</span>
                   )}
                   <em>
-                    {deal.country ?? "–"} · {formatEur(deal.cost)}
+                    {deal.country ?? "–"} · {formatAmount(deal.cost)}
                   </em>
                   <span className="almedia-leaderboard__return">
                     {formatPct(deal.returnPct)}

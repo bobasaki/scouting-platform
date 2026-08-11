@@ -4,7 +4,7 @@ import type { AlmediaDeal } from "@scouting-platform/contracts";
 import React, { useMemo } from "react";
 
 import { spendConcentration } from "../../../lib/almedia/charts";
-import { formatEur, formatShare } from "../../../lib/almedia/format";
+import { formatAmount, formatShare } from "../../../lib/almedia/format";
 
 /**
  * Spend concentration (Pareto) — how much of the budget rides on a handful of
@@ -33,7 +33,7 @@ export function ConcentrationWidget({
     <>
       <p className="almedia-widget__lead">
         Top {rows.length} channels carry <strong>{formatShare(topShare)}</strong> of{" "}
-        {formatEur(totalCost)} spend
+        {formatAmount(totalCost)} spend
       </p>
       <ul className="almedia-bar-list">
         {rows.map((row) => (
@@ -42,7 +42,7 @@ export function ConcentrationWidget({
               <span className="almedia-bar__label">{row.channelName}</span>
               <span className="almedia-bar__value">
                 {formatShare(row.share)}
-                <em>{formatEur(row.cost)}</em>
+                <em>{formatAmount(row.cost)}</em>
               </span>
             </p>
             <div aria-hidden="true" className="almedia-bar__track">
@@ -60,7 +60,7 @@ export function ConcentrationWidget({
       </ul>
       {othersCost > 0 ? (
         <p className="almedia-widget__footnote">
-          + {formatEur(othersCost)} across the remaining channels · tick marks show
+          + {formatAmount(othersCost)} across the remaining channels · tick marks show
           cumulative share
         </p>
       ) : null}

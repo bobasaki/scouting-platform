@@ -4,7 +4,7 @@ import type { AlmediaDeal } from "@scouting-platform/contracts";
 import React, { useMemo } from "react";
 
 import { roundAnalysis } from "../../../lib/almedia/charts";
-import { formatEur, formatPct, formatShare } from "../../../lib/almedia/format";
+import { formatAmount, formatPct, formatShare } from "../../../lib/almedia/format";
 import { BarList, returnTone, type BarRow } from "./bar-list";
 
 /**
@@ -30,7 +30,7 @@ export function RebookingWidget({ deals }: Readonly<{ deals: readonly AlmediaDea
     key: group.label,
     value: group.avgReturnPct,
     display: formatPct(group.avgReturnPct),
-    meta: `${group.channels} channel${group.channels === 1 ? "" : "s"} · ${formatEur(group.cost)}`,
+    meta: `${group.channels} channel${group.channels === 1 ? "" : "s"} · ${formatAmount(group.cost)}`,
     tone: returnTone(group.avgReturnPct),
   }));
 

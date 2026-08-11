@@ -7,7 +7,7 @@ import type {
 } from "@scouting-platform/contracts";
 import React, { useMemo, useState } from "react";
 
-import { formatEurCompact, formatShare } from "../../lib/almedia/format";
+import { formatAmountCompact, formatShare } from "../../lib/almedia/format";
 import { monthLabel } from "../../lib/almedia/labels";
 import { DataTable } from "../ui/DataTable";
 import { EmptyState } from "../ui/EmptyState";
@@ -163,8 +163,8 @@ export function AlmediaScorecardTab({
               <article className="almedia-month-card" key={month.month}>
                 <p className="almedia-eyebrow">{monthLabel(month.month)}</p>
                 <strong className="almedia-month-card__value">
-                  {formatEurCompact(month.bookedEur)}
-                  <span> / {formatEurCompact(month.targetEur)}</span>
+                  {formatAmountCompact(month.bookedAmount)}
+                  <span> / {formatAmountCompact(month.targetAmount)}</span>
                 </strong>
                 <ProgressBar utilization={month.utilization} />
                 <p className="almedia-month-card__meta">
@@ -259,16 +259,16 @@ export function AlmediaScorecardTab({
                     <td>{row.market ?? "—"}</td>
                     <td>{monthLabel(row.month)}</td>
                     <td className="almedia-numeric almedia-numeric--emphasis">
-                      {formatEurCompact(row.bookedEur)}
+                      {formatAmountCompact(row.bookedAmount)}
                     </td>
                     <td className="almedia-numeric">
-                      {formatEurCompact(row.targetEur)}
+                      {formatAmountCompact(row.targetAmount)}
                     </td>
                     <td>
                       <div className="almedia-progress-cell">
                         <ProgressBar utilization={row.utilization} />
                         <span>
-                          {row.targetEur === null
+                          {row.targetAmount === null
                             ? "no plan"
                             : formatShare(row.utilization)}
                         </span>

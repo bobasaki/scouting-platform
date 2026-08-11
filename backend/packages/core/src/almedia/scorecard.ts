@@ -31,6 +31,11 @@ export interface BookingPlanTarget {
   market: string;
   /** ISO YYYY-MM. */
   month: string;
+  /**
+   * Named for its Postgres column (`budget_eur`), which predates the workspace
+   * settling on one currency. The figure is in ALMEDIA_CURRENCY like every
+   * other amount here; the served field is `targetAmount`.
+   */
   budgetEur: number;
   tierCounts: AlmediaTierCounts;
 }
@@ -38,6 +43,7 @@ export interface BookingPlanTarget {
 /** Company-level monthly revenue target (ISO YYYY-MM). */
 export interface MonthlyRevenueTarget {
   month: string;
+  /** Column-named like `budgetEur`; see the note there. */
   totalEur: number;
 }
 
@@ -99,7 +105,7 @@ function groupKey(cm: string | null, market: string | null, month: string): stri
 }
 
 interface Accumulator {
-  bookedEur: number;
+  bookedAmount: number;
   bookedTiers: AlmediaTierCounts;
   counts: AlmediaStatusCounts;
 }
@@ -119,7 +125,7 @@ function accumulate(bookings: readonly ScorecardBooking[]): Map<string, Accumula
 
     const key = groupKey(booking.cm, booking.country, booking.month);
     const group = groups.get(key) ?? {
-      bookedEur: 0,
+      bookedAmount: 0,
       bookedTiers: emptyTierCounts(),
       counts: emptyStatusCounts(),
     };
@@ -127,7 +133,7 @@ function accumulate(bookings: readonly ScorecardBooking[]): Map<string, Accumula
     group.counts[booking.status] += 1;
 
     if (COMMITTED_STATUSES.has(booking.status)) {
-      group.bookedEur += booking.intBudget ?? 0;
+      group.bookedAmount += booking.intBudget ?? 0;
 
       if (booking.intBudget !== null) {
         group.bookedTiers[tierOf(booking.intBudget)] += 1;
@@ -163,17 +169,17 @@ export function buildScorecard(
     seenKeys.add(key);
 
     const group = groups.get(key);
-    const bookedEur = group?.bookedEur ?? 0;
+    const bookedAmount = group?.bookedAmount ?? 0;
     const counts = group?.counts ?? emptyStatusCounts();
-    const utilization = ratio(bookedEur, target.budgetEur);
+    const utilization = ratio(bookedAmount, target.budgetEur);
 
     rows.push({
       cm: target.cm,
       market: target.market,
       month: target.month,
-      targetEur: target.budgetEur,
+      targetAmount: target.budgetEur,
       targetTiers: target.tierCounts,
-      bookedEur,
+      bookedAmount,
       bookedTiers: group?.bookedTiers ?? emptyTierCounts(),
       counts,
       utilization,
@@ -194,9 +200,9 @@ export function buildScorecard(
       cm,
       market,
       month,
-      targetEur: null,
+      targetAmount: null,
       targetTiers: null,
-      bookedEur: group.bookedEur,
+      bookedAmount: group.bookedAmount,
       bookedTiers: group.bookedTiers,
       counts: group.counts,
       utilization: null,
@@ -224,7 +230,7 @@ export function buildScorecard(
 
   const months: AlmediaScorecardMonth[] = monthKeys.map((month) => {
     const monthRows = rows.filter((row) => row.month === month);
-    const bookedEur = monthRows.reduce((total, row) => total + row.bookedEur, 0);
+    const bookedAmount = monthRows.reduce((total, row) => total + row.bookedAmount, 0);
     const counts = monthRows.reduce((total, row) => {
       for (const status of Object.keys(total) as BookingStatus[]) {
         total[status] += row.counts[status];
@@ -232,17 +238,17 @@ export function buildScorecard(
 
       return total;
     }, emptyStatusCounts());
-    const targetEur =
+    const targetAmount =
       revenueByMonth.get(month) ??
-      (monthRows.some((row) => row.targetEur !== null)
-        ? monthRows.reduce((total, row) => total + (row.targetEur ?? 0), 0)
+      (monthRows.some((row) => row.targetAmount !== null)
+        ? monthRows.reduce((total, row) => total + (row.targetAmount ?? 0), 0)
         : null);
-    const utilization = ratio(bookedEur, targetEur);
+    const utilization = ratio(bookedAmount, targetAmount);
 
     return {
       month,
-      targetEur,
-      bookedEur,
+      targetAmount,
+      bookedAmount,
       counts,
       utilization,
       pace: pace(utilization, month, now),

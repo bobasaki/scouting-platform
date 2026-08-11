@@ -8,7 +8,7 @@ import {
 import React, { useMemo, useState } from "react";
 
 import { groupByDimension } from "../../../lib/almedia/filters";
-import { formatEur, formatPct } from "../../../lib/almedia/format";
+import { formatAmount, formatPct } from "../../../lib/almedia/format";
 import { platformLabel } from "../../../lib/almedia/labels";
 import { BarList, returnTone, type BarRow } from "./bar-list";
 
@@ -32,7 +32,7 @@ export function ReturnsWidget({ deals }: Readonly<{ deals: readonly AlmediaDeal[
           key: dimension === "platform" ? platformLabel(group.key) : group.key,
           value: group.avgReturnPct,
           display: formatPct(group.avgReturnPct),
-          meta: `${group.measured} measured · ${formatEur(group.cost)}`,
+          meta: `${group.measured} measured · ${formatAmount(group.cost)}`,
           tone: returnTone(group.avgReturnPct),
         })),
     [deals, dimension],

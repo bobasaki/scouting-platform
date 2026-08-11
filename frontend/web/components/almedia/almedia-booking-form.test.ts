@@ -28,7 +28,7 @@ const BOOKING: Booking = {
   publishedAt: "2026-07-13",
   intBudget: 12_000,
   extBudget: 15_000,
-  currency: "EUR",
+  currency: "USD",
   month: "2026-07",
   note: null,
   videoUrl: null,
@@ -67,7 +67,7 @@ describe("almedia booking form conversion", () => {
     const values = toFormValues(null);
 
     expect(values.status).toBe("pipeline");
-    expect(values.currency).toBe("EUR");
+    expect(values.currency).toBe("USD");
 
     const result = toBookingInput({ ...values, channelName: "Diabeuu" });
 

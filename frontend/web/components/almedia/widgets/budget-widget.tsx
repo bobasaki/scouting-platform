@@ -4,7 +4,7 @@ import type { AlmediaDeal, AlmediaDimensionId } from "@scouting-platform/contrac
 import React, { useMemo, useState } from "react";
 
 import { groupByDimension } from "../../../lib/almedia/filters";
-import { formatEur } from "../../../lib/almedia/format";
+import { formatAmount } from "../../../lib/almedia/format";
 import { BarList, type BarRow } from "./bar-list";
 
 /**
@@ -28,10 +28,10 @@ export function BudgetWidget({ deals }: Readonly<{ deals: readonly AlmediaDeal[]
         .map((group) => ({
           key: group.key,
           value: Math.max(group.intBudget, group.cost),
-          display: formatEur(group.intBudget > 0 ? group.intBudget : group.cost),
+          display: formatAmount(group.intBudget > 0 ? group.intBudget : group.cost),
           meta:
             group.intBudget > 0 && group.cost > 0
-              ? `${formatEur(group.cost)} spent live`
+              ? `${formatAmount(group.cost)} spent live`
               : group.intBudget > 0
                 ? "booked"
                 : "live spend only",

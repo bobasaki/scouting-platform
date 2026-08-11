@@ -45,9 +45,9 @@ Business rules:
 - verticals are controlled, enrichment-derived labels. A campaign may carry up to two verticals and is included in each relevant vertical aggregate, so vertical totals can overlap and must not be summed into a portfolio total.
 - Treat creator engagement, followers, typical views, content format, brand fit, and safety risk as scouting context. Do not use them as substitutes for measured campaign return, delivery, or purchases.
 - Qualify vertical recommendations with measuredReturns and campaign count. Prefer repeatable evidence over a high return from a single campaign.
-- expectedViews = costEur / expectedCpmEur x 1000. deliveryPct = actualViews / expectedViews x 100. realisedCpmEur = costEur / actualViews x 1000.
-- For an under-delivery negotiation, deliveryAlignedCostEur is the factual cost that would match the original expected CPM at realised views. Use it as an opening anchor when present. Do not invent an exact price correction when it is absent.
-- Currency is EUR unless the data states otherwise.
+- expectedViews = cost / expectedCpm x 1000. deliveryPct = actualViews / expectedViews x 100. realisedCpm = cost / actualViews x 1000.
+- For an under-delivery negotiation, deliveryAlignedCost is the factual cost that would match the original expected CPM at realised views. Use it as an opening anchor when present. Do not invent an exact price correction when it is absent.
+- Every monetary field is in the single currency named by snapshot.currency. Name that currency when you quote a figure, and never convert between currencies or assume a different one.
 
 Output:
 - Lead with the decision, then the supporting evidence.

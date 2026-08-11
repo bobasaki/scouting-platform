@@ -174,7 +174,7 @@ const bookingWritableShape = {
 
 /**
  * Create: only the channel name is required. Omitted keys are left to the
- * column defaults (`pipeline`, `EUR`, unsigned) rather than being defaulted
+ * column defaults (`pipeline`, `USD`, unsigned) rather than being defaulted
  * here twice.
  */
 export const bookingInputSchema = z
@@ -393,9 +393,9 @@ export const almediaScorecardRowSchema = z.object({
   cm: z.string().nullable(),
   market: z.string().nullable(),
   month: isoMonthSchema,
-  targetEur: z.number().nullable(),
+  targetAmount: z.number().nullable(),
   targetTiers: tierCountsSchema.nullable(),
-  bookedEur: z.number(),
+  bookedAmount: z.number(),
   bookedTiers: tierCountsSchema,
   counts: statusCountsSchema,
   utilization: z.number().nullable(),
@@ -405,8 +405,8 @@ export const almediaScorecardRowSchema = z.object({
 
 export const almediaScorecardMonthSchema = z.object({
   month: isoMonthSchema,
-  targetEur: z.number().nullable(),
-  bookedEur: z.number(),
+  targetAmount: z.number().nullable(),
+  bookedAmount: z.number(),
   counts: statusCountsSchema,
   utilization: z.number().nullable(),
   pace: z.number().nullable(),
@@ -504,3 +504,18 @@ export const ALMEDIA_DIMENSIONS = [
 
 /** Placeholder used wherever a dimension value is missing. */
 export const ALMEDIA_UNASSIGNED = "Unassigned";
+
+/**
+ * The single currency the Almedia workspace speaks.
+ *
+ * The Almedia feed sends `cost` as a bare number with no currency field, so
+ * nothing anywhere converts anything — this is a label for figures that are
+ * already denominated in exactly one currency. It lives in contracts because
+ * both halves need it and they must never disagree: the source tracker kept
+ * separate EUR and USD formatters and rendered the same `cost` as euros on one
+ * tab and dollars on another.
+ *
+ * Change this and the whole workspace follows — display, the booking default,
+ * and the currency the AI analyst is told to quote.
+ */
+export const ALMEDIA_CURRENCY = "USD";

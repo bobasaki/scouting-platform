@@ -28,7 +28,7 @@ export interface ReturnBand {
   max: number;
   tone: ReturnTone;
   deals: number;
-  /** Almedia spend sitting in this band (EUR). */
+  /** Almedia spend sitting in this band. */
   cost: number;
 }
 
@@ -257,7 +257,7 @@ export interface ConcentrationRow {
 
 export interface Concentration {
   rows: ConcentrationRow[];
-  /** Spend not shown in the top-N rows (EUR). */
+  /** Spend not shown in the top-N rows. */
   othersCost: number;
   totalCost: number;
   /** Share of spend carried by the top-N channels. */

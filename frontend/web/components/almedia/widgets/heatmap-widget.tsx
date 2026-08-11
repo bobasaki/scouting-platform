@@ -8,7 +8,7 @@ import {
 import React, { useMemo, useState } from "react";
 
 import { crossTab, type HeatCell } from "../../../lib/almedia/charts";
-import { formatEur, formatPct } from "../../../lib/almedia/format";
+import { formatAmount, formatPct } from "../../../lib/almedia/format";
 import { platformLabel } from "../../../lib/almedia/labels";
 
 /**
@@ -135,13 +135,13 @@ export function HeatmapWidget({ deals }: Readonly<{ deals: readonly AlmediaDeal[
                       <td
                         className={`almedia-heatmap__cell almedia-tone--${toneOf(cell)}`}
                         key={col}
-                        title={`${rowText(row)} · ${colText(col)}\n${formatPct(cell.avgReturnPct)} return · ${formatEur(cell.cost)} · ${String(cell.deals)} deals`}
+                        title={`${rowText(row)} · ${colText(col)}\n${formatPct(cell.avgReturnPct)} return · ${formatAmount(cell.cost)} · ${String(cell.deals)} deals`}
                       >
                         <span className="almedia-heatmap__value">
                           {formatPct(cell.avgReturnPct)}
                         </span>
                         <span className="almedia-heatmap__meta">
-                          {formatEur(cell.cost)}
+                          {formatAmount(cell.cost)}
                         </span>
                       </td>
                     );

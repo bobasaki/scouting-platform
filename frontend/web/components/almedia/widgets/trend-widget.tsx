@@ -4,7 +4,7 @@ import type { AlmediaDeal } from "@scouting-platform/contracts";
 import React, { useMemo } from "react";
 
 import { monthlyTrend } from "../../../lib/almedia/charts";
-import { formatEur, formatPct } from "../../../lib/almedia/format";
+import { formatAmount, formatPct } from "../../../lib/almedia/format";
 import { returnTone } from "./bar-list";
 
 /**
@@ -105,7 +105,7 @@ export function TrendWidget({ deals }: Readonly<{ deals: readonly AlmediaDeal[] 
             >
               {/* SVG <title> takes a single text node, so build one string. */}
               <title>
-                {`${point.label}: ${formatEur(point.cost)} spend · ${String(point.deals)} deals`}
+                {`${point.label}: ${formatAmount(point.cost)} spend · ${String(point.deals)} deals`}
               </title>
             </rect>
           );
@@ -133,7 +133,7 @@ export function TrendWidget({ deals }: Readonly<{ deals: readonly AlmediaDeal[] 
               r={4.5}
             >
               <title>
-                {`${point.label}: ${formatPct(point.avgReturnPct)} return · ${formatEur(point.cost)}`}
+                {`${point.label}: ${formatPct(point.avgReturnPct)} return · ${formatAmount(point.cost)}`}
               </title>
             </circle>
           ),

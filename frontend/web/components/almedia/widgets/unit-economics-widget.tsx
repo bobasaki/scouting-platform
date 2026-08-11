@@ -6,8 +6,8 @@ import React, { useMemo } from "react";
 import { unitEconomics } from "../../../lib/almedia/charts";
 import {
   formatCount,
-  formatEur,
-  formatMoney,
+  formatAmount,
+  formatAmountPrecise,
   formatPct,
 } from "../../../lib/almedia/format";
 
@@ -44,7 +44,7 @@ export function UnitEconomicsWidget({
           <li className="almedia-bar" key={bar.label}>
             <p className="almedia-bar__heading">
               <span className="almedia-bar__label">{bar.label}</span>
-              <span className="almedia-bar__value">{formatEur(bar.value)}</span>
+              <span className="almedia-bar__value">{formatAmount(bar.value)}</span>
             </p>
             <div aria-hidden="true" className="almedia-bar__track">
               <i
@@ -68,11 +68,11 @@ export function UnitEconomicsWidget({
         </div>
         <div className="almedia-stat">
           <dt>Cost / signup</dt>
-          <dd>{formatEur(metrics.costPerSignup)}</dd>
+          <dd>{formatAmount(metrics.costPerSignup)}</dd>
         </div>
         <div className="almedia-stat">
           <dt>Cost / D7 purchase</dt>
-          <dd>{formatEur(metrics.costPerPurchase)}</dd>
+          <dd>{formatAmount(metrics.costPerPurchase)}</dd>
         </div>
         <div className="almedia-stat">
           <dt>D7 purchases</dt>
@@ -80,7 +80,7 @@ export function UnitEconomicsWidget({
         </div>
         <div className="almedia-stat">
           <dt>APPU · D14</dt>
-          <dd>{formatMoney(metrics.appuD14)}</dd>
+          <dd>{formatAmountPrecise(metrics.appuD14)}</dd>
         </div>
       </dl>
       <p className="almedia-widget__footnote">

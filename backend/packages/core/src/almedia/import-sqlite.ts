@@ -2,7 +2,10 @@ import { DatabaseSync } from "node:sqlite";
 
 import type { Prisma } from "@prisma/client";
 import { BookingStatus as PrismaBookingStatus } from "@prisma/client";
-import type { BookingStatus } from "@scouting-platform/contracts";
+import {
+  ALMEDIA_CURRENCY,
+  type BookingStatus,
+} from "@scouting-platform/contracts";
 import { withDbTransaction, type DbTransactionClient } from "@scouting-platform/db";
 
 import { normalizeChannelKey } from "./channel-key";
@@ -155,7 +158,11 @@ async function importBookings(
       publishedAt: text(row, "published_at"),
       intBudget: num(row, "int_budget"),
       extBudget: num(row, "ext_budget"),
-      currency: text(row, "currency") ?? "EUR",
+      // Normalised, not copied. The tracker labelled these rows EUR but never
+      // converted anything, so the label was the only thing that was wrong;
+      // carrying it over would undo the same correction the currency migration
+      // applies, every time this re-runs.
+      currency: ALMEDIA_CURRENCY,
       month: text(row, "month"),
       note: text(row, "note"),
       videoUrl: text(row, "video_url"),

@@ -6,7 +6,7 @@ import React, { useMemo, useState } from "react";
 import { enrichmentOverview, verticalPerformance } from "../../lib/almedia/enrichment";
 import {
   formatCount,
-  formatEur,
+  formatAmount,
   formatPct,
   formatShare,
 } from "../../lib/almedia/format";
@@ -209,7 +209,7 @@ export function AlmediaVerticalInsightsPanel({
                 </td>
                 <td className="almedia-numeric">{row.campaigns}</td>
                 <td className="almedia-numeric almedia-numeric--emphasis">
-                  {formatEur(row.cost)}
+                  {formatAmount(row.cost)}
                 </td>
                 <td
                   className={`almedia-numeric almedia-tone-${returnTone(row.avgReturnPct)}`}

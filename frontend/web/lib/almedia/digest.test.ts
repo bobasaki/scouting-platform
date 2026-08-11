@@ -82,7 +82,7 @@ type Digest = {
     ignoredFilters: string[];
     appliedFilters?: Record<string, string>;
     totalRows: number;
-    rows: Array<{ market: string | null; remainingEur: number | null }>;
+    rows: Array<{ market: string | null; remaining: number | null }>;
   };
   unmeasured: { missingReturn: number; unknownMaturity: number };
   enrichment: { overview: { coveragePct: number | null } };
@@ -155,8 +155,8 @@ describe("buildAlmediaDigest", () => {
     const digest = digestOf([deal({ deliveryPct: 80, cost: 1000 })]);
     const row = digest.candidates.underDelivery?.deals[0];
 
-    expect(row?.deliveryAlignedCostEur).toBe(800);
-    expect(row?.realisedCpmEur).toBe(25);
+    expect(row?.deliveryAlignedCost).toBe(800);
+    expect(row?.realisedCpm).toBe(25);
   });
 
   it("never anchors above the price actually paid when delivery overshot", () => {
@@ -165,7 +165,7 @@ describe("buildAlmediaDigest", () => {
     ]);
     const row = digest.candidates.longterm?.deals[0];
 
-    expect(row?.deliveryAlignedCostEur).toBe(1000);
+    expect(row?.deliveryAlignedCost).toBe(1000);
   });
 
   it("discloses truncation once a bucket exceeds the candidate limit", () => {
@@ -251,9 +251,9 @@ describe("buildAlmediaDigest", () => {
           cm: "Lucija P",
           market: "PL",
           month: "2026-07",
-          targetEur: 50_000,
+          targetAmount: 50_000,
           targetTiers: tiers,
-          bookedEur: 30_000,
+          bookedAmount: 30_000,
           bookedTiers: tiers,
           counts,
           utilization: 0.6,
@@ -264,9 +264,9 @@ describe("buildAlmediaDigest", () => {
           cm: "Miro",
           market: "DE",
           month: "2026-07",
-          targetEur: 20_000,
+          targetAmount: 20_000,
           targetTiers: tiers,
-          bookedEur: 5_000,
+          bookedAmount: 5_000,
           bookedTiers: tiers,
           counts,
           utilization: 0.25,
@@ -285,7 +285,7 @@ describe("buildAlmediaDigest", () => {
     expect(digest.plan.available).toBe(true);
     expect(digest.plan.totalRows).toBe(1);
     expect(digest.plan.rows[0]?.market).toBe("PL");
-    expect(digest.plan.rows[0]?.remainingEur).toBe(20_000);
+    expect(digest.plan.rows[0]?.remaining).toBe(20_000);
     expect(digest.plan.appliedFilters).toEqual({ country: "PL" });
     expect(digest.plan.ignoredFilters).toEqual(["vertical"]);
   });

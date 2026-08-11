@@ -4,7 +4,7 @@ import type { AlmediaDeal, BookingInvoice } from "@scouting-platform/contracts";
 import React, { useCallback, useMemo, useState } from "react";
 
 import { deleteAlmediaInvoice, recordAlmediaInvoice } from "../../lib/almedia-api";
-import { formatPct, formatUsd } from "../../lib/almedia/format";
+import { formatPct, formatAmount } from "../../lib/almedia/format";
 import {
   buildInvoiceBatches,
   buildInvoiceMonths,
@@ -33,8 +33,8 @@ import { AlmediaInfoTip } from "./almedia-info-tip";
  * row, so a bill sent before maturity shows what is still owed once the
  * campaign climbs a tier.
  *
- * Everything here is USD. The Almedia `cost` field is dollars, unlike the EUR
- * booking budgets the other tabs show.
+ * Amounts render through the shared workspace formatter, so this tab and the
+ * others can no longer disagree about what currency `cost` is in.
  */
 
 const INVOICED_LABEL = monthLabel(COST_INVOICED_THROUGH);
@@ -64,7 +64,7 @@ function InvoiceMonthCard({ entry }: Readonly<{ entry: InvoiceMonth }>) {
     <article className="almedia-invoice-card">
       <header className="almedia-invoice-card__head">
         <span className="almedia-invoice-card__month">{entry.label}</span>
-        <span className="almedia-invoice-card__total">{formatUsd(entry.total)}</span>
+        <span className="almedia-invoice-card__total">{formatAmount(entry.total)}</span>
       </header>
 
       <dl className="almedia-invoice-card__lines">
@@ -79,7 +79,7 @@ function InvoiceMonthCard({ entry }: Readonly<{ entry: InvoiceMonth }>) {
           </dt>
           <dd>
             <span className="almedia-invoice-card__amount">
-              {formatUsd(entry.newCost)}
+              {formatAmount(entry.newCost)}
             </span>
             {entry.costBatch ? (
               <span
@@ -104,28 +104,28 @@ function InvoiceMonthCard({ entry }: Readonly<{ entry: InvoiceMonth }>) {
             {!hasFee ? (
               <>
                 <span className="almedia-invoice-card__amount almedia-invoice-card__amount--zero">
-                  {formatUsd(0)}
+                  {formatAmount(0)}
                 </span>
                 <span className="almedia-chip">No fee</span>
               </>
             ) : !entry.feeSettled ? (
               <>
                 <span className="almedia-invoice-card__amount">
-                  ~{formatUsd(entry.feePending)}
+                  ~{formatAmount(entry.feePending)}
                 </span>
                 <span className="almedia-chip almedia-chip--pending">Maturing</span>
               </>
             ) : entry.carriedFee > 0 ? (
               <>
                 <span className="almedia-invoice-card__amount">
-                  {formatUsd(entry.carriedFee)}
+                  {formatAmount(entry.carriedFee)}
                 </span>
                 <span className="almedia-chip almedia-chip--fee">Due</span>
               </>
             ) : (
               <>
                 <span className="almedia-invoice-card__amount almedia-invoice-card__amount--zero">
-                  {formatUsd(0)}
+                  {formatAmount(0)}
                 </span>
                 <span className="almedia-chip">No fee</span>
               </>
@@ -136,7 +136,7 @@ function InvoiceMonthCard({ entry }: Readonly<{ entry: InvoiceMonth }>) {
 
       <footer className="almedia-invoice-card__foot">
         <span>To invoice in {entry.label}</span>
-        <strong>{formatUsd(entry.total)}</strong>
+        <strong>{formatAmount(entry.total)}</strong>
       </footer>
     </article>
   );
@@ -200,20 +200,20 @@ function BatchMemberRow({
       <span className="almedia-batch-member__meta">
         {formatPct(member.memberReturn)} · own {markupLabel(member.ownTier.markup)}
         {member.included && member.performanceFee > 0
-          ? ` · fee +${formatUsd(member.performanceFee)}`
+          ? ` · fee +${formatAmount(member.performanceFee)}`
           : ""}
         {invoice === null ? null : (
           <>
             {" · "}
             <span className="almedia-batch-member__billed">
-              billed {formatUsd(invoice.amount)} at {markupLabel(
+              billed {formatAmount(invoice.amount)} at {markupLabel(
                 invoice.tier === "c100" ? 1 : Number(invoice.tier.slice(1)) / 100,
               )}
             </span>
             {member.topUp !== null && member.topUp > 0 ? (
               <span className="almedia-batch-member__topup">
                 {" "}
-                · {formatUsd(member.topUp)} still owed
+                · {formatAmount(member.topUp)} still owed
               </span>
             ) : null}
           </>
@@ -221,7 +221,7 @@ function BatchMemberRow({
       </span>
 
       <strong className="almedia-batch-member__amount">
-        {formatUsd(member.cost)}
+        {formatAmount(member.cost)}
       </strong>
 
       <button
@@ -253,7 +253,7 @@ function CostChip({ batch }: Readonly<{ batch: InvoiceBatch }>) {
 
   return (
     <span className="almedia-chip almedia-chip--due">
-      Cost due {formatUsd(batch.baseTotal)}
+      Cost due {formatAmount(batch.baseTotal)}
     </span>
   );
 }
@@ -266,7 +266,7 @@ function FeeChip({ batch }: Readonly<{ batch: InvoiceBatch }>) {
   if (batch.performanceFee > 0) {
     return (
       <span className="almedia-chip almedia-chip--fee">
-        Fee due +{formatUsd(batch.performanceFee)}
+        Fee due +{formatAmount(batch.performanceFee)}
       </span>
     );
   }
@@ -306,13 +306,13 @@ function BatchRow({
           {batch.feeSettled ? "blended" : "so far"}{" "}
           {formatPct(batch.blendedReturn)} · {batch.tier.label}
         </span>
-        <span className="almedia-batch__total">{formatUsd(batch.amount)}</span>
+        <span className="almedia-batch__total">{formatAmount(batch.amount)}</span>
       </summary>
 
       <div className="almedia-batch__body">
         <p className="almedia-batch__stages">
           <span>
-            <strong>Stage 1 · Cost</strong> {formatUsd(batch.baseTotal)},{" "}
+            <strong>Stage 1 · Cost</strong> {formatAmount(batch.baseTotal)},{" "}
             {batch.costInvoiced ? (
               <span className="almedia-tone-good">invoiced in {batch.label}</span>
             ) : (
@@ -328,7 +328,7 @@ function BatchRow({
             ) : batch.performanceFee > 0 ? (
               <>
                 <span className="almedia-tone-good">
-                  +{formatUsd(batch.performanceFee)}
+                  +{formatAmount(batch.performanceFee)}
                 </span>
                 , lands on the {monthLabel(batch.feeMonth)} invoice
               </>
@@ -340,7 +340,7 @@ function BatchRow({
 
         <p className="almedia-batch__sub">
           {batch.includedCount} of {batch.memberCount} matured · INT{" "}
-          {formatUsd(batch.intTotal)}
+          {formatAmount(batch.intTotal)}
           {batch.maturingCount > 0
             ? ` · ${batch.maturingCount} maturing, tick to add to the fee blend`
             : ""}
@@ -348,7 +348,7 @@ function BatchRow({
             ? ` · ${batch.invoicedCount} invoiced`
             : ""}
           {batch.topUpTotal > 0
-            ? ` · ${formatUsd(batch.topUpTotal)} owed beyond what was billed`
+            ? ` · ${formatAmount(batch.topUpTotal)} owed beyond what was billed`
             : ""}
         </p>
 
@@ -571,24 +571,24 @@ export function AlmediaInvoicesTab({
           <p className="almedia-kpi__label">
             To invoice {selectedLabel ? `in ${selectedLabel}` : "now"}
           </p>
-          <strong className="almedia-kpi__value">{formatUsd(totals.dueNow)}</strong>
+          <strong className="almedia-kpi__value">{formatAmount(totals.dueNow)}</strong>
           <span className="almedia-kpi__context">
             unbilled cost + settled performance fees
           </span>
         </article>
         <article className="stat-card almedia-kpi">
           <p className="almedia-kpi__label">Performance fees due</p>
-          <strong className="almedia-kpi__value">{formatUsd(totals.feesDue)}</strong>
+          <strong className="almedia-kpi__value">{formatAmount(totals.feesDue)}</strong>
           <span className="almedia-kpi__context">
             on settled months
             {totals.feesPending > 0
-              ? ` · ${formatUsd(totals.feesPending)} still maturing`
+              ? ` · ${formatAmount(totals.feesPending)} still maturing`
               : ""}
           </span>
         </article>
         <article className="stat-card almedia-kpi">
           <p className="almedia-kpi__label">Cost to invoice</p>
-          <strong className="almedia-kpi__value">{formatUsd(totals.costDue)}</strong>
+          <strong className="almedia-kpi__value">{formatAmount(totals.costDue)}</strong>
           <span className="almedia-kpi__context">
             publish months after {INVOICED_LABEL}
           </span>
@@ -596,7 +596,7 @@ export function AlmediaInvoicesTab({
         <article className="stat-card almedia-kpi">
           <p className="almedia-kpi__label">Already invoiced</p>
           <strong className="almedia-kpi__value">
-            {formatUsd(totals.costInvoiced)}
+            {formatAmount(totals.costInvoiced)}
           </strong>
           <span className="almedia-kpi__context">
             cost up front through {INVOICED_LABEL}
@@ -695,7 +695,7 @@ export function AlmediaInvoicesTab({
         · ≥330% +100%). Matured = 14+ days since publish. Months with no activity
         do not appear.
         {undated.count > 0
-          ? ` ${undated.count} campaign${undated.count === 1 ? "" : "s"} (${formatUsd(undated.cost)}) ${undated.count === 1 ? "has" : "have"} a cost but no publish date, so ${undated.count === 1 ? "it is" : "they are"} not scheduled to a month.`
+          ? ` ${undated.count} campaign${undated.count === 1 ? "" : "s"} (${formatAmount(undated.cost)}) ${undated.count === 1 ? "has" : "have"} a cost but no publish date, so ${undated.count === 1 ? "it is" : "they are"} not scheduled to a month.`
           : ""}
       </p>
     </div>
