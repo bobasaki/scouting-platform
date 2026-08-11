@@ -1,6 +1,5 @@
 import {
   createScheduledAlmediaSyncRun,
-  relinkAlmediaEnrichmentCatalogChannels,
   syncAlmediaCampaigns,
 } from "@scouting-platform/core";
 import type { PgBoss } from "pg-boss";
@@ -18,13 +17,13 @@ const SYNC_RUN_ID = "11111111-1111-4111-8111-111111111111";
 
 vi.mock("@scouting-platform/core", () => ({
   createScheduledAlmediaSyncRun: vi.fn(async () => ({ runId: SYNC_RUN_ID })),
-  relinkAlmediaEnrichmentCatalogChannels: vi.fn(async () => 0),
   syncAlmediaCampaigns: vi.fn(async () => ({
     runId: SYNC_RUN_ID,
     agency: "ARCH.",
     campaignCount: 3,
     pageCount: 1,
     duplicateCount: 0,
+    linkedEnrichmentCount: 0,
   })),
 }));
 
@@ -94,7 +93,6 @@ describe("almedia.campaigns.sync.schedule worker", () => {
 describe("almedia.campaigns.sync worker", () => {
   it("runs the sync for the payload's run id", async () => {
     vi.mocked(syncAlmediaCampaigns).mockClear();
-    vi.mocked(relinkAlmediaEnrichmentCatalogChannels).mockClear();
 
     const work = vi.fn(async () => "almedia-campaigns-sync-worker");
 
@@ -109,17 +107,20 @@ describe("almedia.campaigns.sync worker", () => {
 
     await handler({ data: { initiatedBy: "system", syncRunId: SYNC_RUN_ID } });
 
-    expect(vi.mocked(relinkAlmediaEnrichmentCatalogChannels)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(syncAlmediaCampaigns)).toHaveBeenCalledWith({
       syncRunId: SYNC_RUN_ID,
     });
-    expect(
-      vi.mocked(relinkAlmediaEnrichmentCatalogChannels).mock.invocationCallOrder[0],
-    ).toBeLessThan(vi.mocked(syncAlmediaCampaigns).mock.invocationCallOrder[0] ?? 0);
   });
 
   it("logs only a non-zero catalog re-link count", async () => {
-    vi.mocked(relinkAlmediaEnrichmentCatalogChannels).mockResolvedValueOnce(2);
+    vi.mocked(syncAlmediaCampaigns).mockResolvedValueOnce({
+      runId: SYNC_RUN_ID,
+      agency: "ARCH.",
+      campaignCount: 3,
+      pageCount: 1,
+      duplicateCount: 0,
+      linkedEnrichmentCount: 2,
+    });
     const stdout = vi
       .spyOn(process.stdout, "write")
       .mockImplementation(() => true);

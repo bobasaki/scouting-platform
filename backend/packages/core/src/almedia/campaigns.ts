@@ -14,6 +14,7 @@ import {
 import { recordAuditEvent } from "../audit";
 import { ServiceError } from "../errors";
 import { requireAlmediaAdminUser } from "./access";
+import { relinkAlmediaEnrichmentCatalogChannels } from "./enrichments";
 import { enqueueAlmediaCampaignsSyncJob } from "./queue";
 
 /**
@@ -129,6 +130,7 @@ export interface AlmediaSyncResult {
   campaignCount: number;
   pageCount: number;
   duplicateCount: number;
+  linkedEnrichmentCount: number;
 }
 
 /**
@@ -169,6 +171,8 @@ export async function syncAlmediaCampaigns(input: {
   });
 
   try {
+    const linkedEnrichmentCount =
+      await relinkAlmediaEnrichmentCatalogChannels();
     const baseUrl = resolveBaseUrl();
     const result = await fetchAllCampaigns({
       apiKey: resolveApiKey(),
@@ -229,6 +233,7 @@ export async function syncAlmediaCampaigns(input: {
       campaignCount: unique.length,
       pageCount: result.pages,
       duplicateCount,
+      linkedEnrichmentCount,
     };
   } catch (error) {
     await prisma.almediaSyncRun.update({
