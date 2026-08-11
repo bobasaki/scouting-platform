@@ -5,6 +5,7 @@ import {
   Role,
 } from "@prisma/client";
 import {
+  almediaAnalystStatusResponseSchema,
   almediaCampaignsResponseSchema,
   almediaDealsResponseSchema,
   almediaInvoiceResponseSchema,
@@ -38,6 +39,7 @@ integration("almedia API integration", () => {
   let syncRoute: typeof import("./almedia/sync/route");
   let invoicesRoute: typeof import("./almedia/invoices/route");
   let invoiceRoute: typeof import("./almedia/invoices/[invoiceId]/route");
+  let analystRoute: typeof import("./almedia/analyst/route");
 
   beforeAll(async () => {
     process.env.DATABASE_URL = databaseUrl;
@@ -54,6 +56,7 @@ integration("almedia API integration", () => {
     syncRoute = await import("./almedia/sync/route");
     invoicesRoute = await import("./almedia/invoices/route");
     invoiceRoute = await import("./almedia/invoices/[invoiceId]/route");
+    analystRoute = await import("./almedia/analyst/route");
   });
 
   beforeEach(async () => {
@@ -169,6 +172,7 @@ integration("almedia API integration", () => {
       scorecardRoute.GET,
       syncRoute.POST,
       invoicesRoute.GET,
+      analystRoute.GET,
     ];
 
     for (const handler of handlers) {
@@ -362,6 +366,88 @@ integration("almedia API integration", () => {
 
     expect(response.status).toBe(400);
     expect(await prisma.bookingInvoice.count()).toBe(0);
+  });
+
+  it("reports analyst status from the server-side key, never the key itself", async () => {
+    const admin = await createUser("admin@example.com", Role.ADMIN);
+    const previousKey = process.env.OPENAI_API_KEY;
+
+    currentSessionUser = { id: admin.id, role: "admin" };
+
+    try {
+      process.env.OPENAI_API_KEY = "sk-analyst-secret";
+
+      const response = await analystRoute.GET();
+      const body = almediaAnalystStatusResponseSchema.parse(await response.json());
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("Cache-Control")).toBe("no-store");
+      expect(body.configured).toBe(true);
+      expect(JSON.stringify(body)).not.toContain("sk-analyst-secret");
+
+      delete process.env.OPENAI_API_KEY;
+
+      const unconfigured = almediaAnalystStatusResponseSchema.parse(
+        await (await analystRoute.GET()).json(),
+      );
+
+      expect(unconfigured.configured).toBe(false);
+    } finally {
+      process.env.OPENAI_API_KEY = previousKey;
+    }
+  });
+
+  it("gates the analyst stream and rejects a malformed conversation", async () => {
+    const admin = await createUser("admin@example.com", Role.ADMIN);
+    const user = await createUser("manager@example.com", Role.USER);
+    const ask = (body: unknown): Request =>
+      new Request("http://localhost/api/almedia/analyst", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+    const question = {
+      messages: [{ role: "user", content: "Where should we shift budget?" }],
+      context: '{"totals":{}}',
+    };
+
+    currentSessionUser = null;
+    expect((await analystRoute.POST(ask(question))).status).toBe(401);
+
+    currentSessionUser = { id: user.id, role: "user" };
+    expect((await analystRoute.POST(ask(question))).status).toBe(403);
+
+    currentSessionUser = { id: admin.id, role: "admin" };
+    expect((await analystRoute.POST(ask({ messages: [] }))).status).toBe(400);
+
+    // No provider call was reachable, so nothing should have been audited.
+    expect(
+      await prisma.auditEvent.count({ where: { action: "almedia.analyst.asked" } }),
+    ).toBe(0);
+  });
+
+  it("answers with 503 rather than an empty stream when no key is configured", async () => {
+    const admin = await createUser("admin@example.com", Role.ADMIN);
+    const previousKey = process.env.OPENAI_API_KEY;
+
+    currentSessionUser = { id: admin.id, role: "admin" };
+
+    try {
+      delete process.env.OPENAI_API_KEY;
+
+      const response = await analystRoute.POST(
+        new Request("http://localhost/api/almedia/analyst", {
+          method: "POST",
+          body: JSON.stringify({
+            messages: [{ role: "user", content: "Where should we shift budget?" }],
+          }),
+        }),
+      );
+
+      expect(response.status).toBe(503);
+      expect(response.headers.get("Content-Type")).not.toContain("event-stream");
+    } finally {
+      process.env.OPENAI_API_KEY = previousKey;
+    }
   });
 
   it("records a durable run and an audit event when an admin requests a sync", async () => {

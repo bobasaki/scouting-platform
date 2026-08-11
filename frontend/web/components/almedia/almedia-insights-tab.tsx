@@ -5,6 +5,7 @@ import {
   type AlmediaDeal,
   type AlmediaDimensionId,
   type AlmediaDimensionOptions,
+  type AlmediaScorecardResponse,
 } from "@scouting-platform/contracts";
 import React, { useMemo, useState, type ReactNode } from "react";
 
@@ -22,6 +23,7 @@ import {
 } from "../../lib/almedia/labels";
 import { ALL_ALMEDIA_FILTERS, type AlmediaFilters } from "../../lib/almedia/types";
 import { SearchableSelect } from "../ui/searchable-select";
+import { AlmediaAnalystWidget } from "./almedia-analyst-widget";
 import { AlmediaVerticalInsightsPanel } from "./almedia-vertical-insights-panel";
 import { AlmediaWidgetCard } from "./almedia-widget-card";
 import { BestDealsWidget } from "./widgets/best-deals-widget";
@@ -42,11 +44,10 @@ import { ViewsWidget } from "./widgets/views-widget";
 
 /**
  * Insights tab — live Almedia data joined with the internal booking tracker.
- * One filter bar drives every widget below.
+ * One filter bar drives every widget below, the AI analyst included.
  *
- * Two things from the standalone tracker are still absent: the drag-and-resize
- * grid (this is a fixed CSS grid) and the AI analyst and action plan, which are
- * later Phase 2 work.
+ * One thing from the standalone tracker is still absent: the drag-and-resize
+ * grid. This is a fixed CSS grid, so there is no persisted layout.
  */
 
 /** High-cardinality dimensions get a searchable combobox instead of a select. */
@@ -317,9 +318,15 @@ function KpiCard({
 type AlmediaInsightsTabProps = Readonly<{
   deals: readonly AlmediaDeal[];
   options: AlmediaDimensionOptions;
+  /** Feeds the analyst's plan evidence; null when the scorecard is unavailable. */
+  scorecard?: AlmediaScorecardResponse | null;
 }>;
 
-export function AlmediaInsightsTab({ deals, options }: AlmediaInsightsTabProps) {
+export function AlmediaInsightsTab({
+  deals,
+  options,
+  scorecard = null,
+}: AlmediaInsightsTabProps) {
   const [filters, setFilters] = useState<AlmediaFilters>(ALL_ALMEDIA_FILTERS);
 
   const filtered = useMemo(() => filterDeals(deals, filters), [deals, filters]);
@@ -430,6 +437,32 @@ export function AlmediaInsightsTab({ deals, options }: AlmediaInsightsTabProps) 
       />
 
       <div className="almedia-widget-grid">
+        <AlmediaWidgetCard
+          eyebrow="Grounded on the data in view"
+          info={
+            <>
+              <p>
+                Ask questions in plain language about <strong>exactly what the
+                filters above have selected</strong>. Every answer is built from a
+                snapshot of those deals, so it can only cite numbers you can see.
+              </p>
+              <p>
+                Return-tier calls come from <em>matured</em> campaigns only, and the
+                snapshot says how much it left out — so a shortlist is never presented
+                as the whole picture.
+              </p>
+            </>
+          }
+          title="AI analyst"
+          wide
+        >
+          <AlmediaAnalystWidget
+            deals={filtered}
+            filters={filters}
+            scorecard={scorecard}
+          />
+        </AlmediaWidgetCard>
+
         {WIDGETS.map((widget) => (
           <AlmediaWidgetCard
             eyebrow={widget.eyebrow}

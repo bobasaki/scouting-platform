@@ -299,8 +299,22 @@ describe("almedia tabs render", () => {
     expect(html).toContain("Return trend");
     expect(html).toContain("Rebooking &amp; round lift");
     expect(html).toContain("Maturity mix");
+    expect(html).toContain("AI analyst");
     // Live spend across the two campaigns that carry a cost.
     expect(html).toContain("€5,000");
+  });
+
+  it("offers the analyst's starter questions before the status probe lands", () => {
+    const html = renderToStaticMarkup(
+      createElement(AlmediaInsightsTab, { deals: DEALS, options: OPTIONS }),
+    );
+
+    expect(html).toContain("Ask anything about the data currently in view");
+    expect(html).toContain("Which markets under-deliver on views?");
+    // Server-rendered, before the status probe: the composer stays inert so a
+    // question cannot be sent to a route that may not be configured.
+    expect(html).toContain('placeholder="Ask the analyst…"');
+    expect(html).toContain("almedia-analyst__suggestion");
   });
 
   it("renders the vertical panel with coverage over campaigns only", () => {

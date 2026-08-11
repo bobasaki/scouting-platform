@@ -15440,3 +15440,197 @@ select {
     text-align: left;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   ALMEDIA AI ANALYST (Phase 2)
+   Chat grounded on the filtered deal set. The log is a fixed-height
+   scroller so the composer never walks off the bottom of the card
+   as an answer streams in, and the two speakers are told apart by
+   alignment and surface rather than by an avatar column.
+   ───────────────────────────────────────────────────────────── */
+
+.almedia-analyst {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.almedia-analyst__log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 12rem;
+  max-height: 26rem;
+  padding: var(--space-1);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+}
+
+.almedia-analyst__intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--color-accent-soft);
+  border-radius: var(--radius-lg);
+}
+
+.almedia-analyst__intro > p {
+  max-width: 62ch;
+  margin: 0;
+  font-size: var(--font-size-300);
+  color: var(--color-text-muted);
+}
+
+.almedia-analyst__suggestions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.almedia-analyst__suggestion {
+  width: 100%;
+  height: 100%;
+  padding: var(--space-3) var(--space-4);
+  font: inherit;
+  font-size: var(--font-size-200);
+  line-height: var(--line-height-normal);
+  color: var(--color-text);
+  text-align: left;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base),
+    transform var(--transition-base);
+}
+
+.almedia-analyst__suggestion:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+.almedia-analyst__suggestion:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.almedia-analyst__suggestion:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.almedia-analyst__message {
+  max-width: 46rem;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+}
+
+.almedia-analyst__message--user {
+  align-self: flex-end;
+  color: var(--color-text-inverse);
+  background: var(--color-accent);
+  border-bottom-right-radius: var(--radius-xs);
+}
+
+.almedia-analyst__message--assistant {
+  align-self: flex-start;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-bottom-left-radius: var(--radius-xs);
+}
+
+.almedia-analyst__text {
+  margin: 0;
+  font-size: var(--font-size-300);
+  line-height: var(--line-height-relaxed);
+  /* Model answers arrive as plain text with meaningful line breaks. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.almedia-analyst__typing {
+  margin: 0;
+  font-size: var(--font-size-200);
+  color: var(--color-text-muted);
+  animation: almedia-analyst-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes almedia-analyst-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .almedia-analyst__log {
+    scroll-behavior: auto;
+  }
+
+  .almedia-analyst__typing {
+    animation: none;
+  }
+
+  .almedia-analyst__suggestion:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+.almedia-analyst__error {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-200);
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+  border-radius: var(--radius-md);
+}
+
+.almedia-analyst__composer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border-muted);
+}
+
+.almedia-analyst__field {
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+
+.almedia-analyst__field input {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  font: inherit;
+  font-size: var(--font-size-300);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+
+.almedia-analyst__field input:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: var(--focus-ring);
+}
+
+.almedia-analyst__field input:disabled {
+  color: var(--color-text-subtle);
+  background: var(--color-surface-muted);
+  cursor: not-allowed;
+}

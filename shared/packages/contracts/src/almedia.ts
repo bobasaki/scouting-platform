@@ -423,6 +423,32 @@ export const almediaSyncResponseSchema = z.object({
   runId: z.uuid(),
 });
 
+/**
+ * AI analyst chat (Phase 2). The client sends the running conversation plus a
+ * JSON digest of the deals currently in view; the digest is what grounds every
+ * answer, so a question is only ever answered against data the asker can see.
+ *
+ * The bounds are deliberate. `content` and `context` are capped so a runaway
+ * client cannot push an unbounded prompt through to the model, and the message
+ * count is capped so the conversation cost stays predictable.
+ */
+export const almediaAnalystMessageSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.string().trim().min(1).max(20_000),
+});
+
+export const almediaAnalystChatRequestSchema = z.object({
+  messages: z.array(almediaAnalystMessageSchema).min(1).max(40),
+  /** JSON digest of the filtered deal set. Empty means "no data in view". */
+  context: z.string().max(200_000).default(""),
+});
+
+export const almediaAnalystStatusResponseSchema = z.object({
+  /** False when no OpenAI key is configured on this deployment. */
+  configured: z.boolean(),
+  model: z.string(),
+});
+
 export type BookingStatus = z.infer<typeof bookingStatusSchema>;
 export type AlmediaSyncRunStatus = z.infer<typeof almediaSyncRunStatusSchema>;
 export type AlmediaReturnTier = z.infer<typeof almediaReturnTierSchema>;
@@ -458,6 +484,11 @@ export type AlmediaScorecardRow = z.infer<typeof almediaScorecardRowSchema>;
 export type AlmediaScorecardMonth = z.infer<typeof almediaScorecardMonthSchema>;
 export type AlmediaScorecardResponse = z.infer<typeof almediaScorecardResponseSchema>;
 export type AlmediaSyncResponse = z.infer<typeof almediaSyncResponseSchema>;
+export type AlmediaAnalystMessage = z.infer<typeof almediaAnalystMessageSchema>;
+export type AlmediaAnalystChatRequest = z.infer<typeof almediaAnalystChatRequestSchema>;
+export type AlmediaAnalystStatusResponse = z.infer<
+  typeof almediaAnalystStatusResponseSchema
+>;
 
 /** Filter dimensions, in the order the Insights filter bar renders them. */
 export const ALMEDIA_DIMENSIONS = [

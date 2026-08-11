@@ -275,6 +275,28 @@ describe("almedia workspace behavior", () => {
     expect(setters.setIsRefreshing).toHaveBeenCalledWith(false);
     expect(setters.setReloadToken).toHaveBeenCalledWith(expect.any(Function));
   });
+
+  it("hands the scorecard to the insights tab so the analyst has plan evidence", () => {
+    const { element } = renderWorkspace({
+      runEffects: false,
+      requestState: {
+        status: "ready",
+        error: null,
+        data: {
+          deals: DEALS,
+          campaigns: CAMPAIGNS,
+          scorecard: SCORECARD,
+          bookings: BOOKINGS,
+          invoices: INVOICES,
+          fetchedAt: new Date("2026-08-11T09:00:00.000Z"),
+        },
+      },
+    });
+
+    const insights = findByComponentName(element, "AlmediaInsightsTab");
+
+    expect(insights?.props.scorecard).toBe(SCORECARD);
+  });
 });
 
 type MinimalElement = {
@@ -312,6 +334,39 @@ function findRefreshButton(node: unknown): MinimalElement | undefined {
 
   for (const value of nested) {
     const found = findRefreshButton(value);
+
+    if (found) {
+      return found;
+    }
+  }
+
+  return undefined;
+}
+
+/** Walk the returned tree for a mounted component by its function name. */
+function findByComponentName(node: unknown, name: string): MinimalElement | undefined {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = findByComponentName(child, name);
+
+      if (found) {
+        return found;
+      }
+    }
+
+    return undefined;
+  }
+
+  if (!isElement(node)) {
+    return undefined;
+  }
+
+  if (typeof node.type === "function" && node.type.name === name) {
+    return node;
+  }
+
+  for (const value of Object.values(node.props)) {
+    const found = findByComponentName(value, name);
 
     if (found) {
       return found;

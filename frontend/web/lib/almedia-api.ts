@@ -1,4 +1,5 @@
 import {
+  almediaAnalystStatusResponseSchema,
   almediaBookingResponseSchema,
   almediaBookingsResponseSchema,
   almediaCampaignsResponseSchema,
@@ -7,6 +8,8 @@ import {
   almediaInvoicesResponseSchema,
   almediaScorecardResponseSchema,
   almediaSyncResponseSchema,
+  type AlmediaAnalystMessage,
+  type AlmediaAnalystStatusResponse,
   type AlmediaBookingResponse,
   type AlmediaBookingsResponse,
   type AlmediaCampaignsResponse,
@@ -20,6 +23,8 @@ import {
   type BookingUpdateInput,
 } from "@scouting-platform/contracts";
 import type { ZodType } from "zod";
+
+import { parseAnalystFramePayload, parseAnalystSseChunk } from "./almedia/analyst-stream";
 
 const GENERIC_REQUEST_ERROR_MESSAGE = "Unable to complete the request. Please try again.";
 const UNAUTHORIZED_ERROR_MESSAGE = "You are not authorized to view Almedia tracking.";
@@ -269,6 +274,92 @@ export async function deleteAlmediaInvoice(
     `/api/almedia/invoices/${encodeURIComponent(invoiceId)}`,
     signal,
   );
+}
+
+export async function fetchAlmediaAnalystStatus(
+  signal?: AbortSignal,
+): Promise<AlmediaAnalystStatusResponse> {
+  return requestJson(
+    "/api/almedia/analyst",
+    almediaAnalystStatusResponseSchema,
+    "Received an invalid Almedia analyst status response.",
+    { signal },
+  );
+}
+
+export interface AlmediaAnalystStreamHandlers {
+  onDelta: (text: string) => void;
+  onError: (message: string) => void;
+}
+
+/**
+ * Stream one analyst answer, invoking `onDelta` as text arrives.
+ *
+ * Failures split two ways on purpose. Anything that happens before the response
+ * is committed — auth, validation, no key configured — comes back as a normal
+ * JSON error and is thrown, so the caller sees the real status message. Once the
+ * stream is open the server can only report through an `error` frame, which is
+ * handed to `onError` while whatever text already arrived stays on screen.
+ */
+export async function streamAlmediaAnalystAnswer(
+  request: Readonly<{ messages: readonly AlmediaAnalystMessage[]; context: string }>,
+  handlers: AlmediaAnalystStreamHandlers,
+  signal?: AbortSignal,
+): Promise<void> {
+  let response: Response;
+
+  try {
+    response = await fetch(
+      "/api/almedia/analyst",
+      buildRequestInit({ method: "POST", body: request, signal }),
+    );
+  } catch (error) {
+    throw normalizeRequestError(error);
+  }
+
+  if (!response.ok || !response.body) {
+    throw new AlmediaApiRequestError(
+      getApiErrorMessage(response, await readJsonPayload(response)),
+      response.status,
+    );
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        break;
+      }
+
+      buffer += decoder.decode(value, { stream: true });
+
+      const { frames, rest } = parseAnalystSseChunk(buffer);
+      buffer = rest;
+
+      for (const frame of frames) {
+        const payload = parseAnalystFramePayload(frame);
+
+        if (!payload) {
+          continue;
+        }
+
+        if (frame.event === "delta" && payload.text) {
+          handlers.onDelta(payload.text);
+        } else if (frame.event === "error" && payload.error) {
+          handlers.onError(payload.error);
+        }
+      }
+    }
+  } finally {
+    // Releasing the lock lets an aborted fetch tear the body down promptly
+    // instead of holding the connection until GC.
+    reader.releaseLock();
+  }
 }
 
 export async function requestAlmediaSync(

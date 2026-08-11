@@ -259,6 +259,7 @@ export function AlmediaWorkspace() {
               <AlmediaInsightsTab
                 deals={data.deals.deals}
                 options={data.deals.options}
+                scorecard={data.scorecard}
               />
             ) : null}
             {activeTab === "bookings" ? (

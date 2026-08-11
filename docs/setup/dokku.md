@@ -101,6 +101,29 @@ Optional on the worker:
 The worker registers an hourly Almedia campaign sync (`0 * * * *`, timezone
 `Etc/GMT-2`). The Refresh button on `/almedia` enqueues the same durable job.
 
+#### AI analyst
+
+The analyst chat on the Insights tab runs the other way round: it is served by
+`scouting-web`, which is the only caller, and it needs `OPENAI_API_KEY` set
+there. The Almedia key plays no part in it. Without an OpenAI key the widget
+renders a setup note instead of a composer and the route answers `503` — the
+rest of the workspace is unaffected.
+
+```bash
+dokku config:set scouting-web \
+  ALMEDIA_ANALYST_MODEL='<reasoning-capable-model>'
+```
+
+`ALMEDIA_ANALYST_MODEL` is optional and defaults to the tracker's model. It is
+deliberately separate from `OPENAI_MODEL`: that one is tuned for the cheap
+per-channel enrichment calls on the worker, and the analyst reasons over a
+digest of up to 190kB.
+
+Questions are answered only from a snapshot of the deals the asker already has
+in view, built in the browser and posted with the question. Nothing else from
+the database reaches the model, and the audit log records the shape of each
+question (turn count, character counts, model) but never its text.
+
 ### HubSpot V2
 
 Use [`hubspot-v2.md`](./hubspot-v2.md) as the canonical list of private-app scopes, unique
