@@ -1,3 +1,4 @@
+export * from "./almedia/agency-data";
 export * from "./google/sheets";
 export * from "./hypeauditor/report";
 export * from "./hubspot/contacts";
@@ -13,6 +14,7 @@ export * from "./youtube/discovery";
 export * from "./youtube/context";
 export * from "./youtube/country";
 export * from "./youtube/channel-resolution";
+export * from "./openai/almedia-analyst";
 export * from "./openai/campaign-fit-assessment";
 export * from "./openai/channel-enrichment";
 export * from "./openai/creator-profile-enrichment";

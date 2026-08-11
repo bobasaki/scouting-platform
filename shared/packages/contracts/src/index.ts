@@ -1,5 +1,6 @@
 export * from "./advanced-reports";
 export * from "./admin";
+export * from "./almedia";
 export * from "./auth";
 export * from "./campaigns";
 export * from "./channels";

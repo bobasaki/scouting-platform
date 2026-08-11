@@ -1,0 +1,522 @@
+import { z } from "zod";
+
+/**
+ * Contracts for the Almedia campaign-tracking workspace (Phase 1: read-only).
+ *
+ * The `Deal` shape is the joined row the Insights and Performance tabs work on:
+ * an internal booking matched to the Almedia campaigns it produced, with the
+ * return tier, maturity, and size tier already classified server-side.
+ */
+
+const isoDatetimeSchema = z.iso.datetime();
+
+/** ISO `YYYY-MM`. */
+const isoMonthSchema = z.string().regex(/^\d{4}-\d{2}$/u);
+
+/** ISO `YYYY-MM-DD`. The source tracker stores partial dates as strings. */
+const isoDaySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/u);
+
+export const bookingStatusSchema = z.enum([
+  "pipeline",
+  "booked",
+  "published",
+  "longterm",
+  "dropped",
+]);
+
+export const almediaSyncRunStatusSchema = z.enum([
+  "queued",
+  "running",
+  "completed",
+  "failed",
+]);
+
+export const almediaReturnTierSchema = z.enum([
+  "longterm",
+  "rebooking",
+  "price_adjusted",
+  "drop",
+]);
+
+export const almediaMaturityStatusSchema = z.enum([
+  "matured",
+  "maturing",
+  "unknown",
+]);
+
+export const almediaSizeTierSchema = z.enum(["<10k", "10-20k", "20-50k", ">50k"]);
+
+export const almediaContentFormatSchema = z.enum([
+  "short",
+  "long_form",
+  "live",
+  "unknown",
+]);
+
+export const almediaBrandFitSchema = z.enum(["high", "medium", "low", "unknown"]);
+
+export const almediaSafetyRiskSchema = z.enum(["low", "medium", "high", "unknown"]);
+
+export const almediaDimensionIdSchema = z.enum([
+  "cm",
+  "country",
+  "vertical",
+  "category",
+  "platform",
+  "sizeTier",
+  "status",
+  "month",
+]);
+
+/** One campaign row from the Almedia agency-data feed, as stored + served. */
+export const almediaCampaignSchema = z.object({
+  campaignName: z.string(),
+  campaignSource: z.string(),
+  platform: z.string(),
+  country: z.string(),
+  publishedAt: isoDatetimeSchema.nullable(),
+  cost: z.number().nullable(),
+  expectedCpm: z.number().nullable(),
+  viewCount: z.number().nullable(),
+  signupsPct: z.number().nullable(),
+  roasD7pD14: z.number().nullable(),
+  roasReturn: z.number().nullable(),
+  returnPct: z.number().nullable(),
+  appuD14: z.number().nullable(),
+  d7Purchases: z.number().nullable(),
+  channelName: z.string().nullable(),
+  videoUrl: z.string().nullable(),
+});
+
+export const bookingSchema = z.object({
+  id: z.uuid(),
+  channelName: z.string(),
+  /** Normalized join key against Almedia campaign names, e.g. "ASMRFIXY". */
+  channelKey: z.string(),
+  channelUrl: z.string().nullable(),
+  country: z.string().nullable(),
+  cm: z.string().nullable(),
+  platform: z.string().nullable(),
+  vertical: z.string().nullable(),
+  category: z.string().nullable(),
+  status: bookingStatusSchema,
+  activation: z.string().nullable(),
+  numActivations: z.number().int().nullable(),
+  contractSigned: z.boolean(),
+  contractUrl: z.string().nullable(),
+  publishedAt: isoDaySchema.nullable(),
+  intBudget: z.number().nullable(),
+  extBudget: z.number().nullable(),
+  currency: z.string(),
+  month: isoMonthSchema.nullable(),
+  note: z.string().nullable(),
+  videoUrl: z.string().nullable(),
+  createdAt: isoDatetimeSchema,
+  updatedAt: isoDatetimeSchema,
+});
+
+/**
+ * Write side (Phase 2). Bookings are typed by hand in the workspace, so every
+ * text field accepts the empty string a cleared form control sends and stores
+ * it as `null` — the read model never distinguishes "" from "not set".
+ */
+function nullableText(maxLength: number) {
+  return z
+    .string()
+    .trim()
+    .max(maxLength)
+    .nullable()
+    .transform((value) => (value === null || value.length === 0 ? null : value));
+}
+
+function nullablePattern<Schema extends z.ZodType<string>>(schema: Schema) {
+  return z
+    .union([schema, z.literal(""), z.null()])
+    .transform((value) => (value === null || value === "" ? null : value));
+}
+
+const nullableAmountSchema = z.number().finite().nonnegative().nullable();
+
+const currencySchema = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z]{3}$/u, "Currency must be a 3-letter code")
+  .transform((value) => value.toUpperCase());
+
+/**
+ * Everything a user can set on a booking. `channelKey` is derived from
+ * `channelName` when omitted; supplying it explicitly is the escape hatch for
+ * a creator whose Almedia campaign name does not normalize to their display
+ * name, which is the only thing standing between a booking and its campaign.
+ */
+const bookingWritableShape = {
+  channelName: z.string().trim().min(1, "Channel name is required").max(200),
+  channelKey: nullableText(120),
+  channelUrl: nullableText(2048),
+  country: nullableText(120),
+  cm: nullableText(120),
+  platform: nullableText(60),
+  vertical: nullableText(120),
+  category: nullableText(120),
+  status: bookingStatusSchema,
+  activation: nullableText(200),
+  numActivations: z.number().int().nonnegative().nullable(),
+  contractSigned: z.boolean(),
+  contractUrl: nullableText(2048),
+  publishedAt: nullablePattern(isoDaySchema),
+  intBudget: nullableAmountSchema,
+  extBudget: nullableAmountSchema,
+  currency: currencySchema,
+  month: nullablePattern(isoMonthSchema),
+  note: nullableText(2000),
+  videoUrl: nullableText(2048),
+} as const;
+
+/**
+ * Create: only the channel name is required. Omitted keys are left to the
+ * column defaults (`pipeline`, `USD`, unsigned) rather than being defaulted
+ * here twice.
+ */
+export const bookingInputSchema = z
+  .object(bookingWritableShape)
+  .partial()
+  .extend({ channelName: bookingWritableShape.channelName });
+
+/** Partial update: only the supplied keys are written. */
+export const bookingUpdateInputSchema = z
+  .object(bookingWritableShape)
+  .partial()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "No booking fields to update",
+  });
+
+export const almediaBookingsResponseSchema = z.object({
+  bookings: z.array(bookingSchema),
+});
+
+export const almediaBookingResponseSchema = z.object({
+  booking: bookingSchema,
+});
+
+/**
+ * Commission tiers on the Freecash rate card, identified by their markup: `c25`
+ * bills the internal price plus 25%. Stored as a string on the snapshot so a
+ * record keeps the tier it was billed at even if the card is later revised.
+ */
+export const almediaInvoiceTierIdSchema = z.enum([
+  "c20",
+  "c25",
+  "c30",
+  "c40",
+  "c50",
+  "c60",
+  "c80",
+  "c100",
+]);
+
+/**
+ * A point-in-time record of what a campaign was billed. A campaign can be
+ * invoiced before it matures, so the snapshot keeps the return and tier as they
+ * stood at that moment — once it matures and climbs a tier, the difference is
+ * what still needs charging.
+ */
+export const bookingInvoiceSchema = z.object({
+  id: z.uuid(),
+  /** The unique Almedia campaign name — the invoice identity. */
+  campaignName: z.string(),
+  channelName: z.string(),
+  invoicedAt: isoDatetimeSchema,
+  maturedAtInvoice: z.boolean(),
+  cost: z.number(),
+  returnPct: z.number().nullable(),
+  tier: almediaInvoiceTierIdSchema,
+  amount: z.number(),
+  createdAt: isoDatetimeSchema,
+  updatedAt: isoDatetimeSchema,
+});
+
+/** Upsert payload, keyed on `campaignName`. */
+export const bookingInvoiceInputSchema = z.object({
+  campaignName: z.string().trim().min(1).max(256),
+  channelName: z.string().trim().min(1).max(256),
+  invoicedAt: isoDatetimeSchema,
+  maturedAtInvoice: z.boolean(),
+  cost: z.number().finite().nonnegative(),
+  returnPct: z.number().finite().nullable(),
+  tier: almediaInvoiceTierIdSchema,
+  amount: z.number().finite().nonnegative(),
+});
+
+export const almediaInvoicesResponseSchema = z.object({
+  invoices: z.array(bookingInvoiceSchema),
+});
+
+export const almediaInvoiceResponseSchema = z.object({
+  invoice: bookingInvoiceSchema,
+});
+
+export const almediaMaturitySchema = z.object({
+  status: almediaMaturityStatusSchema,
+  daysRemaining: z.number().int().nullable(),
+});
+
+/**
+ * A YouTube channel enrichment as the workspace consumes it: the subset of the
+ * tracker's enrichment document that drives vertical derivation and the creator
+ * quality signals on a deal.
+ *
+ * Deliberately a projection, not a mirror. The stored JSON also carries recent
+ * uploads, confidence scores, and run metadata; parsing only what is read keeps
+ * the platform from depending on the producer's full shape, and unknown keys
+ * are stripped rather than rejected so a newer document still parses.
+ */
+export const almediaChannelEnrichmentSchema = z.object({
+  channel: z.object({
+    id: z.string(),
+    title: z.string(),
+    description: z.string(),
+    country: z.string().nullable(),
+    topics: z.array(z.string()),
+    keywords: z.array(z.string()),
+  }),
+  metrics: z.object({
+    followers: z.number().nullable(),
+    typicalViews: z.object({ median: z.number().nullable() }),
+    typicalEngagementRatePct: z.number().nullable(),
+    contentFormat: z.object({ dominant: almediaContentFormatSchema }),
+  }),
+  classification: z.object({
+    niche: z.string(),
+    topics: z.array(z.string()),
+    audiencePositioning: z.string(),
+    brandFit: z.object({
+      suitability: almediaBrandFitSchema,
+      categories: z.array(z.string()),
+    }),
+    brandSafety: z.object({ risk: almediaSafetyRiskSchema }),
+  }),
+  summary: z.string(),
+});
+
+/**
+ * A booking joined with its Almedia campaign. Campaign-only and booking-only
+ * rows are both kept, so nothing silently drops out of totals.
+ *
+ * Enrichment fields carry the creator signals from the channel enrichment the
+ * campaign resolves to; they stay null for deals with no enrichment on file.
+ */
+export const almediaDealSchema = z.object({
+  channelKey: z.string(),
+  channelName: z.string(),
+  catalogChannelId: z.string().nullable(),
+  campaignName: z.string().nullable(),
+  videoUrl: z.string().nullable(),
+  platform: z.string().nullable(),
+  publishedAt: isoDaySchema.nullable(),
+  cost: z.number().nullable(),
+  expectedCpm: z.number().nullable(),
+  viewCount: z.number().nullable(),
+  returnPct: z.number().nullable(),
+  signupsPct: z.number().nullable(),
+  d7Purchases: z.number().nullable(),
+  roasReturn: z.number().nullable(),
+  appuD14: z.number().nullable(),
+  /** cost / expectedCpm x 1000 — the views the price was based on. */
+  expectedViews: z.number().nullable(),
+  /** viewCount / expectedViews x 100. */
+  deliveryPct: z.number().nullable(),
+  cm: z.string().nullable(),
+  country: z.string().nullable(),
+  vertical: z.string().nullable(),
+  verticals: z.array(z.string()),
+  category: z.string().nullable(),
+  hasEnrichment: z.boolean(),
+  creatorFollowers: z.number().nullable(),
+  creatorTypicalViews: z.number().nullable(),
+  creatorEngagementRatePct: z.number().nullable(),
+  creatorContentFormat: almediaContentFormatSchema.nullable(),
+  creatorBrandFit: almediaBrandFitSchema.nullable(),
+  creatorSafetyRisk: almediaSafetyRiskSchema.nullable(),
+  status: bookingStatusSchema.nullable(),
+  intBudget: z.number().nullable(),
+  extBudget: z.number().nullable(),
+  month: isoMonthSchema.nullable(),
+  sizeTier: almediaSizeTierSchema.nullable(),
+  hasCampaign: z.boolean(),
+  hasBooking: z.boolean(),
+  /** Server-stamped classifications, so every consumer agrees on them. */
+  returnTier: almediaReturnTierSchema.nullable(),
+  maturity: almediaMaturitySchema,
+});
+
+export const almediaDimensionOptionsSchema = z.record(
+  almediaDimensionIdSchema,
+  z.array(z.string()),
+);
+
+export const almediaSyncStatusSchema = z.object({
+  status: almediaSyncRunStatusSchema.nullable(),
+  agency: z.string().nullable(),
+  campaignCount: z.number().int().nonnegative(),
+  syncedAt: isoDatetimeSchema.nullable(),
+  startedAt: isoDatetimeSchema.nullable(),
+  completedAt: isoDatetimeSchema.nullable(),
+  lastError: z.string().nullable(),
+});
+
+export const almediaDealsResponseSchema = z.object({
+  deals: z.array(almediaDealSchema),
+  options: almediaDimensionOptionsSchema,
+  sync: almediaSyncStatusSchema,
+});
+
+export const almediaCampaignsResponseSchema = z.object({
+  campaigns: z.array(almediaCampaignSchema),
+  sync: almediaSyncStatusSchema,
+});
+
+const tierCountsSchema = z.object({
+  under10k: z.number().int().nonnegative(),
+  from10kTo20k: z.number().int().nonnegative(),
+  from20kTo50k: z.number().int().nonnegative(),
+  over50k: z.number().int().nonnegative(),
+});
+
+const statusCountsSchema = z.object({
+  pipeline: z.number().int().nonnegative(),
+  booked: z.number().int().nonnegative(),
+  published: z.number().int().nonnegative(),
+  longterm: z.number().int().nonnegative(),
+  dropped: z.number().int().nonnegative(),
+});
+
+export const almediaScorecardRowSchema = z.object({
+  cm: z.string().nullable(),
+  market: z.string().nullable(),
+  month: isoMonthSchema,
+  targetAmount: z.number().nullable(),
+  targetTiers: tierCountsSchema.nullable(),
+  bookedAmount: z.number(),
+  bookedTiers: tierCountsSchema,
+  counts: statusCountsSchema,
+  utilization: z.number().nullable(),
+  pace: z.number().nullable(),
+  dropoutRate: z.number().nullable(),
+});
+
+export const almediaScorecardMonthSchema = z.object({
+  month: isoMonthSchema,
+  targetAmount: z.number().nullable(),
+  bookedAmount: z.number(),
+  counts: statusCountsSchema,
+  utilization: z.number().nullable(),
+  pace: z.number().nullable(),
+  dropoutRate: z.number().nullable(),
+});
+
+export const almediaScorecardResponseSchema = z.object({
+  months: z.array(almediaScorecardMonthSchema),
+  rows: z.array(almediaScorecardRowSchema),
+  unscheduledCount: z.number().int().nonnegative(),
+});
+
+export const almediaSyncResponseSchema = z.object({
+  runId: z.uuid(),
+});
+
+/**
+ * AI analyst chat (Phase 2). The client sends the running conversation plus a
+ * JSON digest of the deals currently in view; the digest is what grounds every
+ * answer, so a question is only ever answered against data the asker can see.
+ *
+ * The bounds are deliberate. `content` and `context` are capped so a runaway
+ * client cannot push an unbounded prompt through to the model, and the message
+ * count is capped so the conversation cost stays predictable.
+ */
+export const almediaAnalystMessageSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.string().trim().min(1).max(20_000),
+});
+
+export const almediaAnalystChatRequestSchema = z.object({
+  messages: z.array(almediaAnalystMessageSchema).min(1).max(40),
+  /** JSON digest of the filtered deal set. Empty means "no data in view". */
+  context: z.string().max(200_000).default(""),
+});
+
+export const almediaAnalystStatusResponseSchema = z.object({
+  /** False when no OpenAI key is configured on this deployment. */
+  configured: z.boolean(),
+  model: z.string(),
+});
+
+export type BookingStatus = z.infer<typeof bookingStatusSchema>;
+export type AlmediaSyncRunStatus = z.infer<typeof almediaSyncRunStatusSchema>;
+export type AlmediaReturnTier = z.infer<typeof almediaReturnTierSchema>;
+export type AlmediaMaturityStatus = z.infer<typeof almediaMaturityStatusSchema>;
+export type AlmediaMaturity = z.infer<typeof almediaMaturitySchema>;
+export type AlmediaSizeTier = z.infer<typeof almediaSizeTierSchema>;
+export type AlmediaDimensionId = z.infer<typeof almediaDimensionIdSchema>;
+export type AlmediaCampaignRow = z.infer<typeof almediaCampaignSchema>;
+export type AlmediaContentFormat = z.infer<typeof almediaContentFormatSchema>;
+export type AlmediaBrandFit = z.infer<typeof almediaBrandFitSchema>;
+export type AlmediaSafetyRisk = z.infer<typeof almediaSafetyRiskSchema>;
+export type AlmediaChannelEnrichment = z.infer<
+  typeof almediaChannelEnrichmentSchema
+>;
+export type AlmediaInvoiceTierId = z.infer<typeof almediaInvoiceTierIdSchema>;
+export type BookingInvoice = z.infer<typeof bookingInvoiceSchema>;
+export type BookingInvoiceInput = z.infer<typeof bookingInvoiceInputSchema>;
+export type AlmediaInvoicesResponse = z.infer<typeof almediaInvoicesResponseSchema>;
+export type AlmediaInvoiceResponse = z.infer<typeof almediaInvoiceResponseSchema>;
+export type Booking = z.infer<typeof bookingSchema>;
+export type BookingInput = z.infer<typeof bookingInputSchema>;
+export type BookingUpdateInput = z.infer<typeof bookingUpdateInputSchema>;
+export type AlmediaBookingsResponse = z.infer<typeof almediaBookingsResponseSchema>;
+export type AlmediaBookingResponse = z.infer<typeof almediaBookingResponseSchema>;
+export type AlmediaDeal = z.infer<typeof almediaDealSchema>;
+export type AlmediaDimensionOptions = z.infer<typeof almediaDimensionOptionsSchema>;
+export type AlmediaSyncStatus = z.infer<typeof almediaSyncStatusSchema>;
+export type AlmediaDealsResponse = z.infer<typeof almediaDealsResponseSchema>;
+export type AlmediaCampaignsResponse = z.infer<typeof almediaCampaignsResponseSchema>;
+export type AlmediaTierCounts = z.infer<typeof tierCountsSchema>;
+export type AlmediaStatusCounts = z.infer<typeof statusCountsSchema>;
+export type AlmediaScorecardRow = z.infer<typeof almediaScorecardRowSchema>;
+export type AlmediaScorecardMonth = z.infer<typeof almediaScorecardMonthSchema>;
+export type AlmediaScorecardResponse = z.infer<typeof almediaScorecardResponseSchema>;
+export type AlmediaSyncResponse = z.infer<typeof almediaSyncResponseSchema>;
+export type AlmediaAnalystMessage = z.infer<typeof almediaAnalystMessageSchema>;
+export type AlmediaAnalystChatRequest = z.infer<typeof almediaAnalystChatRequestSchema>;
+export type AlmediaAnalystStatusResponse = z.infer<
+  typeof almediaAnalystStatusResponseSchema
+>;
+
+/** Filter dimensions, in the order the Insights filter bar renders them. */
+export const ALMEDIA_DIMENSIONS = [
+  { id: "cm", label: "CM" },
+  { id: "country", label: "Market" },
+  { id: "vertical", label: "Vertical" },
+  { id: "category", label: "Category" },
+  { id: "platform", label: "Platform" },
+  { id: "sizeTier", label: "Size" },
+  { id: "status", label: "Status" },
+  { id: "month", label: "Month" },
+] as const satisfies ReadonlyArray<{ id: AlmediaDimensionId; label: string }>;
+
+/** Placeholder used wherever a dimension value is missing. */
+export const ALMEDIA_UNASSIGNED = "Unassigned";
+
+/**
+ * The single currency the Almedia workspace speaks.
+ *
+ * The Almedia feed sends `cost` as a bare number with no currency field, so
+ * nothing anywhere converts anything — this is a label for figures that are
+ * already denominated in exactly one currency. It lives in contracts because
+ * both halves need it and they must never disagree: the source tracker kept
+ * separate EUR and USD formatters and rendered the same `cost` as euros on one
+ * tab and dollars on another.
+ *
+ * Change this and the whole workspace follows — display, the booking default,
+ * and the currency the AI analyst is told to quote.
+ */
+export const ALMEDIA_CURRENCY = "USD";

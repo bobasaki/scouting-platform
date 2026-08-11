@@ -1,6 +1,9 @@
 import { unstable_cache } from "next/cache";
 import type { ListChannelsInput } from "@scouting-platform/core";
 import {
+  getAlmediaCampaigns,
+  getAlmediaDeals,
+  getBookingScorecard,
   listCampaigns,
   listClients,
   listDropdownValues,
@@ -128,6 +131,30 @@ export const getCachedUsers = unstable_cache(
   () => listUsers(),
   ["users"],
   { revalidate: 60 },
+);
+
+// Almedia reads are global (not user-scoped) and refresh at most hourly from
+// the worker, so every admin shares one cache entry. They all derive from the
+// bookings table, so a booking write purges the whole tag rather than waiting
+// out the 30s window.
+export const ALMEDIA_CACHE_TAG = "almedia";
+
+export const getCachedAlmediaDeals = unstable_cache(
+  () => getAlmediaDeals(),
+  ["almedia-deals"],
+  { revalidate: 30, tags: [ALMEDIA_CACHE_TAG] },
+);
+
+export const getCachedAlmediaCampaigns = unstable_cache(
+  () => getAlmediaCampaigns(),
+  ["almedia-campaigns"],
+  { revalidate: 30, tags: [ALMEDIA_CACHE_TAG] },
+);
+
+export const getCachedAlmediaScorecard = unstable_cache(
+  () => getBookingScorecard(),
+  ["almedia-scorecard"],
+  { revalidate: 30, tags: [ALMEDIA_CACHE_TAG] },
 );
 
 export function getCachedHubspotObjectSyncRuns(userId: string) {

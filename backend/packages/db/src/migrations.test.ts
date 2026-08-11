@@ -138,6 +138,30 @@ const hubspotCollaborationHistoryMigrationPath = path.resolve(
   currentDir,
   "../prisma/migrations/20260721150000_hubspot_collaboration_history/migration.sql",
 );
+const almediaCatalogChannelLinkMigrationPath = path.resolve(
+  currentDir,
+  "../prisma/migrations/20260811092309_almedia_catalog_channel_link/migration.sql",
+);
+
+describe("Almedia catalog channel link migration", () => {
+  it("adds, backfills, indexes, and safely constrains the nullable catalog link", () => {
+    const migrationSql = readFileSync(
+      almediaCatalogChannelLinkMigrationPath,
+      "utf-8",
+    );
+
+    expect(migrationSql).toContain('ADD COLUMN "catalog_channel_id" UUID');
+    expect(migrationSql).toContain("UPDATE almedia_channel_enrichments a");
+    expect(migrationSql).toContain("c.youtube_channel_id = a.channel_id");
+    expect(migrationSql).toContain("a.catalog_channel_id IS NULL");
+    expect(migrationSql).toContain(
+      'CREATE INDEX "almedia_channel_enrichments_catalog_channel_id_idx"',
+    );
+    expect(migrationSql).toContain("ON DELETE SET NULL");
+    expect(migrationSql).not.toContain("IF NOT EXISTS");
+    expect(migrationSql).not.toContain("DO $$");
+  });
+});
 
 describe("channel country manual override migration", () => {
   it("adds the country override field and fallback source without defensive DDL", () => {

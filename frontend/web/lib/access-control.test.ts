@@ -7,6 +7,11 @@ describe("access control", () => {
     expect(canAccessNavigationKey("admin", "user")).toBe(false);
   });
 
+  it("allows the almedia route only for admin role", () => {
+    expect(canAccessNavigationKey("almedia", "admin")).toBe(true);
+    expect(canAccessNavigationKey("almedia", "user")).toBe(false);
+  });
+
   it("allows shared routes for both roles", () => {
     expect(canAccessNavigationKey("dashboard", "user")).toBe(true);
     expect(canAccessNavigationKey("dashboard", "admin")).toBe(true);

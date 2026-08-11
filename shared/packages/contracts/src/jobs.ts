@@ -15,6 +15,8 @@ export const JOB_NAMES = [
   "hubspot.object-sync.schedule",
   "hubspot.object-sync",
   "hubspot.webhook.process",
+  "almedia.campaigns.sync.schedule",
+  "almedia.campaigns.sync",
   "maintenance.refresh-stale",
 ] as const;
 
@@ -92,6 +94,17 @@ export const hubspotWebhookProcessPayloadSchema = z.object({
   webhookEventId: uuid,
 });
 
+export const almediaCampaignsSyncSchedulePayloadSchema = z.object({
+  initiatedBy: z.literal("system"),
+});
+
+export const almediaCampaignsSyncPayloadSchema = z.object({
+  /** "system" for the hourly cron; "admin" for a manual Refresh. */
+  initiatedBy: z.enum(["system", "admin"]),
+  syncRunId: uuid,
+  requestedByUserId: uuid.optional(),
+});
+
 export const maintenanceRefreshStalePayloadSchema = z.object({
   initiatedBy: z.enum(["system", "admin"]),
   requestedByUserId: uuid.optional(),
@@ -112,6 +125,8 @@ export const jobPayloadSchemas = {
   "hubspot.object-sync.schedule": hubspotObjectSyncSchedulePayloadSchema,
   "hubspot.object-sync": hubspotObjectSyncPayloadSchema,
   "hubspot.webhook.process": hubspotWebhookProcessPayloadSchema,
+  "almedia.campaigns.sync.schedule": almediaCampaignsSyncSchedulePayloadSchema,
+  "almedia.campaigns.sync": almediaCampaignsSyncPayloadSchema,
   "maintenance.refresh-stale": maintenanceRefreshStalePayloadSchema,
 } as const satisfies Record<JobName, z.ZodType>;
 

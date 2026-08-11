@@ -1,6 +1,11 @@
 import process from "node:process";
 import { PgBoss } from "pg-boss";
 
+import {
+  ensureAlmediaCampaignsSyncSchedule,
+  registerAlmediaCampaignsSyncScheduleWorker,
+  registerAlmediaCampaignsSyncWorker,
+} from "./almedia-campaigns-sync-worker";
 import { registerChannelsEnrichHypeAuditorWorker } from "./channels-enrich-hypeauditor-worker";
 import { registerChannelsEnrichLlmWorker } from "./channels-enrich-llm-worker";
 import {
@@ -66,6 +71,11 @@ async function registerWorkers(
   await registerHubspotObjectSyncScheduleWorker(boss, config.jobs.hubspotObjectSyncSchedule);
   await registerHubspotObjectSyncWorker(boss, config.jobs.hubspotObjectSync);
   await registerHubspotWebhookWorker(boss, config.jobs.hubspotWebhook);
+  await registerAlmediaCampaignsSyncScheduleWorker(
+    boss,
+    config.jobs.almediaCampaignsSyncSchedule,
+  );
+  await registerAlmediaCampaignsSyncWorker(boss, config.jobs.almediaCampaignsSync);
 }
 
 async function startWorker(): Promise<void> {
@@ -84,6 +94,7 @@ async function startWorker(): Promise<void> {
   await boss.start();
   await ensureQueues(boss);
   await ensureHubspotObjectSyncDailySchedule(boss);
+  await ensureAlmediaCampaignsSyncSchedule(boss);
   await registerWorkers(boss, config);
   const hubspotDeliveryRecoveryMonitor: HubspotDeliveryRecoveryMonitor =
     startHubspotDeliveryRecoveryMonitor(boss);

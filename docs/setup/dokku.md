@@ -79,6 +79,50 @@ Set these on `scouting-worker`:
 - `OPENAI_API_KEY` if LLM enrichment is enabled
 - `HYPEAUDITOR_API_KEY` if advanced reports are enabled
 - `HUBSPOT_ACCESS_TOKEN` plus the same HubSpot V2 portal mapping when HubSpot is configured
+- `ALMEDIA_API_KEY` if Almedia tracking is enabled (worker only, see below)
+
+### Almedia campaign tracking
+
+The admin-only `/almedia` view reads a snapshot of the Almedia agency-data feed
+out of Postgres. Only `scouting-worker` calls the Almedia API, so the key MUST
+be set on the worker and MUST NOT be set on `scouting-web` — and never as a
+`NEXT_PUBLIC_*` variable.
+
+```bash
+dokku config:set scouting-worker \
+  ALMEDIA_API_KEY='<almedia-agency-key>'
+```
+
+Optional on the worker:
+
+- `ALMEDIA_BASE_URL` overrides the API base URL (defaults to production)
+- `WORKER_ALMEDIA_CAMPAIGNS_SYNC_CONCURRENCY` (defaults to `1`)
+
+The worker registers an hourly Almedia campaign sync (`0 * * * *`, timezone
+`Etc/GMT-2`). The Refresh button on `/almedia` enqueues the same durable job.
+
+#### AI analyst
+
+The analyst chat on the Insights tab runs the other way round: it is served by
+`scouting-web`, which is the only caller, and it needs `OPENAI_API_KEY` set
+there. The Almedia key plays no part in it. Without an OpenAI key the widget
+renders a setup note instead of a composer and the route answers `503` — the
+rest of the workspace is unaffected.
+
+```bash
+dokku config:set scouting-web \
+  ALMEDIA_ANALYST_MODEL='<reasoning-capable-model>'
+```
+
+`ALMEDIA_ANALYST_MODEL` is optional and defaults to the tracker's model. It is
+deliberately separate from `OPENAI_MODEL`: that one is tuned for the cheap
+per-channel enrichment calls on the worker, and the analyst reasons over a
+digest of up to 190kB.
+
+Questions are answered only from a snapshot of the deals the asker already has
+in view, built in the browser and posted with the question. Nothing else from
+the database reaches the model, and the audit log records the shape of each
+question (turn count, character counts, model) but never its text.
 
 ### HubSpot V2
 
