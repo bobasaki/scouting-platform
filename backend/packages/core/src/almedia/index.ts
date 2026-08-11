@@ -7,6 +7,7 @@ export * from "./deals";
 export * from "./enrichments";
 export * from "./import-sqlite";
 export * from "./insights";
+export * from "./invoices";
 export * from "./queue";
 export * from "./scorecard";
 export * from "./verticals";

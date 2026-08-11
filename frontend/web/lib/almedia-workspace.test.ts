@@ -19,7 +19,7 @@ describe("resolveAlmediaTab", () => {
   });
 
   it("falls back to insights for an unknown tab", () => {
-    expect(resolveAlmediaTab(new URLSearchParams("tab=invoices"))).toBe("insights");
+    expect(resolveAlmediaTab(new URLSearchParams("tab=forecast"))).toBe("insights");
   });
 });
 
@@ -50,12 +50,22 @@ describe("buildAlmediaWorkspaceHref", () => {
 });
 
 describe("tab order", () => {
-  it("renders Insights, Performance, then Scorecard", () => {
+  it("runs from what happened, through the plan, to what gets billed", () => {
     expect(ALMEDIA_TABS_IN_ORDER).toEqual([
       "insights",
       "bookings",
       "performance",
       "scorecard",
+      "invoices",
     ]);
+  });
+
+  it("reads the invoices tab from the query string", () => {
+    expect(resolveAlmediaTab(new URLSearchParams("tab=invoices"))).toBe("invoices");
+    expect(
+      buildAlmediaWorkspaceHref("/almedia", new URLSearchParams(), {
+        tab: "invoices",
+      }),
+    ).toBe("/almedia?tab=invoices");
   });
 });

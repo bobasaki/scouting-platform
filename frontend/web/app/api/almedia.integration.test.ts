@@ -7,6 +7,8 @@ import {
 import {
   almediaCampaignsResponseSchema,
   almediaDealsResponseSchema,
+  almediaInvoiceResponseSchema,
+  almediaInvoicesResponseSchema,
   almediaScorecardResponseSchema,
   almediaSyncResponseSchema,
 } from "@scouting-platform/contracts";
@@ -34,6 +36,8 @@ integration("almedia API integration", () => {
   let campaignsRoute: typeof import("./almedia/campaigns/route");
   let scorecardRoute: typeof import("./almedia/scorecard/route");
   let syncRoute: typeof import("./almedia/sync/route");
+  let invoicesRoute: typeof import("./almedia/invoices/route");
+  let invoiceRoute: typeof import("./almedia/invoices/[invoiceId]/route");
 
   beforeAll(async () => {
     process.env.DATABASE_URL = databaseUrl;
@@ -48,6 +52,8 @@ integration("almedia API integration", () => {
     campaignsRoute = await import("./almedia/campaigns/route");
     scorecardRoute = await import("./almedia/scorecard/route");
     syncRoute = await import("./almedia/sync/route");
+    invoicesRoute = await import("./almedia/invoices/route");
+    invoiceRoute = await import("./almedia/invoices/[invoiceId]/route");
   });
 
   beforeEach(async () => {
@@ -162,6 +168,7 @@ integration("almedia API integration", () => {
       campaignsRoute.GET,
       scorecardRoute.GET,
       syncRoute.POST,
+      invoicesRoute.GET,
     ];
 
     for (const handler of handlers) {
@@ -255,6 +262,106 @@ integration("almedia API integration", () => {
 
     expect(payload.deals).toEqual([]);
     expect(payload.sync).toMatchObject({ status: null, campaignCount: 0 });
+  });
+
+  it("records, replaces, and removes an invoice snapshot", async () => {
+    const admin = await createUser("admin@example.com", Role.ADMIN);
+
+    currentSessionUser = { id: admin.id, role: "admin" };
+
+    const invoice = {
+      campaignName: "ASMRFIXY_YT_R1",
+      channelName: "ASMR Fixy",
+      invoicedAt: "2026-07-31T09:00:00.000Z",
+      maturedAtInvoice: false,
+      cost: 1000,
+      returnPct: 90,
+      tier: "c20",
+      amount: 1000,
+    };
+
+    const created = await invoicesRoute.PUT(
+      new Request("http://localhost/api/almedia/invoices", {
+        method: "PUT",
+        body: JSON.stringify(invoice),
+      }),
+    );
+
+    expect(created.status).toBe(200);
+
+    const saved = almediaInvoiceResponseSchema.parse(await created.json()).invoice;
+
+    expect(saved).toMatchObject({ campaignName: "ASMRFIXY_YT_R1", tier: "c20" });
+    expect(
+      await prisma.auditEvent.findFirst({
+        where: { action: "almedia.invoice.recorded", entityId: saved.id },
+      }),
+    ).toMatchObject({ actorUserId: admin.id });
+
+    // Re-invoicing after maturity replaces the snapshot rather than duplicating it.
+    const topped = almediaInvoiceResponseSchema.parse(
+      await (
+        await invoicesRoute.PUT(
+          new Request("http://localhost/api/almedia/invoices", {
+            method: "PUT",
+            body: JSON.stringify({
+              ...invoice,
+              maturedAtInvoice: true,
+              returnPct: 140,
+              tier: "c40",
+              amount: 1166.67,
+            }),
+          }),
+        )
+      ).json(),
+    ).invoice;
+
+    expect(topped.id).toBe(saved.id);
+    expect(topped).toMatchObject({ tier: "c40", maturedAtInvoice: true });
+
+    const listed = almediaInvoicesResponseSchema.parse(
+      await (await invoicesRoute.GET()).json(),
+    );
+
+    expect(listed.invoices).toHaveLength(1);
+
+    const deleted = await invoiceRoute.DELETE(
+      new Request("http://localhost/api/almedia/invoices/x", { method: "DELETE" }),
+      { params: Promise.resolve({ invoiceId: saved.id }) },
+    );
+
+    expect(deleted.status).toBe(204);
+    expect(await prisma.bookingInvoice.count()).toBe(0);
+    expect(
+      await prisma.auditEvent.findFirst({
+        where: { action: "almedia.invoice.deleted", entityId: saved.id },
+      }),
+    ).toMatchObject({ actorUserId: admin.id });
+  });
+
+  it("rejects an invoice payload with an off-card tier", async () => {
+    const admin = await createUser("admin@example.com", Role.ADMIN);
+
+    currentSessionUser = { id: admin.id, role: "admin" };
+
+    const response = await invoicesRoute.PUT(
+      new Request("http://localhost/api/almedia/invoices", {
+        method: "PUT",
+        body: JSON.stringify({
+          campaignName: "ASMRFIXY_YT_R1",
+          channelName: "ASMR Fixy",
+          invoicedAt: "2026-07-31T09:00:00.000Z",
+          maturedAtInvoice: false,
+          cost: 1000,
+          returnPct: 90,
+          tier: "c35",
+          amount: 1000,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await prisma.bookingInvoice.count()).toBe(0);
   });
 
   it("records a durable run and an audit event when an admin requests a sync", async () => {

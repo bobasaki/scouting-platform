@@ -198,6 +198,63 @@ export const almediaBookingResponseSchema = z.object({
   booking: bookingSchema,
 });
 
+/**
+ * Commission tiers on the Freecash rate card, identified by their markup: `c25`
+ * bills the internal price plus 25%. Stored as a string on the snapshot so a
+ * record keeps the tier it was billed at even if the card is later revised.
+ */
+export const almediaInvoiceTierIdSchema = z.enum([
+  "c20",
+  "c25",
+  "c30",
+  "c40",
+  "c50",
+  "c60",
+  "c80",
+  "c100",
+]);
+
+/**
+ * A point-in-time record of what a campaign was billed. A campaign can be
+ * invoiced before it matures, so the snapshot keeps the return and tier as they
+ * stood at that moment — once it matures and climbs a tier, the difference is
+ * what still needs charging.
+ */
+export const bookingInvoiceSchema = z.object({
+  id: z.uuid(),
+  /** The unique Almedia campaign name — the invoice identity. */
+  campaignName: z.string(),
+  channelName: z.string(),
+  invoicedAt: isoDatetimeSchema,
+  maturedAtInvoice: z.boolean(),
+  cost: z.number(),
+  returnPct: z.number().nullable(),
+  tier: almediaInvoiceTierIdSchema,
+  amount: z.number(),
+  createdAt: isoDatetimeSchema,
+  updatedAt: isoDatetimeSchema,
+});
+
+/** Upsert payload, keyed on `campaignName`. */
+export const bookingInvoiceInputSchema = z.object({
+  campaignName: z.string().trim().min(1).max(256),
+  channelName: z.string().trim().min(1).max(256),
+  invoicedAt: isoDatetimeSchema,
+  maturedAtInvoice: z.boolean(),
+  cost: z.number().finite().nonnegative(),
+  returnPct: z.number().finite().nullable(),
+  tier: almediaInvoiceTierIdSchema,
+  amount: z.number().finite().nonnegative(),
+});
+
+export const almediaInvoicesResponseSchema = z.object({
+  invoices: z.array(bookingInvoiceSchema),
+});
+
+export const almediaInvoiceResponseSchema = z.object({
+  invoice: bookingInvoiceSchema,
+});
+
 export const almediaMaturitySchema = z.object({
   status: almediaMaturityStatusSchema,
   daysRemaining: z.number().int().nullable(),
@@ -380,6 +437,11 @@ export type AlmediaSafetyRisk = z.infer<typeof almediaSafetyRiskSchema>;
 export type AlmediaChannelEnrichment = z.infer<
   typeof almediaChannelEnrichmentSchema
 >;
+export type AlmediaInvoiceTierId = z.infer<typeof almediaInvoiceTierIdSchema>;
+export type BookingInvoice = z.infer<typeof bookingInvoiceSchema>;
+export type BookingInvoiceInput = z.infer<typeof bookingInvoiceInputSchema>;
+export type AlmediaInvoicesResponse = z.infer<typeof almediaInvoicesResponseSchema>;
+export type AlmediaInvoiceResponse = z.infer<typeof almediaInvoiceResponseSchema>;
 export type Booking = z.infer<typeof bookingSchema>;
 export type BookingInput = z.infer<typeof bookingInputSchema>;
 export type BookingUpdateInput = z.infer<typeof bookingUpdateInputSchema>;

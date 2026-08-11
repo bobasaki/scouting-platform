@@ -4,6 +4,7 @@ import type {
   AlmediaDimensionOptions,
   AlmediaScorecardResponse,
   Booking,
+  BookingInvoice,
 } from "@scouting-platform/contracts";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -11,6 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { AlmediaBookingsTab } from "./almedia-bookings-tab";
 import { AlmediaInsightsTab } from "./almedia-insights-tab";
+import { AlmediaInvoicesTab } from "./almedia-invoices-tab";
 import { AlmediaPerformanceTab } from "./almedia-performance-tab";
 import { AlmediaScorecardTab } from "./almedia-scorecard-tab";
 
@@ -257,6 +259,25 @@ const BOOKING: Booking = {
   updatedAt: "2026-07-02T00:00:00.000Z",
 };
 
+/**
+ * Billed early at the base tier. The campaign has since returned 120%, which on
+ * INT is 144% → c40, so its full charge is 833.33 x 1.4 = 1,166.67 and the
+ * snapshot leaves a shortfall the view must surface.
+ */
+const INVOICE: BookingInvoice = {
+  id: "b1c07d1a-6a4c-4c0f-9e2e-2f6f1d0a5b44",
+  campaignName: "CHAN_YT_R1",
+  channelName: "Channel",
+  invoicedAt: "2026-07-20T00:00:00.000Z",
+  maturedAtInvoice: false,
+  cost: 1000,
+  returnPct: 60,
+  tier: "c20",
+  amount: 900,
+  createdAt: "2026-07-20T00:00:00.000Z",
+  updatedAt: "2026-07-20T00:00:00.000Z",
+};
+
 describe("almedia tabs render", () => {
   it("renders every insights widget against a populated snapshot", () => {
     const html = renderToStaticMarkup(
@@ -339,6 +360,41 @@ describe("almedia tabs render", () => {
     );
 
     expect(empty).toContain("No bookings yet");
+  });
+
+  it("renders the invoices tab with both billing lenses", () => {
+    const html = renderToStaticMarkup(
+      createElement(AlmediaInvoicesTab, {
+        deals: DEALS,
+        invoices: [INVOICE],
+        onMutated: () => undefined,
+      }),
+    );
+
+    expect(html).toContain("What is still to invoice?");
+    expect(html).toContain("By invoice month");
+    expect(html).toContain("By publish month");
+    // July (cost 1,000) and August (cost 4,000) publish batches.
+    expect(html).toContain("Jul 2026");
+    expect(html).toContain("Aug 2026");
+    // Dollar-denominated, not the EUR the other tabs show.
+    expect(html).toContain("$5,000");
+    // The recorded snapshot for the July campaign, and the shortfall it leaves.
+    expect(html).toContain("billed $900");
+    expect(html).toContain("still owed");
+  });
+
+  it("renders the invoices tab with nothing billable", () => {
+    const html = renderToStaticMarkup(
+      createElement(AlmediaInvoicesTab, {
+        deals: [],
+        invoices: [],
+        onMutated: () => undefined,
+      }),
+    );
+
+    expect(html).toContain("What is still to invoice?");
+    expect(html).toContain("No invoice activity for this month");
   });
 
   it("renders the scorecard tab for populated and empty plans", () => {

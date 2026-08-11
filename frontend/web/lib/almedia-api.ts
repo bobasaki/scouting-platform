@@ -3,15 +3,20 @@ import {
   almediaBookingsResponseSchema,
   almediaCampaignsResponseSchema,
   almediaDealsResponseSchema,
+  almediaInvoiceResponseSchema,
+  almediaInvoicesResponseSchema,
   almediaScorecardResponseSchema,
   almediaSyncResponseSchema,
   type AlmediaBookingResponse,
   type AlmediaBookingsResponse,
   type AlmediaCampaignsResponse,
   type AlmediaDealsResponse,
+  type AlmediaInvoiceResponse,
+  type AlmediaInvoicesResponse,
   type AlmediaScorecardResponse,
   type AlmediaSyncResponse,
   type BookingInput,
+  type BookingInvoiceInput,
   type BookingUpdateInput,
 } from "@scouting-platform/contracts";
 import type { ZodType } from "zod";
@@ -86,7 +91,7 @@ function normalizeRequestError(
   return new Error(normalizeErrorMessage(error, fallbackMessage));
 }
 
-type RequestMethod = "GET" | "POST" | "PATCH" | "DELETE";
+type RequestMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 type RequestInitOptions = Readonly<{
   method?: RequestMethod;
@@ -206,16 +211,10 @@ export async function updateAlmediaBooking(
   );
 }
 
-/** Returns 204 with no body, so there is nothing to validate. */
-export async function deleteAlmediaBooking(
-  bookingId: string,
-  signal?: AbortSignal,
-): Promise<void> {
+/** Deletes return 204 with no body, so there is nothing to validate. */
+async function requestDelete(path: string, signal?: AbortSignal): Promise<void> {
   try {
-    const response = await fetch(
-      `/api/almedia/bookings/${encodeURIComponent(bookingId)}`,
-      buildRequestInit({ method: "DELETE", signal }),
-    );
+    const response = await fetch(path, buildRequestInit({ method: "DELETE", signal }));
 
     if (!response.ok) {
       throw new AlmediaApiRequestError(
@@ -226,6 +225,50 @@ export async function deleteAlmediaBooking(
   } catch (error) {
     throw normalizeRequestError(error);
   }
+}
+
+export async function deleteAlmediaBooking(
+  bookingId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  return requestDelete(
+    `/api/almedia/bookings/${encodeURIComponent(bookingId)}`,
+    signal,
+  );
+}
+
+export async function fetchAlmediaInvoices(
+  signal?: AbortSignal,
+): Promise<AlmediaInvoicesResponse> {
+  return requestJson(
+    "/api/almedia/invoices",
+    almediaInvoicesResponseSchema,
+    "Received an invalid Almedia invoices response.",
+    { signal },
+  );
+}
+
+/** Upsert, keyed on the campaign name — re-invoicing replaces the snapshot. */
+export async function recordAlmediaInvoice(
+  invoice: BookingInvoiceInput,
+  signal?: AbortSignal,
+): Promise<AlmediaInvoiceResponse> {
+  return requestJson(
+    "/api/almedia/invoices",
+    almediaInvoiceResponseSchema,
+    "Received an invalid Almedia invoice response.",
+    { method: "PUT", body: invoice, signal },
+  );
+}
+
+export async function deleteAlmediaInvoice(
+  invoiceId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  return requestDelete(
+    `/api/almedia/invoices/${encodeURIComponent(invoiceId)}`,
+    signal,
+  );
 }
 
 export async function requestAlmediaSync(

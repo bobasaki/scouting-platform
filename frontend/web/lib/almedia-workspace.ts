@@ -1,4 +1,10 @@
-const ALMEDIA_TABS = ["insights", "bookings", "performance", "scorecard"] as const;
+const ALMEDIA_TABS = [
+  "insights",
+  "bookings",
+  "performance",
+  "scorecard",
+  "invoices",
+] as const;
 
 export type AlmediaTab = (typeof ALMEDIA_TABS)[number];
 
@@ -7,6 +13,7 @@ export const ALMEDIA_TAB_LABELS = {
   bookings: "Bookings",
   performance: "Performance",
   scorecard: "Scorecard",
+  invoices: "Invoices",
 } as const satisfies Record<AlmediaTab, string>;
 
 function isAlmediaTab(value: string | null): value is AlmediaTab {

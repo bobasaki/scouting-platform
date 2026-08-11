@@ -4,6 +4,7 @@ import type {
   AlmediaBookingsResponse,
   AlmediaCampaignsResponse,
   AlmediaDealsResponse,
+  AlmediaInvoicesResponse,
   AlmediaScorecardResponse,
 } from "@scouting-platform/contracts";
 import Link from "next/link";
@@ -14,6 +15,7 @@ import {
   fetchAlmediaBookings,
   fetchAlmediaCampaigns,
   fetchAlmediaDeals,
+  fetchAlmediaInvoices,
   fetchAlmediaScorecard,
   requestAlmediaSync,
 } from "../../lib/almedia-api";
@@ -30,6 +32,7 @@ import { ErrorState } from "../ui/ErrorState";
 import { SkeletonPageBody, SkeletonTable } from "../ui/skeleton";
 import { AlmediaBookingsTab } from "./almedia-bookings-tab";
 import { AlmediaInsightsTab } from "./almedia-insights-tab";
+import { AlmediaInvoicesTab } from "./almedia-invoices-tab";
 import { AlmediaPerformanceTab } from "./almedia-performance-tab";
 import { AlmediaScorecardTab } from "./almedia-scorecard-tab";
 
@@ -48,6 +51,7 @@ type AlmediaData = Readonly<{
   campaigns: AlmediaCampaignsResponse;
   scorecard: AlmediaScorecardResponse;
   bookings: AlmediaBookingsResponse;
+  invoices: AlmediaInvoicesResponse;
   fetchedAt: Date;
 }>;
 
@@ -93,11 +97,12 @@ export function AlmediaWorkspace() {
       }
 
       try {
-        const [deals, campaigns, scorecard, bookings] = await Promise.all([
+        const [deals, campaigns, scorecard, bookings, invoices] = await Promise.all([
           fetchAlmediaDeals(abortController.signal),
           fetchAlmediaCampaigns(abortController.signal),
           fetchAlmediaScorecard(abortController.signal),
           fetchAlmediaBookings(abortController.signal),
+          fetchAlmediaInvoices(abortController.signal),
         ]);
 
         if (didCancel || abortController.signal.aborted) {
@@ -106,7 +111,14 @@ export function AlmediaWorkspace() {
 
         setRequestState({
           status: "ready",
-          data: { deals, campaigns, scorecard, bookings, fetchedAt: new Date() },
+          data: {
+            deals,
+            campaigns,
+            scorecard,
+            bookings,
+            invoices,
+            fetchedAt: new Date(),
+          },
           error: null,
         });
 
@@ -140,9 +152,10 @@ export function AlmediaWorkspace() {
     };
   }, [isDocumentVisible, reloadToken]);
 
-  // A booking write changes the deal join and the scorecard, so the whole
+  // A booking write changes the deal join and the scorecard; an invoice write
+  // changes what the billing view considers outstanding. Either way the whole
   // workspace reloads rather than just the tab that was edited.
-  const handleBookingsMutated = useCallback(() => {
+  const handleWorkspaceMutated = useCallback(() => {
     setReloadToken((token) => token + 1);
   }, []);
 
@@ -251,7 +264,7 @@ export function AlmediaWorkspace() {
             {activeTab === "bookings" ? (
               <AlmediaBookingsTab
                 bookings={data.bookings.bookings}
-                onMutated={handleBookingsMutated}
+                onMutated={handleWorkspaceMutated}
               />
             ) : null}
             {activeTab === "performance" ? (
@@ -259,6 +272,13 @@ export function AlmediaWorkspace() {
             ) : null}
             {activeTab === "scorecard" ? (
               <AlmediaScorecardTab scorecard={data.scorecard} />
+            ) : null}
+            {activeTab === "invoices" ? (
+              <AlmediaInvoicesTab
+                deals={data.deals.deals}
+                invoices={data.invoices.invoices}
+                onMutated={handleWorkspaceMutated}
+              />
             ) : null}
           </>
         ) : null}

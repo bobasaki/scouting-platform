@@ -15015,3 +15015,428 @@ select {
     justify-content: space-between;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   ALMEDIA INVOICES (Phase 2)
+   Billing view. Two lenses over the same money: calendar-month
+   cards on top (what a given invoice totals) and publish-month
+   accordions below (the campaign detail behind each fee).
+   ───────────────────────────────────────────────────────────── */
+
+.almedia-invoices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.almedia-invoices__lede {
+  max-width: 68ch;
+  margin: 0;
+  font-size: var(--font-size-300);
+  color: var(--color-text-muted);
+}
+
+.almedia-invoices__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-4);
+}
+
+.almedia-invoices__count {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: var(--font-size-200);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.almedia-invoices__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+}
+
+.almedia-invoices__panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.almedia-invoices__panel-head h3 {
+  margin: 0;
+  font-size: var(--font-size-400);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-strong);
+}
+
+.almedia-invoices__panel-head span {
+  font-size: var(--font-size-200);
+  color: var(--color-text-subtle);
+}
+
+.almedia-invoices__footnote {
+  margin: 0;
+  max-width: 90ch;
+  font-size: var(--font-size-100);
+  line-height: 1.6;
+  color: var(--color-text-subtle);
+}
+
+/* ── Chips ───────────────────────────────────────────────── */
+
+.almedia-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  font-size: var(--font-size-100);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  color: var(--color-text-muted);
+  background: var(--color-surface-muted);
+  border-radius: var(--radius-pill);
+}
+
+.almedia-chip--done {
+  color: var(--color-success);
+  background: var(--color-success-soft);
+}
+
+.almedia-chip--due {
+  color: var(--color-warning);
+  background: var(--color-warning-soft);
+}
+
+.almedia-chip--pending {
+  color: var(--color-text-muted);
+  background: var(--color-accent-soft);
+}
+
+.almedia-chip--fee {
+  color: var(--color-success);
+  background: var(--color-success-soft);
+}
+
+/* ── Calendar-month invoice card ─────────────────────────── */
+
+.almedia-invoices__month-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+  gap: var(--space-4);
+}
+
+.almedia-invoice-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.almedia-invoice-card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.almedia-invoice-card__month {
+  font-size: var(--font-size-100);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+.almedia-invoice-card__total {
+  font-size: var(--font-size-500);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--color-text-strong);
+}
+
+.almedia-invoice-card__lines {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+.almedia-invoice-card__line {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+
+.almedia-invoice-card__line + .almedia-invoice-card__line {
+  border-top: 1px solid var(--color-border);
+}
+
+.almedia-invoice-card__line dt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.almedia-invoice-card__line dt span {
+  font-size: var(--font-size-200);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.almedia-invoice-card__line dt small {
+  font-size: var(--font-size-100);
+  color: var(--color-text-subtle);
+}
+
+.almedia-invoice-card__line dd {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  margin: 0;
+}
+
+.almedia-invoice-card__amount {
+  font-size: var(--font-size-300);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-strong);
+}
+
+.almedia-invoice-card__amount--zero {
+  color: var(--color-text-subtle);
+}
+
+.almedia-invoice-card__foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-200);
+  color: var(--color-text-muted);
+  background: var(--color-accent-soft);
+  border-top: 1px solid var(--color-border);
+}
+
+.almedia-invoice-card__foot strong {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-strong);
+}
+
+/* ── Publish-month batch accordion ───────────────────────── */
+
+.almedia-invoices__batches {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.almedia-batch {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+}
+
+.almedia-batch[open] {
+  border-color: var(--color-border-strong);
+}
+
+.almedia-batch__summary {
+  display: grid;
+  grid-template-columns: minmax(9rem, 1fr) auto minmax(9rem, auto) auto;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+  list-style: none;
+  transition: background 140ms ease;
+}
+
+.almedia-batch__summary::-webkit-details-marker {
+  display: none;
+}
+
+.almedia-batch__summary:hover {
+  background: var(--color-surface-muted);
+}
+
+.almedia-batch__summary:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-md);
+}
+
+.almedia-batch__month {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-strong);
+}
+
+.almedia-batch__month em {
+  font-size: var(--font-size-100);
+  font-style: normal;
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-subtle);
+}
+
+.almedia-batch__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.almedia-batch__blend {
+  font-size: var(--font-size-200);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--color-text-muted);
+}
+
+.almedia-batch__total {
+  font-size: var(--font-size-400);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--color-text-strong);
+}
+
+.almedia-batch__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 0 var(--space-4) var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.almedia-batch__stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: var(--space-3) 0 0;
+  font-size: var(--font-size-200);
+  color: var(--color-text-muted);
+}
+
+.almedia-batch__stages strong {
+  color: var(--color-text-strong);
+}
+
+.almedia-batch__sub {
+  margin: 0;
+  font-size: var(--font-size-100);
+  color: var(--color-text-subtle);
+}
+
+.almedia-batch__members {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.almedia-batch-member {
+  display: grid;
+  grid-template-columns: minmax(11rem, 1.2fr) minmax(12rem, 2fr) auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-raised);
+}
+
+.almedia-batch-member--included {
+  background: var(--color-accent-soft);
+}
+
+.almedia-batch-member__check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+
+.almedia-batch-member__check input:disabled {
+  cursor: default;
+}
+
+.almedia-batch-member__name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--font-size-200);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-strong);
+}
+
+.almedia-batch-member__round,
+.almedia-batch-member__maturing {
+  font-size: var(--font-size-100);
+  font-style: normal;
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-subtle);
+}
+
+.almedia-batch-member__meta {
+  font-size: var(--font-size-100);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.almedia-batch-member__billed {
+  color: var(--color-success);
+}
+
+.almedia-batch-member__topup {
+  color: var(--color-warning);
+  font-weight: var(--font-weight-semibold);
+}
+
+.almedia-batch-member__amount {
+  font-size: var(--font-size-200);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--color-text-strong);
+}
+
+.almedia-tone-good {
+  color: var(--color-success);
+}
+
+.almedia-tone-bad {
+  color: var(--color-danger);
+}
+
+@media (max-width: 900px) {
+  .almedia-batch__summary,
+  .almedia-batch-member {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+
+  .almedia-batch__blend,
+  .almedia-batch__total,
+  .almedia-batch-member__amount {
+    text-align: left;
+  }
+}

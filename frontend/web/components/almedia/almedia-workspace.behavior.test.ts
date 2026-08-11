@@ -2,6 +2,7 @@ import type {
   AlmediaBookingsResponse,
   AlmediaCampaignsResponse,
   AlmediaDealsResponse,
+  AlmediaInvoicesResponse,
   AlmediaScorecardResponse,
 } from "@scouting-platform/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,6 +14,7 @@ const {
   fetchAlmediaCampaignsMock,
   fetchAlmediaScorecardMock,
   fetchAlmediaBookingsMock,
+  fetchAlmediaInvoicesMock,
   requestAlmediaSyncMock,
   isDocumentVisibleRef,
   searchParamsRef,
@@ -23,6 +25,7 @@ const {
   fetchAlmediaCampaignsMock: vi.fn(),
   fetchAlmediaScorecardMock: vi.fn(),
   fetchAlmediaBookingsMock: vi.fn(),
+  fetchAlmediaInvoicesMock: vi.fn(),
   requestAlmediaSyncMock: vi.fn(),
   isDocumentVisibleRef: { current: true },
   searchParamsRef: { current: new URLSearchParams() },
@@ -53,6 +56,7 @@ vi.mock("../../lib/almedia-api", () => ({
   fetchAlmediaCampaigns: fetchAlmediaCampaignsMock,
   fetchAlmediaScorecard: fetchAlmediaScorecardMock,
   fetchAlmediaBookings: fetchAlmediaBookingsMock,
+  fetchAlmediaInvoices: fetchAlmediaInvoicesMock,
   requestAlmediaSync: requestAlmediaSyncMock,
 }));
 
@@ -74,6 +78,10 @@ vi.mock("./almedia-scorecard-tab", () => ({
 
 vi.mock("./almedia-bookings-tab", () => ({
   AlmediaBookingsTab: () => null,
+}));
+
+vi.mock("./almedia-invoices-tab", () => ({
+  AlmediaInvoicesTab: () => null,
 }));
 
 import { ALMEDIA_POLL_INTERVAL_MS, AlmediaWorkspace } from "./almedia-workspace";
@@ -112,6 +120,8 @@ const SCORECARD: AlmediaScorecardResponse = {
 };
 
 const BOOKINGS: AlmediaBookingsResponse = { bookings: [] };
+
+const INVOICES: AlmediaInvoicesResponse = { invoices: [] };
 
 type WorkspaceState = {
   requestState: Parameters<typeof useStateMock>[0];
@@ -168,18 +178,20 @@ describe("almedia workspace behavior", () => {
     fetchAlmediaCampaignsMock.mockResolvedValue(CAMPAIGNS);
     fetchAlmediaScorecardMock.mockResolvedValue(SCORECARD);
     fetchAlmediaBookingsMock.mockResolvedValue(BOOKINGS);
+    fetchAlmediaInvoicesMock.mockResolvedValue(INVOICES);
     requestAlmediaSyncMock.mockResolvedValue({
       runId: "0f6c2e2c-1f5f-4d7a-9b1a-6b6b2d3f7c11",
     });
   });
 
-  it("loads the four read models together on mount", async () => {
+  it("loads the five read models together on mount", async () => {
     const { setters } = renderWorkspace();
 
     expect(fetchAlmediaDealsMock).toHaveBeenCalledWith(expect.any(AbortSignal));
     expect(fetchAlmediaCampaignsMock).toHaveBeenCalledWith(expect.any(AbortSignal));
     expect(fetchAlmediaScorecardMock).toHaveBeenCalledWith(expect.any(AbortSignal));
     expect(fetchAlmediaBookingsMock).toHaveBeenCalledWith(expect.any(AbortSignal));
+    expect(fetchAlmediaInvoicesMock).toHaveBeenCalledWith(expect.any(AbortSignal));
 
     await Promise.resolve();
     await Promise.resolve();

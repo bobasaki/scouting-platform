@@ -8,6 +8,7 @@ import {
   almediaScorecardResponseSchema,
   almediaSyncStatusSchema,
   bookingInputSchema,
+  bookingInvoiceInputSchema,
   bookingSchema,
   bookingUpdateInputSchema,
   type AlmediaDeal,
@@ -414,5 +415,40 @@ describe("booking write contracts", () => {
       status: "published",
     });
     expect(() => bookingUpdateInputSchema.parse({})).toThrow();
+  });
+});
+
+describe("bookingInvoiceInputSchema", () => {
+  const invoice = {
+    campaignName: "ASMRFIXY_YT_R1",
+    channelName: "ASMR Fixy",
+    invoicedAt: "2026-07-31T09:00:00.000Z",
+    maturedAtInvoice: false,
+    cost: 12_000,
+    returnPct: 118.4,
+    tier: "c30",
+    amount: 13_000,
+  } as const;
+
+  it("accepts a snapshot taken before the campaign matured", () => {
+    expect(bookingInvoiceInputSchema.parse(invoice)).toEqual(invoice);
+  });
+
+  it("accepts a campaign with no return figure yet", () => {
+    expect(
+      bookingInvoiceInputSchema.parse({ ...invoice, returnPct: null }).returnPct,
+    ).toBeNull();
+  });
+
+  it("rejects an off-card tier, a negative amount, and a blank campaign name", () => {
+    expect(() =>
+      bookingInvoiceInputSchema.parse({ ...invoice, tier: "c35" }),
+    ).toThrow();
+    expect(() =>
+      bookingInvoiceInputSchema.parse({ ...invoice, amount: -1 }),
+    ).toThrow();
+    expect(() =>
+      bookingInvoiceInputSchema.parse({ ...invoice, campaignName: "   " }),
+    ).toThrow();
   });
 });

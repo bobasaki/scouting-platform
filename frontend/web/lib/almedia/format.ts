@@ -12,6 +12,23 @@ export function formatEur(value: number | null): string {
   }).format(value);
 }
 
+/**
+ * USD whole-dollar amounts. The Almedia `cost` field and the whole invoicing
+ * model are dollar-denominated, unlike the EUR booking budgets, so the billing
+ * views must not borrow the EUR formatter.
+ */
+export function formatUsd(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) {
+    return "–";
+  }
+
+  return new Intl.NumberFormat("en", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
 /** Compact EUR for dense cards, e.g. "€42K". */
 export function formatEurCompact(value: number | null): string {
   if (value === null || !Number.isFinite(value)) {
