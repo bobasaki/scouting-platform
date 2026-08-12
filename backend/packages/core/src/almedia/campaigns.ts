@@ -53,8 +53,13 @@ function resolveBaseUrl(): string | undefined {
   return process.env.ALMEDIA_BASE_URL?.trim() || undefined;
 }
 
+function sanitizeErrorMessage(message: string): string {
+  const firstLine = message.split(/\r?\n/, 1)[0]?.trim() ?? "";
+  return firstLine.replace(/^[A-Za-z][A-Za-z0-9]*Error:\s*/, "") || "Unknown error";
+}
+
 function describeError(error: unknown): string {
-  return error instanceof Error ? (error.stack ?? error.message) : String(error);
+  return sanitizeErrorMessage(error instanceof Error ? error.message : String(error));
 }
 
 /**
@@ -307,7 +312,9 @@ export async function getAlmediaSyncStatus(): Promise<AlmediaSyncStatus> {
     syncedAt: snapshot?.syncedAt.toISOString() ?? null,
     startedAt: run?.startedAt?.toISOString() ?? null,
     completedAt: run?.completedAt?.toISOString() ?? null,
-    lastError: run?.lastError ?? null,
+    // Older runs may contain Error.stack from before failures were stored as
+    // messages only. Never expose those internal paths through the web API.
+    lastError: run?.lastError ? sanitizeErrorMessage(run.lastError) : null,
   };
 }
 
