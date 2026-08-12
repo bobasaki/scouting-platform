@@ -658,6 +658,7 @@ model Channel {
   hubspotImportBatchRows HubspotImportBatchRow[]
   channelAssessments     RunChannelAssessment[]
   almediaEnrichments     AlmediaChannelEnrichment[]
+  almediaCatalogLinks    AlmediaCatalogChannelLink[]
 
   @@index([youtubeChannelId], map: "channels_youtube_channel_id_idx")
   @@index([countryRegion], map: "channels_country_region_idx")
@@ -1856,6 +1857,23 @@ model AlmediaCampaignSnapshot {
   @@index([syncedAt], map: "almedia_campaign_snapshots_synced_at_idx")
   @@index([platform], map: "almedia_campaign_snapshots_platform_idx")
   @@map("almedia_campaign_snapshots")
+}
+
+/// Persistent creator-key link from the live Almedia campaign feed to the
+/// catalog. Unlike tracker enrichment links, this does not require a legacy
+/// enrichment document and survives wholesale campaign snapshot refreshes.
+model AlmediaCatalogChannelLink {
+  id                 String   @id @default(uuid()) @db.Uuid
+  channelKey         String   @unique @map("channel_key")
+  catalogChannelId   String   @map("catalog_channel_id") @db.Uuid
+  sourceCampaignName String   @map("source_campaign_name")
+  sourceVideoUrl     String?  @map("source_video_url")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  catalogChannel     Channel  @relation(fields: [catalogChannelId], references: [id], onDelete: Cascade)
+
+  @@index([catalogChannelId], map: "almedia_catalog_channel_links_catalog_channel_id_idx")
+  @@map("almedia_catalog_channel_links")
 }
 
 /// An admin's manual vertical classification for a creator already present in

@@ -14,6 +14,7 @@ export * from "./youtube/discovery";
 export * from "./youtube/context";
 export * from "./youtube/country";
 export * from "./youtube/channel-resolution";
+export * from "./youtube/video-channels";
 export * from "./openai/almedia-analyst";
 export * from "./openai/campaign-fit-assessment";
 export * from "./openai/channel-enrichment";

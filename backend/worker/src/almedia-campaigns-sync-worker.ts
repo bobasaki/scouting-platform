@@ -115,9 +115,13 @@ export async function registerAlmediaCampaignsSyncWorker(
             );
           }
 
-          if (result.ingestedChannelCount > 0 || result.queuedEnrichmentCount > 0) {
+          if (
+            result.ingestedChannelCount > 0
+            || result.discoveredChannelCount > 0
+            || result.queuedEnrichmentCount > 0
+          ) {
             process.stdout.write(
-              `[worker] Almedia YouTube enrichment ingested=${result.ingestedChannelCount} queued=${result.queuedEnrichmentCount} pending=${result.pendingEnrichmentCount}\n`,
+              `[worker] Almedia YouTube enrichment ingested=${result.ingestedChannelCount} discovered=${result.discoveredChannelCount} queued=${result.queuedEnrichmentCount} pending=${result.pendingEnrichmentCount}\n`,
             );
           }
 
