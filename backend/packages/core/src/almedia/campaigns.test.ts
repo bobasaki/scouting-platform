@@ -6,6 +6,7 @@ const {
   fetchAllCampaignsMock,
   prismaMock,
   prepareYoutubeEnrichmentsMock,
+  withDbTransactionMock,
 } = vi.hoisted(() => ({
   enqueueMock: vi.fn(),
   fetchAllCampaignsMock: vi.fn(),
@@ -22,11 +23,12 @@ const {
     },
   },
   prepareYoutubeEnrichmentsMock: vi.fn(),
+  withDbTransactionMock: vi.fn(),
 }));
 
 vi.mock("@scouting-platform/db", () => ({
   prisma: prismaMock,
-  withDbTransaction: vi.fn(),
+  withDbTransaction: withDbTransactionMock,
 }));
 vi.mock("@scouting-platform/integrations", () => ({
   fetchAllCampaigns: fetchAllCampaignsMock,
@@ -52,6 +54,7 @@ import {
 } from "./campaigns";
 
 const SYNC_RUN_ID = "11111111-1111-4111-8111-111111111111";
+const ADMIN_ID = "22222222-2222-4222-8222-222222222222";
 const STARTED_AT = new Date("2026-08-11T08:00:00.000Z");
 
 describe("syncAlmediaCampaigns", () => {
@@ -101,6 +104,43 @@ describe("syncAlmediaCampaigns", () => {
       preferredRequesterUserId: null,
       campaigns: [],
     });
+  });
+
+  it("stores fresh snapshots with a warning when YouTube discovery is paused", async () => {
+    const tx = {
+      almediaCampaignSnapshot: {
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+        createMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+      almediaSyncRun: { update: vi.fn().mockResolvedValue({}) },
+    };
+    withDbTransactionMock.mockImplementation(
+      async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
+    );
+    prepareYoutubeEnrichmentsMock.mockResolvedValue({
+      requesterUserId: ADMIN_ID,
+      discoveryError: "YouTube API quota exceeded",
+      ingestedChannelCount: 0,
+      discoveredChannelCount: 0,
+      linkedEnrichmentCount: 0,
+      queuedEnrichmentCount: 0,
+      pendingEnrichmentCount: 0,
+    });
+
+    const result = await syncAlmediaCampaigns({
+      syncRunId: SYNC_RUN_ID,
+      now: STARTED_AT,
+    });
+
+    expect(tx.almediaCampaignSnapshot.deleteMany).toHaveBeenCalledWith({});
+    expect(tx.almediaSyncRun.update).toHaveBeenCalledWith({
+      where: { id: SYNC_RUN_ID },
+      data: expect.objectContaining({
+        status: AlmediaSyncRunStatus.COMPLETED,
+        lastError: "YouTube API quota exceeded",
+      }),
+    });
+    expect(result.enrichmentDiscoveryError).toBe("YouTube API quota exceeded");
   });
 });
 
