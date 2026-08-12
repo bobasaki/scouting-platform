@@ -6,7 +6,11 @@ import type {
 import { ALMEDIA_UNASSIGNED } from "@scouting-platform/contracts";
 import { describe, expect, it } from "vitest";
 
-import { dimensionOptions, joinDeals } from "./deals";
+import {
+  dimensionOptions,
+  joinDeals,
+  needsManualVerticalInput,
+} from "./deals";
 import type { AlmediaEnrichmentLookup } from "./enrichments";
 
 const CATALOG_CHANNEL_ID = "6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b";
@@ -52,6 +56,8 @@ function lookup(
   const resolved = (enrichmentValue: AlmediaChannelEnrichment) => ({
     enrichment: enrichmentValue,
     catalogChannelId: CATALOG_CHANNEL_ID,
+    catalogEnrichmentStatus: "completed" as const,
+    catalogInfluencerVertical: null,
   });
 
   return {
@@ -286,6 +292,33 @@ describe("joinDeals", () => {
     });
 
     expect(deal).toMatchObject({ hasEnrichment: true, verticals: ["Gaming"] });
+  });
+
+  it("flags unassigned Instagram aliases for manual vertical input", () => {
+    const [instagram] = joinDeals(
+      [campaign({ platform: "instagram" })],
+      [booking({ platform: "instagram", vertical: null })],
+      { now: NOW },
+    );
+    const [ig] = joinDeals(
+      [campaign({ platform: "ig" })],
+      [],
+      { now: NOW },
+    );
+
+    expect(instagram).toMatchObject({
+      platform: "instagram",
+      verticals: [],
+      needsVerticalInput: true,
+    });
+    expect(ig?.needsVerticalInput).toBe(true);
+  });
+
+  it("does not flag YouTube or an Instagram creator with a manual vertical", () => {
+    expect(needsManualVerticalInput("youtube", [])).toBe(false);
+    expect(needsManualVerticalInput("instagram", ["Gaming"])).toBe(false);
+    expect(needsManualVerticalInput("Instagram Reels", [])).toBe(true);
+    expect(needsManualVerticalInput(null, [])).toBe(false);
   });
 
   it("falls back to the campaign publish month when the booking has none", () => {

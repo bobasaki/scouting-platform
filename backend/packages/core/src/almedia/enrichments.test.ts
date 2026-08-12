@@ -52,6 +52,11 @@ describe("Almedia enrichment catalog links", () => {
       {
         channelId: "UCasmrfixy",
         catalogChannelId: CATALOG_CHANNEL_ID,
+        catalogChannel: {
+          updatedAt: new Date("2026-08-11T00:00:00.000Z"),
+          influencerVertical: "ASMR",
+          enrichment: null,
+        },
         result: ENRICHMENT,
         links: [
           { sourceType: "campaign", sourceKey: "ASMRFIXY_YT_R1" },
@@ -65,10 +70,14 @@ describe("Almedia enrichment catalog links", () => {
     expect(findCampaignEnrichment(lookup, "ASMRFIXY_YT_R1")).toEqual({
       enrichment: ENRICHMENT,
       catalogChannelId: CATALOG_CHANNEL_ID,
+      catalogEnrichmentStatus: "missing",
+      catalogInfluencerVertical: "ASMR",
     });
     expect(findChannelEnrichment(lookup, "ASMRFIXY")).toEqual({
       enrichment: ENRICHMENT,
       catalogChannelId: CATALOG_CHANNEL_ID,
+      catalogEnrichmentStatus: "missing",
+      catalogInfluencerVertical: "ASMR",
     });
   });
 

@@ -257,7 +257,9 @@ export function AlmediaWorkspace() {
           <>
             {activeTab === "insights" ? (
               <AlmediaInsightsTab
+                bookings={data.bookings.bookings}
                 deals={data.deals.deals}
+                onMutated={handleWorkspaceMutated}
                 options={data.deals.options}
                 scorecard={data.scorecard}
               />
