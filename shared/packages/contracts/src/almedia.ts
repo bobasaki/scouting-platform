@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { channelEnrichmentStatusSchema } from "./channels";
+
 /**
  * Contracts for the Almedia campaign-tracking workspace (Phase 1: read-only).
  *
@@ -309,6 +311,7 @@ export const almediaDealSchema = z.object({
   channelKey: z.string(),
   channelName: z.string(),
   catalogChannelId: z.string().nullable(),
+  catalogEnrichmentStatus: channelEnrichmentStatusSchema.nullable(),
   campaignName: z.string().nullable(),
   videoUrl: z.string().nullable(),
   platform: z.string().nullable(),
@@ -329,6 +332,8 @@ export const almediaDealSchema = z.object({
   country: z.string().nullable(),
   vertical: z.string().nullable(),
   verticals: z.array(z.string()),
+  /** Instagram is not auto-enriched, so an empty vertical needs a user decision. */
+  needsVerticalInput: z.boolean(),
   category: z.string().nullable(),
   hasEnrichment: z.boolean(),
   creatorFollowers: z.number().nullable(),
@@ -505,6 +510,89 @@ export const ALMEDIA_DIMENSIONS = [
 
 /** Placeholder used wherever a dimension value is missing. */
 export const ALMEDIA_UNASSIGNED = "Unassigned";
+
+/** Controlled manual/derived vocabulary shared by the Almedia backend and UI. */
+export const ALMEDIA_VERTICALS = [
+  "Abandoned Places",
+  "Adventure",
+  "Animals",
+  "Animations",
+  "Anime",
+  "Art",
+  "ASMR",
+  "Astrology",
+  "Aviation",
+  "Books",
+  "Budgeting",
+  "Cars",
+  "Chess",
+  "Commentary",
+  "Conspiracy",
+  "Construction",
+  "Cosplay",
+  "Crimes",
+  "Cybersecurity",
+  "Cycling",
+  "Dance",
+  "DIY",
+  "Documentary",
+  "Editing",
+  "Education",
+  "Engineering",
+  "Entertainment",
+  "Environment",
+  "Family",
+  "Fashion",
+  "Finance",
+  "Fishing",
+  "Fitness",
+  "Food",
+  "Football",
+  "Gaming",
+  "Guitars",
+  "Health",
+  "History",
+  "Home Decor",
+  "Home Renovation",
+  "Humor",
+  "Hunting",
+  "Infotainment",
+  "Interview",
+  "Journalism",
+  "Just Chatting",
+  "Kids",
+  "Lego",
+  "Lifestyle",
+  "Minecraft",
+  "Motivation",
+  "Movies",
+  "Music",
+  "Mystery",
+  "News",
+  "Outdoor",
+  "Painting",
+  "Parenting",
+  "Pets",
+  "Photography",
+  "Plants",
+  "Podcast",
+  "Pokemon Cards",
+  "Politics",
+  "Pop Culture",
+  "Reviews",
+  "Science",
+  "Society",
+  "Sport",
+  "TCG",
+  "Tech",
+  "Travel",
+  "Variety",
+  "Vlog",
+  "Yoga",
+  "Beauty",
+] as const;
+
+export type AlmediaVertical = (typeof ALMEDIA_VERTICALS)[number];
 
 /**
  * The single currency the Almedia workspace speaks.

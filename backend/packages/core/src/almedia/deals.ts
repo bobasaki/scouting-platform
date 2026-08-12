@@ -110,6 +110,17 @@ function verticalsOf(
   return bookingVertical ? [bookingVertical] : [];
 }
 
+/** Instagram has no automatic creator enrichment, so missing verticals are actionable. */
+export function needsManualVerticalInput(
+  platform: string | null,
+  verticals: readonly string[],
+): boolean {
+  const normalizedPlatform = platform?.trim().toLowerCase() ?? "";
+  const isInstagram = normalizedPlatform === "ig" || normalizedPlatform.startsWith("instagram");
+
+  return isInstagram && verticals.length === 0;
+}
+
 function classify(
   deal: Omit<AlmediaDeal, "returnTier" | "maturity">,
   now: Date,
@@ -132,7 +143,12 @@ function dealFromCampaign(
   const bookingVertical =
     canonicalVertical(booking?.vertical) ?? booking?.vertical ?? null;
   const signals = creatorSignalsOf(resolvedEnrichment?.enrichment ?? null);
-  const verticals = verticalsOf(signals, bookingVertical);
+  const catalogVertical =
+    canonicalVertical(resolvedEnrichment?.catalogInfluencerVertical)
+    ?? resolvedEnrichment?.catalogInfluencerVertical
+    ?? null;
+  const verticals = verticalsOf(signals, bookingVertical ?? catalogVertical);
+  const platform = booking?.platform ?? campaign.platform;
 
   return classify(
     {
@@ -140,9 +156,11 @@ function dealFromCampaign(
       channelName:
         booking?.channelName ?? campaign.channelName ?? campaign.campaignName,
       catalogChannelId: resolvedEnrichment?.catalogChannelId ?? null,
+      catalogEnrichmentStatus:
+        resolvedEnrichment?.catalogEnrichmentStatus ?? null,
       campaignName: campaign.campaignName,
       videoUrl: campaign.videoUrl ?? booking?.videoUrl ?? null,
-      platform: booking?.platform ?? campaign.platform,
+      platform,
       publishedAt: campaign.publishedAt?.slice(0, 10) ?? booking?.publishedAt ?? null,
       cost: campaign.cost,
       expectedCpm: campaign.expectedCpm,
@@ -158,6 +176,7 @@ function dealFromCampaign(
       country: campaign.country || booking?.country || null,
       vertical: verticals[0] ?? null,
       verticals,
+      needsVerticalInput: needsManualVerticalInput(platform, verticals),
       category: booking?.category ?? signals.creatorContentFormat,
       hasEnrichment: signals.hasEnrichment,
       creatorFollowers: signals.creatorFollowers,
@@ -185,13 +204,19 @@ function dealFromBooking(
 ): AlmediaDeal {
   const bookingVertical = canonicalVertical(booking.vertical) ?? booking.vertical;
   const signals = creatorSignalsOf(resolvedEnrichment?.enrichment ?? null);
-  const verticals = verticalsOf(signals, bookingVertical);
+  const catalogVertical =
+    canonicalVertical(resolvedEnrichment?.catalogInfluencerVertical)
+    ?? resolvedEnrichment?.catalogInfluencerVertical
+    ?? null;
+  const verticals = verticalsOf(signals, bookingVertical ?? catalogVertical);
 
   return classify(
     {
       channelKey: booking.channelKey,
       channelName: booking.channelName,
       catalogChannelId: resolvedEnrichment?.catalogChannelId ?? null,
+      catalogEnrichmentStatus:
+        resolvedEnrichment?.catalogEnrichmentStatus ?? null,
       campaignName: null,
       videoUrl: booking.videoUrl,
       platform: booking.platform,
@@ -210,6 +235,7 @@ function dealFromBooking(
       country: booking.country,
       vertical: verticals[0] ?? null,
       verticals,
+      needsVerticalInput: needsManualVerticalInput(booking.platform, verticals),
       category: booking.category ?? signals.creatorContentFormat,
       hasEnrichment: signals.hasEnrichment,
       creatorFollowers: signals.creatorFollowers,

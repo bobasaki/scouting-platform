@@ -12,6 +12,8 @@ import { describe, expect, it } from "vitest";
 
 import { AlmediaBookingsTab } from "./almedia-bookings-tab";
 import { AlmediaInsightsTab } from "./almedia-insights-tab";
+import { instagramVerticalInputRows } from "./almedia-instagram-vertical-queue";
+import { youtubeEnrichmentOverview } from "./almedia-youtube-enrichment-panel";
 import { AlmediaInvoicesTab } from "./almedia-invoices-tab";
 import { AlmediaPerformanceTab } from "./almedia-performance-tab";
 import { AlmediaScorecardTab } from "./almedia-scorecard-tab";
@@ -28,6 +30,7 @@ function deal(overrides: Partial<AlmediaDeal> = {}): AlmediaDeal {
     channelKey: "CHAN",
     channelName: "Channel",
     catalogChannelId: "6fcbcf96-bca7-4bf1-b8ef-71f20f0f703b",
+    catalogEnrichmentStatus: "completed",
     campaignName: "CHAN_YT_R1",
     videoUrl: "https://youtu.be/abc",
     platform: "youtube",
@@ -46,6 +49,7 @@ function deal(overrides: Partial<AlmediaDeal> = {}): AlmediaDeal {
     country: "PL",
     vertical: "Gaming",
     verticals: ["Gaming"],
+    needsVerticalInput: false,
     category: "integration",
     hasEnrichment: true,
     creatorFollowers: 236_000,
@@ -329,6 +333,119 @@ describe("almedia tabs render", () => {
     expect(html).toContain("2 of 2 campaigns");
     expect(html).toContain("Gaming");
     expect(html).toContain("Lifestyle");
+  });
+
+  it("flags Instagram creators and offers controlled manual vertical input", () => {
+    const instagramDeal = deal({
+      channelKey: "IGCREATOR",
+      channelName: "IG Creator",
+      campaignName: "IGCREATOR_IG_R1",
+      platform: "instagram",
+      vertical: null,
+      verticals: [],
+      needsVerticalInput: true,
+      hasEnrichment: false,
+      hasBooking: false,
+    });
+    const secondRound = {
+      ...instagramDeal,
+      campaignName: "IGCREATOR_IG_R2",
+    };
+    const booking = {
+      ...BOOKING,
+      channelKey: "IGCREATOR",
+      channelName: "IG Creator",
+      platform: "instagram",
+      vertical: null,
+    };
+    const rows = instagramVerticalInputRows(
+      [instagramDeal, secondRound],
+      [booking],
+    );
+    const html = renderToStaticMarkup(
+      createElement(AlmediaInsightsTab, {
+        bookings: [booking],
+        deals: [instagramDeal, secondRound],
+        options: EMPTY_OPTIONS,
+      }),
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      bookingId: BOOKING.id,
+      campaignCount: 2,
+      channelKey: "IGCREATOR",
+    });
+    expect(html).toContain("Instagram channels need a vertical");
+    expect(html).toContain("Vertical for IG Creator");
+    expect(html).toContain("Choose vertical…");
+    expect(html).toContain("Save vertical");
+    expect(html).toContain("Gaming");
+  });
+
+  it("targets the newest duplicate booking for Instagram vertical updates", () => {
+    const instagramDeal = deal({
+      channelKey: "IGCREATOR",
+      channelName: "IG Creator",
+      platform: "instagram",
+      vertical: null,
+      verticals: [],
+      needsVerticalInput: true,
+    });
+    const newestBooking = {
+      ...BOOKING,
+      id: "11111111-1111-4111-8111-111111111111",
+      channelKey: "IGCREATOR",
+      platform: "instagram",
+      vertical: null,
+    };
+    const oldestBooking = {
+      ...newestBooking,
+      id: "22222222-2222-4222-8222-222222222222",
+    };
+
+    expect(
+      instagramVerticalInputRows(
+        [instagramDeal],
+        [newestBooking, oldestBooking],
+      )[0]?.bookingId,
+    ).toBe(newestBooking.id);
+  });
+
+  it("shows automatic YouTube status and a manual pending action", () => {
+    const pending = deal({
+      catalogEnrichmentStatus: "missing",
+      vertical: null,
+      verticals: [],
+    });
+    const running = deal({
+      channelKey: "RUNNING",
+      catalogChannelId: "7fcbcf96-bca7-4bf1-b8ef-71f20f0f703c",
+      catalogEnrichmentStatus: "running",
+    });
+    const unlinked = deal({
+      channelKey: "UNLINKED",
+      catalogChannelId: null,
+      catalogEnrichmentStatus: null,
+    });
+    const overview = youtubeEnrichmentOverview([pending, running, unlinked]);
+    const html = renderToStaticMarkup(
+      createElement(AlmediaInsightsTab, {
+        deals: [pending, running, unlinked],
+        options: EMPTY_OPTIONS,
+      }),
+    );
+
+    expect(overview).toMatchObject({
+      linked: 2,
+      ready: 0,
+      inProgress: 1,
+      needsEnrichment: 1,
+      unlinked: 1,
+    });
+    expect(html).toContain("YouTube enrichment");
+    expect(html).toContain("Enrich pending (1)");
+    expect(html).toContain("awaiting catalog link");
   });
 
   it("renders the insights tab without any deals", () => {

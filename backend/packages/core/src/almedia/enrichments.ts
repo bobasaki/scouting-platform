@@ -5,6 +5,7 @@ import { almediaChannelEnrichmentSchema } from "@scouting-platform/contracts";
 import { prisma } from "@scouting-platform/db";
 
 import { campaignBaseKey } from "./channel-key";
+import { resolveChannelEnrichmentStatus } from "../enrichment/status";
 
 /**
  * Channel enrichments: what the tracker's enrichment service knows about each
@@ -25,6 +26,8 @@ export const ALMEDIA_ENRICHMENT_LINK_TYPES = {
 export type AlmediaEnrichmentLookupValue = Readonly<{
   enrichment: AlmediaChannelEnrichment;
   catalogChannelId: string | null;
+  catalogEnrichmentStatus: ReturnType<typeof resolveChannelEnrichmentStatus> | null;
+  catalogInfluencerVertical: string | null;
 }>;
 
 /**
@@ -80,6 +83,19 @@ export async function loadAlmediaEnrichmentLookup(): Promise<AlmediaEnrichmentLo
       catalogChannelId: true,
       result: true,
       links: { select: { sourceType: true, sourceKey: true } },
+      catalogChannel: {
+        select: {
+          updatedAt: true,
+          influencerVertical: true,
+          enrichment: {
+            select: {
+              status: true,
+              completedAt: true,
+              lastEnrichedAt: true,
+            },
+          },
+        },
+      },
     },
   });
 
@@ -106,6 +122,14 @@ export async function loadAlmediaEnrichmentLookup(): Promise<AlmediaEnrichmentLo
       target?.set(link.sourceKey, {
         enrichment: parsed.data,
         catalogChannelId: row.catalogChannelId,
+        catalogEnrichmentStatus: row.catalogChannel
+          ? resolveChannelEnrichmentStatus({
+              channelUpdatedAt: row.catalogChannel.updatedAt,
+              enrichment: row.catalogChannel.enrichment,
+            })
+          : null,
+        catalogInfluencerVertical:
+          row.catalogChannel?.influencerVertical ?? null,
       });
     }
   }

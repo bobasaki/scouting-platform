@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   ALMEDIA_DIMENSIONS,
+  ALMEDIA_VERTICALS,
   almediaAnalystChatRequestSchema,
   almediaCampaignsResponseSchema,
   almediaChannelEnrichmentSchema,
@@ -43,6 +44,7 @@ const deal: AlmediaDeal = {
   channelKey: "ASMRFIXY",
   channelName: "ASMR Fixy",
   catalogChannelId: TEST_UUID,
+  catalogEnrichmentStatus: "completed",
   campaignName: "ASMRFIXY_YT_R1",
   videoUrl: "https://www.youtube.com/watch?v=abc",
   platform: "youtube",
@@ -61,6 +63,7 @@ const deal: AlmediaDeal = {
   country: "DE",
   vertical: "ASMR",
   verticals: ["ASMR"],
+  needsVerticalInput: false,
   category: "integration",
   hasEnrichment: false,
   creatorFollowers: null,
@@ -89,6 +92,12 @@ describe("almedia contracts", () => {
     };
 
     expect(almediaDealsResponseSchema.parse(payload)).toEqual(payload);
+  });
+
+  it("publishes one controlled vertical vocabulary for backend and manual input", () => {
+    expect(ALMEDIA_VERTICALS).toContain("Gaming");
+    expect(ALMEDIA_VERTICALS).toContain("Beauty");
+    expect(new Set(ALMEDIA_VERTICALS).size).toBe(ALMEDIA_VERTICALS.length);
   });
 
   it("allows a deal to have no catalog channel link", () => {

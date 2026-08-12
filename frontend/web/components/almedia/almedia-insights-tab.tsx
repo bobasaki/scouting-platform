@@ -6,6 +6,7 @@ import {
   type AlmediaDimensionId,
   type AlmediaDimensionOptions,
   type AlmediaScorecardResponse,
+  type Booking,
 } from "@scouting-platform/contracts";
 import React, { useMemo, useState, type ReactNode } from "react";
 
@@ -24,8 +25,10 @@ import {
 import { ALL_ALMEDIA_FILTERS, type AlmediaFilters } from "../../lib/almedia/types";
 import { SearchableSelect } from "../ui/searchable-select";
 import { AlmediaAnalystWidget } from "./almedia-analyst-widget";
+import { AlmediaInstagramVerticalQueue } from "./almedia-instagram-vertical-queue";
 import { AlmediaVerticalInsightsPanel } from "./almedia-vertical-insights-panel";
 import { AlmediaWidgetCard } from "./almedia-widget-card";
+import { AlmediaYoutubeEnrichmentPanel } from "./almedia-youtube-enrichment-panel";
 import { BestDealsWidget } from "./widgets/best-deals-widget";
 import { BudgetWidget } from "./widgets/budget-widget";
 import { ConcentrationWidget } from "./widgets/concentration-widget";
@@ -318,12 +321,16 @@ function KpiCard({
 type AlmediaInsightsTabProps = Readonly<{
   deals: readonly AlmediaDeal[];
   options: AlmediaDimensionOptions;
+  bookings?: readonly Booking[];
+  onMutated?: () => void;
   /** Feeds the analyst's plan evidence; null when the scorecard is unavailable. */
   scorecard?: AlmediaScorecardResponse | null;
 }>;
 
 export function AlmediaInsightsTab({
+  bookings = [],
   deals,
+  onMutated = () => undefined,
   options,
   scorecard = null,
 }: AlmediaInsightsTabProps) {
@@ -339,6 +346,13 @@ export function AlmediaInsightsTab({
 
   return (
     <div className="almedia-insights">
+      <AlmediaInstagramVerticalQueue
+        bookings={bookings}
+        deals={deals}
+        onMutated={onMutated}
+      />
+      <AlmediaYoutubeEnrichmentPanel deals={deals} onMutated={onMutated} />
+
       <div className="almedia-filter-bar">
         {ALMEDIA_DIMENSIONS.map(({ id, label }) => {
           const values = options[id] ?? [];
