@@ -3,6 +3,7 @@ import {
   almediaBookingResponseSchema,
   almediaBookingsResponseSchema,
   almediaCampaignsResponseSchema,
+  almediaCreatorVerticalOverrideResponseSchema,
   almediaDealsResponseSchema,
   almediaInvoiceResponseSchema,
   almediaInvoicesResponseSchema,
@@ -13,6 +14,8 @@ import {
   type AlmediaBookingResponse,
   type AlmediaBookingsResponse,
   type AlmediaCampaignsResponse,
+  type AlmediaCreatorVerticalOverrideInput,
+  type AlmediaCreatorVerticalOverrideResponse,
   type AlmediaDealsResponse,
   type AlmediaInvoiceResponse,
   type AlmediaInvoicesResponse,
@@ -177,6 +180,18 @@ export async function fetchAlmediaScorecard(
     almediaScorecardResponseSchema,
     "Received an invalid Almedia scorecard response.",
     { signal },
+  );
+}
+
+export async function setAlmediaCreatorVertical(
+  input: AlmediaCreatorVerticalOverrideInput,
+  signal?: AbortSignal,
+): Promise<AlmediaCreatorVerticalOverrideResponse> {
+  return requestJson(
+    "/api/almedia/creator-verticals",
+    almediaCreatorVerticalOverrideResponseSchema,
+    "Received an invalid Almedia creator vertical response.",
+    { method: "PUT", body: input, signal },
   );
 }
 

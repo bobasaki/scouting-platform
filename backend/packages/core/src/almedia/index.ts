@@ -12,4 +12,5 @@ export * from "./invoices";
 export * from "./queue";
 export * from "./scorecard";
 export * from "./verticals";
+export * from "./vertical-overrides";
 export * from "./youtube-enrichment";

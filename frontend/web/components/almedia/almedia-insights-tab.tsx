@@ -6,7 +6,6 @@ import {
   type AlmediaDimensionId,
   type AlmediaDimensionOptions,
   type AlmediaScorecardResponse,
-  type Booking,
 } from "@scouting-platform/contracts";
 import React, { useMemo, useState, type ReactNode } from "react";
 
@@ -321,14 +320,12 @@ function KpiCard({
 type AlmediaInsightsTabProps = Readonly<{
   deals: readonly AlmediaDeal[];
   options: AlmediaDimensionOptions;
-  bookings?: readonly Booking[];
   onMutated?: () => void;
   /** Feeds the analyst's plan evidence; null when the scorecard is unavailable. */
   scorecard?: AlmediaScorecardResponse | null;
 }>;
 
 export function AlmediaInsightsTab({
-  bookings = [],
   deals,
   onMutated = () => undefined,
   options,
@@ -346,11 +343,7 @@ export function AlmediaInsightsTab({
 
   return (
     <div className="almedia-insights">
-      <AlmediaInstagramVerticalQueue
-        bookings={bookings}
-        deals={deals}
-        onMutated={onMutated}
-      />
+      <AlmediaInstagramVerticalQueue deals={deals} onMutated={onMutated} />
       <AlmediaYoutubeEnrichmentPanel deals={deals} onMutated={onMutated} />
 
       <div className="almedia-filter-bar">

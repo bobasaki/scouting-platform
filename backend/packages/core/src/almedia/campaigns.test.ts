@@ -12,8 +12,13 @@ const {
   prismaMock: {
     almediaSyncRun: {
       create: vi.fn(),
+      findFirst: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
+    },
+    almediaCampaignSnapshot: {
+      count: vi.fn(),
+      findFirst: vi.fn(),
     },
   },
   prepareYoutubeEnrichmentsMock: vi.fn(),
@@ -41,6 +46,7 @@ vi.mock("../audit", () => ({
 
 import {
   createScheduledAlmediaSyncRun,
+  getAlmediaSyncStatus,
   requestAlmediaCampaignsSync,
   syncAlmediaCampaigns,
 } from "./campaigns";
@@ -81,10 +87,35 @@ describe("syncAlmediaCampaigns", () => {
       data: {
         status: AlmediaSyncRunStatus.FAILED,
         completedAt: expect.any(Date),
-        lastError: expect.stringContaining("catalog relink failed"),
+        lastError: "catalog relink failed",
       },
     });
     expect(fetchAllCampaignsMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("getAlmediaSyncStatus", () => {
+  it("does not expose a legacy stack trace through the web read model", async () => {
+    prismaMock.almediaSyncRun.findFirst.mockResolvedValue({
+      id: SYNC_RUN_ID,
+      status: AlmediaSyncRunStatus.FAILED,
+      agency: null,
+      campaignCount: 0,
+      pageCount: 0,
+      duplicateCount: 0,
+      startedAt: STARTED_AT,
+      completedAt: STARTED_AT,
+      lastError:
+        "AlmediaApiError: Almedia server error (HTTP 502).\n    at performPageRequest (/workspace/backend/packages/integrations/src/almedia/agency-data.ts:295:11)",
+    });
+    prismaMock.almediaCampaignSnapshot.findFirst.mockResolvedValue(null);
+    prismaMock.almediaCampaignSnapshot.count.mockResolvedValue(12);
+
+    await expect(getAlmediaSyncStatus()).resolves.toMatchObject({
+      status: "failed",
+      campaignCount: 12,
+      lastError: "Almedia server error (HTTP 502).",
+    });
   });
 });
 
@@ -108,7 +139,7 @@ describe("Almedia sync enqueue durability", () => {
       data: {
         status: AlmediaSyncRunStatus.FAILED,
         completedAt: expect.any(Date),
-        lastError: expect.stringContaining("queue unavailable"),
+        lastError: "queue unavailable",
       },
     });
   });
@@ -123,7 +154,7 @@ describe("Almedia sync enqueue durability", () => {
       data: {
         status: AlmediaSyncRunStatus.FAILED,
         completedAt: expect.any(Date),
-        lastError: expect.stringContaining("queue unavailable"),
+        lastError: "queue unavailable",
       },
     });
   });

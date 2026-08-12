@@ -107,16 +107,17 @@ export function AlmediaVerticalInsightsPanel({
           </div>
           <AlmediaInfoTip align="end" label="What the vertical panel shows">
             <p>
-              <strong>Verticals derived from creator content</strong>, not from the
-              booking form. Each creator&apos;s enrichment (niche, topics, keywords)
-              is scored against a fixed vocabulary, so two CMs cannot label the same
-              niche differently.
+              <strong>Verticals grounded in creator content</strong>. An admin&apos;s
+              manual creator classification wins; otherwise each creator&apos;s
+              enrichment (niche, topics, keywords) is scored against a fixed
+              vocabulary.
             </p>
             <ul>
               <li>
                 <span className="almedia-info-tip__term">Coverage</span>: share of
                 campaigns in view with an enriched creator behind them. Uncovered
-                campaigns fall back to the booking&apos;s own vertical.
+                campaigns use a manual creator override first, then fall back to the
+                booking&apos;s own vertical when available.
               </li>
               <li>
                 <span className="almedia-info-tip__term">Engagement</span> and{" "}
@@ -161,8 +162,9 @@ export function AlmediaVerticalInsightsPanel({
 
       {rows.length === 0 ? (
         <p className="almedia-verticals__empty">
-          No campaigns in view carry a vertical yet. Enrichment arrives with the
-          creator; bookings without one fall back to their own vertical field.
+          No campaigns in view carry a vertical yet. Classify Instagram creators
+          manually above; YouTube verticals arrive from enrichment, with booking
+          metadata as a final fallback.
         </p>
       ) : (
         <DataTable caption="Commercial performance and creator quality per vertical">

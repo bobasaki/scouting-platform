@@ -12,7 +12,10 @@ import { describe, expect, it } from "vitest";
 
 import { AlmediaBookingsTab } from "./almedia-bookings-tab";
 import { AlmediaInsightsTab } from "./almedia-insights-tab";
-import { instagramVerticalInputRows } from "./almedia-instagram-vertical-queue";
+import {
+  AlmediaInstagramVerticalQueue,
+  instagramVerticalInputRows,
+} from "./almedia-instagram-vertical-queue";
 import { youtubeEnrichmentOverview } from "./almedia-youtube-enrichment-panel";
 import { AlmediaInvoicesTab } from "./almedia-invoices-tab";
 import { AlmediaPerformanceTab } from "./almedia-performance-tab";
@@ -351,20 +354,9 @@ describe("almedia tabs render", () => {
       ...instagramDeal,
       campaignName: "IGCREATOR_IG_R2",
     };
-    const booking = {
-      ...BOOKING,
-      channelKey: "IGCREATOR",
-      channelName: "IG Creator",
-      platform: "instagram",
-      vertical: null,
-    };
-    const rows = instagramVerticalInputRows(
-      [instagramDeal, secondRound],
-      [booking],
-    );
+    const rows = instagramVerticalInputRows([instagramDeal, secondRound]);
     const html = renderToStaticMarkup(
       createElement(AlmediaInsightsTab, {
-        bookings: [booking],
         deals: [instagramDeal, secondRound],
         options: EMPTY_OPTIONS,
       }),
@@ -372,7 +364,6 @@ describe("almedia tabs render", () => {
 
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
-      bookingId: BOOKING.id,
       campaignCount: 2,
       channelKey: "IGCREATOR",
     });
@@ -383,56 +374,74 @@ describe("almedia tabs render", () => {
     expect(html).toContain("Gaming");
   });
 
-  it("targets the newest duplicate booking for Instagram vertical updates", () => {
+  it("uses a later campaign video when the first creator row has no link", () => {
     const instagramDeal = deal({
       channelKey: "IGCREATOR",
       channelName: "IG Creator",
       platform: "instagram",
+      videoUrl: null,
       vertical: null,
       verticals: [],
       needsVerticalInput: true,
     });
-    const newestBooking = {
-      ...BOOKING,
-      id: "11111111-1111-4111-8111-111111111111",
-      channelKey: "IGCREATOR",
-      platform: "instagram",
-      vertical: null,
-    };
-    const oldestBooking = {
-      ...newestBooking,
-      id: "22222222-2222-4222-8222-222222222222",
+    const laterCampaign = {
+      ...instagramDeal,
+      campaignName: "IGCREATOR_IG_R2",
+      videoUrl: "https://www.instagram.com/reel/creator-evidence/",
     };
 
     expect(
-      instagramVerticalInputRows(
-        [instagramDeal],
-        [newestBooking, oldestBooking],
-      )[0]?.bookingId,
-    ).toBe(newestBooking.id);
+      instagramVerticalInputRows([instagramDeal, laterCampaign])[0]?.videoUrl,
+    ).toBe("https://www.instagram.com/reel/creator-evidence/");
   });
 
-  it("does not offer a synthetic booking write for an unbooked Instagram creator", () => {
+  it("offers a vertical override and video evidence without requiring a booking", () => {
     const instagramDeal = deal({
       channelKey: "UNBOOKEDIG",
       channelName: "Unbooked IG",
       platform: "instagram",
+      videoUrl: "https://www.instagram.com/reel/unbooked-evidence/",
       vertical: null,
       verticals: [],
       needsVerticalInput: true,
       hasBooking: false,
     });
     const html = renderToStaticMarkup(
-      createElement(AlmediaInsightsTab, {
-        bookings: [],
+      createElement(AlmediaInstagramVerticalQueue, {
         deals: [instagramDeal],
-        options: EMPTY_OPTIONS,
+        onMutated: () => undefined,
       }),
     );
 
-    expect(instagramVerticalInputRows([instagramDeal], [])[0]?.bookingId).toBeNull();
-    expect(html).toContain("Add this creator in Bookings first");
-    expect(html).not.toContain("Vertical for Unbooked IG");
+    expect(instagramVerticalInputRows([instagramDeal])[0]).toMatchObject({
+      channelKey: "UNBOOKEDIG",
+      videoUrl: "https://www.instagram.com/reel/unbooked-evidence/",
+    });
+    expect(html).toContain("Vertical for Unbooked IG");
+    expect(html).toContain("https://www.instagram.com/reel/unbooked-evidence/");
+    expect(html).toContain("Open an Instagram campaign video for Unbooked IG");
+    expect(html).not.toContain("Add this creator in Bookings first");
+  });
+
+  it("does not render unsafe API video links", () => {
+    const instagramDeal = deal({
+      channelKey: "UNSAFEIG",
+      channelName: "Unsafe IG",
+      platform: "instagram",
+      videoUrl: "javascript:alert(document.domain)",
+      vertical: null,
+      verticals: [],
+      needsVerticalInput: true,
+    });
+    const html = renderToStaticMarkup(
+      createElement(AlmediaInstagramVerticalQueue, {
+        deals: [instagramDeal],
+        onMutated: () => undefined,
+      }),
+    );
+
+    expect(instagramVerticalInputRows([instagramDeal])[0]?.videoUrl).toBeNull();
+    expect(html).not.toContain("javascript:");
   });
 
   it("shows automatic YouTube status and a manual pending action", () => {

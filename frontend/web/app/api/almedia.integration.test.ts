@@ -7,6 +7,7 @@ import {
 import {
   almediaAnalystStatusResponseSchema,
   almediaCampaignsResponseSchema,
+  almediaCreatorVerticalOverrideResponseSchema,
   almediaDealsResponseSchema,
   almediaInvoiceResponseSchema,
   almediaInvoicesResponseSchema,
@@ -29,12 +30,14 @@ vi.mock("../../auth", () => ({
 // `unstable_cache` would serve one test's response to the next assertion.
 vi.mock("next/cache", () => ({
   unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
+  revalidateTag: vi.fn(),
 }));
 
 integration("almedia API integration", () => {
   let prisma: PrismaClient;
   let dealsRoute: typeof import("./almedia/deals/route");
   let campaignsRoute: typeof import("./almedia/campaigns/route");
+  let creatorVerticalsRoute: typeof import("./almedia/creator-verticals/route");
   let scorecardRoute: typeof import("./almedia/scorecard/route");
   let syncRoute: typeof import("./almedia/sync/route");
   let invoicesRoute: typeof import("./almedia/invoices/route");
@@ -52,6 +55,7 @@ integration("almedia API integration", () => {
 
     dealsRoute = await import("./almedia/deals/route");
     campaignsRoute = await import("./almedia/campaigns/route");
+    creatorVerticalsRoute = await import("./almedia/creator-verticals/route");
     scorecardRoute = await import("./almedia/scorecard/route");
     syncRoute = await import("./almedia/sync/route");
     invoicesRoute = await import("./almedia/invoices/route");
@@ -70,6 +74,7 @@ integration("almedia API integration", () => {
     await prisma.$executeRawUnsafe(`
       TRUNCATE TABLE
         almedia_campaign_snapshots,
+        almedia_creator_vertical_overrides,
         almedia_sync_runs,
         booking_invoices,
         booking_targets,
@@ -214,6 +219,73 @@ integration("almedia API integration", () => {
       status: "completed",
       agency: "ARCH.",
       campaignCount: 1,
+    });
+  });
+
+  it("classifies an API creator without creating or changing a booking", async () => {
+    const admin = await createUser("admin@example.com", Role.ADMIN);
+    const user = await createUser("manager@example.com", Role.USER);
+    await seedAlmediaData();
+    await prisma.almediaCampaignSnapshot.create({
+      data: {
+        campaignName: "HAPPYMOM3_IGS_R1",
+        campaignSource: "ARCH.",
+        platform: "instagram",
+        country: "FR",
+        publishedAt: new Date("2026-08-01T10:00:00.000Z"),
+        channelName: "__HAPPYMOM3__",
+        videoUrl: "https://www.instagram.com/reel/happymom3-evidence/",
+        syncedAt: new Date("2026-08-10T09:00:00.000Z"),
+      },
+    });
+    const request = (body: unknown) =>
+      new Request("http://localhost/api/almedia/creator-verticals", {
+        method: "PUT",
+        body: JSON.stringify(body),
+      });
+
+    currentSessionUser = null;
+    expect(
+      (await creatorVerticalsRoute.PUT(request({ channelKey: "HAPPYMOM3", vertical: "Family" }))).status,
+    ).toBe(401);
+
+    currentSessionUser = { id: user.id, role: "user" };
+    expect(
+      (await creatorVerticalsRoute.PUT(request({ channelKey: "HAPPYMOM3", vertical: "Family" }))).status,
+    ).toBe(403);
+
+    currentSessionUser = { id: admin.id, role: "admin" };
+    expect(
+      (await creatorVerticalsRoute.PUT(request({ channelKey: "HAPPYMOM3", vertical: "Made up" }))).status,
+    ).toBe(400);
+
+    const bookingCountBefore = await prisma.booking.count();
+    const response = await creatorVerticalsRoute.PUT(
+      request({ channelKey: "HAPPYMOM3", vertical: "Family" }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(
+      almediaCreatorVerticalOverrideResponseSchema.parse(await response.json()),
+    ).toEqual({ channelKey: "HAPPYMOM3", vertical: "Family" });
+    expect(await prisma.booking.count()).toBe(bookingCountBefore);
+    expect(
+      await prisma.auditEvent.findFirst({
+        where: { action: "almedia.creator_vertical.updated" },
+      }),
+    ).toMatchObject({ actorUserId: admin.id });
+
+    const payload = almediaDealsResponseSchema.parse(
+      await (await dealsRoute.GET()).json(),
+    );
+    const instagram = payload.deals.find((deal) => deal.channelKey === "HAPPYMOM3");
+
+    expect(instagram).toMatchObject({
+      vertical: "Family",
+      verticals: ["Family"],
+      needsVerticalInput: false,
+      hasBooking: false,
+      videoUrl: "https://www.instagram.com/reel/happymom3-evidence/",
     });
   });
 

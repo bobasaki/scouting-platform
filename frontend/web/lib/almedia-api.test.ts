@@ -6,6 +6,7 @@ import {
   fetchAlmediaDeals,
   fetchAlmediaScorecard,
   requestAlmediaSync,
+  setAlmediaCreatorVertical,
 } from "./almedia-api";
 
 function jsonResponse(payload: unknown, status = 200): Response {
@@ -139,6 +140,24 @@ describe("almedia api client", () => {
       rows: [],
       unscheduledCount: 0,
     });
+  });
+
+  it("stores a creator vertical independently from bookings", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResponse({ channelKey: "HAPPYMOM3", vertical: "Family" }),
+    );
+
+    await expect(
+      setAlmediaCreatorVertical({ channelKey: "HAPPYMOM3", vertical: "Family" }),
+    ).resolves.toEqual({ channelKey: "HAPPYMOM3", vertical: "Family" });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/almedia/creator-verticals",
+      expect.objectContaining({
+        method: "PUT",
+        body: JSON.stringify({ channelKey: "HAPPYMOM3", vertical: "Family" }),
+      }),
+    );
   });
 
   it("posts a sync request and returns the run id", async () => {
