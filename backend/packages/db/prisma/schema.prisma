@@ -383,6 +383,8 @@ model User {
   requestedHubspotHealthCheckRuns       HubspotHealthCheckRun[]       @relation("HubspotHealthCheckRequestedBy")
   resolvedHubspotConflicts              HubspotConflict[]             @relation("HubspotConflictResolvedBy")
   requestedAlmediaSyncRuns              AlmediaSyncRun[]              @relation("AlmediaSyncRequestedBy")
+  createdAlmediaVerticalOverrides       AlmediaVerticalOverride[]     @relation("AlmediaVerticalOverrideCreatedBy")
+  updatedAlmediaVerticalOverrides       AlmediaVerticalOverride[]     @relation("AlmediaVerticalOverrideUpdatedBy")
   createdCampaigns                      Campaign[]                    @relation("CampaignCreatedBy")
   youtubeDiscoveryCache                 YoutubeDiscoveryCache[]
   ratedRunResults                       RunResult[]                   @relation("RunResultRatedBy")
@@ -1854,6 +1856,27 @@ model AlmediaCampaignSnapshot {
   @@index([syncedAt], map: "almedia_campaign_snapshots_synced_at_idx")
   @@index([platform], map: "almedia_campaign_snapshots_platform_idx")
   @@map("almedia_campaign_snapshots")
+}
+
+/// An admin's manual vertical classification for a creator already present in
+/// the Almedia campaign feed. It is deliberately independent from `Booking`:
+/// campaign rows describe completed integrations, while bookings describe
+/// potential future work. The normalized channel key applies one decision to
+/// every campaign round for that creator.
+model AlmediaVerticalOverride {
+  id              String   @id @default(uuid()) @db.Uuid
+  channelKey      String   @unique @map("channel_key")
+  vertical        String
+  createdByUserId String   @map("created_by_user_id") @db.Uuid
+  updatedByUserId String   @map("updated_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  createdByUser   User     @relation("AlmediaVerticalOverrideCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  updatedByUser   User     @relation("AlmediaVerticalOverrideUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([createdByUserId], map: "almedia_creator_vertical_overrides_created_by_user_id_idx")
+  @@index([updatedByUserId], map: "almedia_creator_vertical_overrides_updated_by_user_id_idx")
+  @@map("almedia_creator_vertical_overrides")
 }
 
 /// A YouTube channel enrichment produced by the standalone tracker's enrichment

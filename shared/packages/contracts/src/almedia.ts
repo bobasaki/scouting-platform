@@ -594,6 +594,22 @@ export const ALMEDIA_VERTICALS = [
 
 export type AlmediaVertical = (typeof ALMEDIA_VERTICALS)[number];
 
+/** Admin-manual classification for one normalized Almedia creator key. */
+export const almediaCreatorVerticalOverrideInputSchema = z.object({
+  channelKey: z.string().trim().min(1).max(120),
+  vertical: z.enum(ALMEDIA_VERTICALS),
+});
+
+export const almediaCreatorVerticalOverrideResponseSchema =
+  almediaCreatorVerticalOverrideInputSchema;
+
+export type AlmediaCreatorVerticalOverrideInput = z.infer<
+  typeof almediaCreatorVerticalOverrideInputSchema
+>;
+export type AlmediaCreatorVerticalOverrideResponse = z.infer<
+  typeof almediaCreatorVerticalOverrideResponseSchema
+>;
+
 /**
  * The single currency the Almedia workspace speaks.
  *

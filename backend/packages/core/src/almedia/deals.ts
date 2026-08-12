@@ -18,6 +18,7 @@ import {
   type AlmediaEnrichmentLookupValue,
 } from "./enrichments";
 import { canonicalVertical, deriveVerticals } from "./verticals";
+import type { AlmediaVerticalOverrideLookup } from "./vertical-overrides";
 
 /**
  * The join behind the Insights view: internal bookings matched to the live
@@ -95,19 +96,24 @@ function creatorSignalsOf(
 }
 
 /**
- * Derived verticals win over the booking's own field: the derivation reads the
- * creator's actual content, while the booking value is hand-typed and often
- * blank. The booking value is the fallback when no enrichment exists.
+ * Admin-manual creator overrides have highest precedence and are never replaced
+ * by automated enrichment. Without an override, derived creator signals win
+ * over the booking's own field, which remains the final fallback.
  */
 function verticalsOf(
   signals: CreatorSignals,
-  bookingVertical: string | null,
+  fallbackVertical: string | null,
+  manualVertical: string | null,
 ): string[] {
+  if (manualVertical) {
+    return [manualVertical];
+  }
+
   if (signals.verticals.length > 0) {
     return signals.verticals;
   }
 
-  return bookingVertical ? [bookingVertical] : [];
+  return fallbackVertical ? [fallbackVertical] : [];
 }
 
 /** Instagram has no automatic creator enrichment, so missing verticals are actionable. */
@@ -136,6 +142,7 @@ function dealFromCampaign(
   campaign: AlmediaCampaignRow,
   booking: Booking | undefined,
   resolvedEnrichment: AlmediaEnrichmentLookupValue | null,
+  manualVertical: string | null,
   now: Date,
 ): AlmediaDeal {
   const expectedViews = expectedViewsOf(campaign.cost, campaign.expectedCpm);
@@ -147,7 +154,11 @@ function dealFromCampaign(
     canonicalVertical(resolvedEnrichment?.catalogInfluencerVertical)
     ?? resolvedEnrichment?.catalogInfluencerVertical
     ?? null;
-  const verticals = verticalsOf(signals, bookingVertical ?? catalogVertical);
+  const verticals = verticalsOf(
+    signals,
+    bookingVertical ?? catalogVertical,
+    manualVertical,
+  );
   const platform = booking?.platform ?? campaign.platform;
 
   return classify(
@@ -200,6 +211,7 @@ function dealFromCampaign(
 function dealFromBooking(
   booking: Booking,
   resolvedEnrichment: AlmediaEnrichmentLookupValue | null,
+  manualVertical: string | null,
   now: Date,
 ): AlmediaDeal {
   const bookingVertical = canonicalVertical(booking.vertical) ?? booking.vertical;
@@ -208,7 +220,11 @@ function dealFromBooking(
     canonicalVertical(resolvedEnrichment?.catalogInfluencerVertical)
     ?? resolvedEnrichment?.catalogInfluencerVertical
     ?? null;
-  const verticals = verticalsOf(signals, bookingVertical ?? catalogVertical);
+  const verticals = verticalsOf(
+    signals,
+    bookingVertical ?? catalogVertical,
+    manualVertical,
+  );
 
   return classify(
     {
@@ -259,6 +275,8 @@ function dealFromBooking(
 export interface JoinDealsOptions {
   /** Creator signals to stamp onto each row. Defaults to none on file. */
   enrichments?: AlmediaEnrichmentLookup;
+  /** Admin-manual creator verticals, keyed by normalized creator key. */
+  verticalOverrides?: AlmediaVerticalOverrideLookup;
   now?: Date;
 }
 
@@ -277,6 +295,7 @@ export function joinDeals(
   options: JoinDealsOptions = {},
 ): AlmediaDeal[] {
   const enrichments = options.enrichments ?? EMPTY_ALMEDIA_ENRICHMENT_LOOKUP;
+  const verticalOverrides = options.verticalOverrides ?? new Map();
   const now = options.now ?? new Date();
   const byKey = new Map<string, Booking>();
 
@@ -300,6 +319,7 @@ export function joinDeals(
       campaign,
       booking,
       findCampaignEnrichment(enrichments, campaign.campaignName),
+      verticalOverrides.get(key) ?? null,
       now,
     );
   });
@@ -310,6 +330,7 @@ export function joinDeals(
       dealFromBooking(
         booking,
         findChannelEnrichment(enrichments, booking.channelKey),
+        verticalOverrides.get(booking.channelKey) ?? null,
         now,
       ),
     );

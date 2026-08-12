@@ -6,6 +6,7 @@ import {
   almediaAnalystChatRequestSchema,
   almediaCampaignsResponseSchema,
   almediaChannelEnrichmentSchema,
+  almediaCreatorVerticalOverrideInputSchema,
   almediaDealsResponseSchema,
   almediaScorecardResponseSchema,
   almediaSyncStatusSchema,
@@ -98,6 +99,21 @@ describe("almedia contracts", () => {
     expect(ALMEDIA_VERTICALS).toContain("Gaming");
     expect(ALMEDIA_VERTICALS).toContain("Beauty");
     expect(new Set(ALMEDIA_VERTICALS).size).toBe(ALMEDIA_VERTICALS.length);
+  });
+
+  it("accepts only controlled creator vertical overrides", () => {
+    expect(
+      almediaCreatorVerticalOverrideInputSchema.parse({
+        channelKey: " HAPPYMOM3 ",
+        vertical: "Family",
+      }),
+    ).toEqual({ channelKey: "HAPPYMOM3", vertical: "Family" });
+    expect(
+      almediaCreatorVerticalOverrideInputSchema.safeParse({
+        channelKey: "HAPPYMOM3",
+        vertical: "Made up",
+      }).success,
+    ).toBe(false);
   });
 
   it("allows a deal to have no catalog channel link", () => {

@@ -13,6 +13,7 @@ import { getAlmediaSyncStatus, listAlmediaCampaigns } from "./campaigns";
 import { dimensionOptions, joinDeals } from "./deals";
 import { loadAlmediaEnrichmentLookup } from "./enrichments";
 import { buildScorecard } from "./scorecard";
+import { loadAlmediaVerticalOverrides } from "./vertical-overrides";
 
 /**
  * Composed reads for the Almedia workspace tabs. Each returns everything one
@@ -24,13 +25,18 @@ import { buildScorecard } from "./scorecard";
 export async function getAlmediaDeals(
   now: Date = new Date(),
 ): Promise<AlmediaDealsResponse> {
-  const [campaigns, bookings, sync, enrichments] = await Promise.all([
+  const [campaigns, bookings, sync, enrichments, verticalOverrides] = await Promise.all([
     listAlmediaCampaigns(),
     listBookings(),
     getAlmediaSyncStatus(),
     loadAlmediaEnrichmentLookup(),
+    loadAlmediaVerticalOverrides(),
   ]);
-  const deals = joinDeals(campaigns, bookings, { enrichments, now });
+  const deals = joinDeals(campaigns, bookings, {
+    enrichments,
+    verticalOverrides,
+    now,
+  });
 
   return { deals, options: dimensionOptions(deals), sync };
 }

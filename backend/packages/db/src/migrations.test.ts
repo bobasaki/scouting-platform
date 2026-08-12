@@ -142,6 +142,30 @@ const almediaCatalogChannelLinkMigrationPath = path.resolve(
   currentDir,
   "../prisma/migrations/20260811092309_almedia_catalog_channel_link/migration.sql",
 );
+const almediaCreatorVerticalOverridesMigrationPath = path.resolve(
+  currentDir,
+  "../prisma/migrations/20260812123000_almedia_creator_vertical_overrides/migration.sql",
+);
+
+describe("Almedia creator vertical overrides migration", () => {
+  it("adds a creator-keyed, actor-attributed manual override without touching bookings", () => {
+    const migrationSql = readFileSync(
+      almediaCreatorVerticalOverridesMigrationPath,
+      "utf-8",
+    );
+
+    expect(migrationSql).toContain(
+      'CREATE TABLE "almedia_creator_vertical_overrides"',
+    );
+    expect(migrationSql).toContain(
+      'CREATE UNIQUE INDEX "almedia_creator_vertical_overrides_channel_key_key"',
+    );
+    expect(migrationSql).toContain('REFERENCES "users"("id")');
+    expect(migrationSql).not.toContain('ALTER TABLE "bookings"');
+    expect(migrationSql).not.toContain("IF NOT EXISTS");
+    expect(migrationSql).not.toContain("DO $$");
+  });
+});
 
 describe("Almedia catalog channel link migration", () => {
   it("adds, backfills, indexes, and safely constrains the nullable catalog link", () => {

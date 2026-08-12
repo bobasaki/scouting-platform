@@ -3,11 +3,10 @@
 import {
   ALMEDIA_VERTICALS,
   type AlmediaDeal,
-  type Booking,
 } from "@scouting-platform/contracts";
 import React, { useMemo, useState } from "react";
 
-import { updateAlmediaBooking } from "../../lib/almedia-api";
+import { setAlmediaCreatorVertical } from "../../lib/almedia-api";
 import { DataTable } from "../ui/DataTable";
 
 type InstagramVerticalInputRow = Readonly<{
@@ -17,24 +16,25 @@ type InstagramVerticalInputRow = Readonly<{
   country: string | null;
   videoUrl: string | null;
   campaignCount: number;
-  bookingId: string | null;
 }>;
+
+function safeExternalUrl(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.href : null;
+  } catch {
+    return null;
+  }
+}
 
 /** One actionable row per creator, even when several campaign rounds need the value. */
 export function instagramVerticalInputRows(
   deals: readonly AlmediaDeal[],
-  bookings: readonly Booking[],
 ): InstagramVerticalInputRow[] {
-  const bookingByChannelKey = new Map<string, Booking>();
-
-  // listBookings is newest-first; retain the first record so saves update the
-  // same booking that joinDeals uses to derive the creator's current vertical.
-  for (const booking of bookings) {
-    if (!bookingByChannelKey.has(booking.channelKey)) {
-      bookingByChannelKey.set(booking.channelKey, booking);
-    }
-  }
-
   const byChannelKey = new Map<string, InstagramVerticalInputRow>();
 
   for (const deal of deals) {
@@ -48,20 +48,18 @@ export function instagramVerticalInputRows(
       byChannelKey.set(deal.channelKey, {
         ...existing,
         campaignCount: existing.campaignCount + (deal.hasCampaign ? 1 : 0),
+        videoUrl: existing.videoUrl ?? safeExternalUrl(deal.videoUrl),
       });
       continue;
     }
-
-    const booking = bookingByChannelKey.get(deal.channelKey);
 
     byChannelKey.set(deal.channelKey, {
       channelKey: deal.channelKey,
       channelName: deal.channelName,
       platform: deal.platform ?? "instagram",
       country: deal.country,
-      videoUrl: deal.videoUrl,
+      videoUrl: safeExternalUrl(deal.videoUrl),
       campaignCount: deal.hasCampaign ? 1 : 0,
-      bookingId: booking?.id ?? null,
     });
   }
 
@@ -77,18 +75,13 @@ function errorMessage(error: unknown): string {
 }
 
 export function AlmediaInstagramVerticalQueue({
-  bookings,
   deals,
   onMutated,
 }: Readonly<{
-  bookings: readonly Booking[];
   deals: readonly AlmediaDeal[];
   onMutated: () => void;
 }>) {
-  const rows = useMemo(
-    () => instagramVerticalInputRows(deals, bookings),
-    [bookings, deals],
-  );
+  const rows = useMemo(() => instagramVerticalInputRows(deals), [deals]);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -98,16 +91,18 @@ export function AlmediaInstagramVerticalQueue({
   }
 
   function save(row: InstagramVerticalInputRow): void {
-    const vertical = drafts[row.channelKey];
+    const vertical = ALMEDIA_VERTICALS.find(
+      (candidate) => candidate === drafts[row.channelKey],
+    );
 
-    if (!vertical || !row.bookingId || savingKey !== null) {
+    if (!vertical || savingKey !== null) {
       return;
     }
 
     setSavingKey(row.channelKey);
     setError(null);
 
-    void updateAlmediaBooking(row.bookingId, { vertical })
+    void setAlmediaCreatorVertical({ channelKey: row.channelKey, vertical })
       .then(() => {
         setDrafts((current) => {
           const next = { ...current };
@@ -140,8 +135,8 @@ export function AlmediaInstagramVerticalQueue({
       </div>
       <p className="almedia-vertical-input__description">
         Instagram channels cannot use the YouTube enrichment pipeline. Choose a
-        vertical once per creator; it will be stored on the booking and used across
-        every campaign round.
+        vertical once per creator; it will be stored as a manual creator override
+        and used across every campaign round without creating a booking.
       </p>
 
       {error ? (
@@ -172,7 +167,19 @@ export function AlmediaInstagramVerticalQueue({
             return (
               <tr key={row.channelKey}>
                 <td>
-                  <strong>{row.channelName}</strong>
+                  {row.videoUrl ? (
+                    <a
+                      className="almedia-link"
+                      href={row.videoUrl}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                      title={`Open an Instagram campaign video for ${row.channelName}`}
+                    >
+                      <strong>{row.channelName} ↗</strong>
+                    </a>
+                  ) : (
+                    <strong>{row.channelName}</strong>
+                  )}
                   <span className="almedia-subnote">
                     Instagram · {row.channelKey}
                   </span>
@@ -180,35 +187,29 @@ export function AlmediaInstagramVerticalQueue({
                 <td>{row.country ?? "—"}</td>
                 <td className="almedia-numeric">{row.campaignCount}</td>
                 <td>
-                  {row.bookingId ? (
-                    <select
-                      aria-label={`Vertical for ${row.channelName}`}
-                      disabled={savingKey !== null}
-                      onChange={(event) => {
-                        setDrafts((current) => ({
-                          ...current,
-                          [row.channelKey]: event.target.value,
-                        }));
-                      }}
-                      value={selected}
-                    >
-                      <option value="">Choose vertical…</option>
-                      {ALMEDIA_VERTICALS.map((vertical) => (
-                        <option key={vertical} value={vertical}>
-                          {vertical}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <span className="almedia-subnote">
-                      Add this creator in Bookings first
-                    </span>
-                  )}
+                  <select
+                    aria-label={`Vertical for ${row.channelName}`}
+                    disabled={savingKey !== null}
+                    onChange={(event) => {
+                      setDrafts((current) => ({
+                        ...current,
+                        [row.channelKey]: event.target.value,
+                      }));
+                    }}
+                    value={selected}
+                  >
+                    <option value="">Choose vertical…</option>
+                    {ALMEDIA_VERTICALS.map((vertical) => (
+                      <option key={vertical} value={vertical}>
+                        {vertical}
+                      </option>
+                    ))}
+                  </select>
                 </td>
                 <td>
                   <button
                     className="workspace-button workspace-button--small"
-                    disabled={!row.bookingId || !selected || savingKey !== null}
+                    disabled={!selected || savingKey !== null}
                     onClick={() => {
                       save(row);
                     }}

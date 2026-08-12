@@ -250,6 +250,20 @@ describe("joinDeals", () => {
     });
   });
 
+  it("keeps an admin creator override above enrichment and booking values", () => {
+    const [deal] = joinDeals([campaign()], [booking({ vertical: "Gaming" })], {
+      enrichments: lookup({ channelKey: enrichment({ niche: "asmr" }) }),
+      verticalOverrides: new Map([["ASMRFIXY", "Family"]]),
+      now: NOW,
+    });
+
+    expect(deal).toMatchObject({
+      vertical: "Family",
+      verticals: ["Family"],
+      needsVerticalInput: false,
+    });
+  });
+
   it("prefers the campaign's own enrichment over the creator's", () => {
     const [deal] = joinDeals([campaign()], [], {
       enrichments: lookup({
