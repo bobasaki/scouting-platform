@@ -268,10 +268,11 @@ async function discoverCampaignCatalogChannels(
     return 0;
   }
 
-  const byChannelKey = new Map<string, {
+  type CampaignVideoCandidate = {
     campaign: AlmediaCampaign;
     videoId: string;
-  }>();
+  };
+  const byChannelKey = new Map<string, CampaignVideoCandidate[]>();
 
   for (const campaign of campaigns) {
     const videoId = campaign.videoUrl
@@ -283,9 +284,13 @@ async function discoverCampaignCatalogChannels(
       isYoutubeCampaign(campaign)
       && videoId
       && channelKey
-      && !byChannelKey.has(channelKey)
     ) {
-      byChannelKey.set(channelKey, { campaign, videoId });
+      const candidates = byChannelKey.get(channelKey) ?? [];
+
+      if (!candidates.some((candidate) => candidate.videoId === videoId)) {
+        candidates.push({ campaign, videoId });
+        byChannelKey.set(channelKey, candidates);
+      }
     }
   }
 
@@ -314,7 +319,8 @@ async function discoverCampaignCatalogChannels(
 
   const resolvedByVideoId = await fetchYoutubeVideoChannels({
     apiKey,
-    videoIds: [...byChannelKey.values()].map((candidate) => candidate.videoId),
+    videoIds: [...byChannelKey.values()].flatMap((candidates) =>
+      candidates.map((candidate) => candidate.videoId)),
   });
   const resolvedChannels = new Map<string, {
     title: string;
@@ -361,13 +367,16 @@ async function discoverCampaignCatalogChannels(
   const catalogIdByYoutubeId = new Map(
     catalogChannels.map((channel) => [channel.youtubeChannelId, channel.id]),
   );
-  const links = [...byChannelKey.entries()].flatMap(([channelKey, candidate]) => {
-    const resolved = resolvedByVideoId.get(candidate.videoId);
+  const links = [...byChannelKey.entries()].flatMap(([channelKey, candidates]) => {
+    const candidate = candidates.find(({ videoId }) => resolvedByVideoId.has(videoId));
+    const resolved = candidate
+      ? resolvedByVideoId.get(candidate.videoId)
+      : null;
     const catalogChannelId = resolved
       ? catalogIdByYoutubeId.get(resolved.channelId)
       : null;
 
-    return catalogChannelId ? [{
+    return catalogChannelId && candidate ? [{
       channelKey,
       catalogChannelId,
       sourceCampaignName: candidate.campaign.campaignName,
