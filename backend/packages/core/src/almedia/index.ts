@@ -12,3 +12,4 @@ export * from "./invoices";
 export * from "./queue";
 export * from "./scorecard";
 export * from "./verticals";
+export * from "./youtube-enrichment";

@@ -5,7 +5,7 @@ const {
   enqueueMock,
   fetchAllCampaignsMock,
   prismaMock,
-  relinkMock,
+  prepareYoutubeEnrichmentsMock,
 } = vi.hoisted(() => ({
   enqueueMock: vi.fn(),
   fetchAllCampaignsMock: vi.fn(),
@@ -16,7 +16,7 @@ const {
       update: vi.fn(),
     },
   },
-  relinkMock: vi.fn(),
+  prepareYoutubeEnrichmentsMock: vi.fn(),
 }));
 
 vi.mock("@scouting-platform/db", () => ({
@@ -26,8 +26,8 @@ vi.mock("@scouting-platform/db", () => ({
 vi.mock("@scouting-platform/integrations", () => ({
   fetchAllCampaigns: fetchAllCampaignsMock,
 }));
-vi.mock("./enrichments", () => ({
-  relinkAlmediaEnrichmentCatalogChannels: relinkMock,
+vi.mock("./youtube-enrichment", () => ({
+  prepareAlmediaYoutubeEnrichments: prepareYoutubeEnrichmentsMock,
 }));
 vi.mock("./access", () => ({
   requireAlmediaAdminUser: vi.fn(),
@@ -54,12 +54,15 @@ describe("syncAlmediaCampaigns", () => {
     prismaMock.almediaSyncRun.findUnique.mockResolvedValue({
       id: SYNC_RUN_ID,
       status: AlmediaSyncRunStatus.QUEUED,
+      requestedByUserId: null,
     });
     prismaMock.almediaSyncRun.update.mockResolvedValue({});
   });
 
   it("persists a failed run when catalog relinking aborts", async () => {
-    relinkMock.mockRejectedValue(new Error("catalog relink failed"));
+    prepareYoutubeEnrichmentsMock.mockRejectedValue(
+      new Error("catalog relink failed"),
+    );
 
     await expect(
       syncAlmediaCampaigns({ syncRunId: SYNC_RUN_ID, now: STARTED_AT }),

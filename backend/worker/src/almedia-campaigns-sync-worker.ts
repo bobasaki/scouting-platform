@@ -115,6 +115,24 @@ export async function registerAlmediaCampaignsSyncWorker(
             );
           }
 
+          if (result.ingestedChannelCount > 0 || result.queuedEnrichmentCount > 0) {
+            process.stdout.write(
+              `[worker] Almedia YouTube enrichment ingested=${result.ingestedChannelCount} queued=${result.queuedEnrichmentCount} pending=${result.pendingEnrichmentCount}\n`,
+            );
+          }
+
+          if (result.enrichmentRequesterMissing) {
+            process.stderr.write(
+              "[worker] Almedia YouTube enrichment paused: no active admin YouTube credential is available\n",
+            );
+          }
+
+          if (result.failedEnrichmentCount > 0) {
+            process.stderr.write(
+              `[worker] Almedia YouTube enrichment failed to queue ${result.failedEnrichmentCount} channel(s)\n`,
+            );
+          }
+
           process.stdout.write(
             `[worker] almedia.campaigns.sync ${payload.syncRunId} stored ${result.campaignCount} campaign(s) across ${result.pageCount} page(s)\n`,
           );

@@ -14,8 +14,8 @@ import {
 import { recordAuditEvent } from "../audit";
 import { ServiceError } from "../errors";
 import { requireAlmediaAdminUser } from "./access";
-import { relinkAlmediaEnrichmentCatalogChannels } from "./enrichments";
 import { enqueueAlmediaCampaignsSyncJob } from "./queue";
+import { prepareAlmediaYoutubeEnrichments } from "./youtube-enrichment";
 
 /**
  * Almedia campaign feed: worker-side sync into `almedia_campaign_snapshots`,
@@ -152,6 +152,11 @@ export interface AlmediaSyncResult {
   pageCount: number;
   duplicateCount: number;
   linkedEnrichmentCount: number;
+  ingestedChannelCount: number;
+  queuedEnrichmentCount: number;
+  failedEnrichmentCount: number;
+  pendingEnrichmentCount: number;
+  enrichmentRequesterMissing: boolean;
 }
 
 /**
@@ -167,7 +172,7 @@ export async function syncAlmediaCampaigns(input: {
 
   const run = await prisma.almediaSyncRun.findUnique({
     where: { id: input.syncRunId },
-    select: { id: true, status: true },
+    select: { id: true, status: true, requestedByUserId: true },
   });
 
   if (!run) {
@@ -192,8 +197,9 @@ export async function syncAlmediaCampaigns(input: {
   });
 
   try {
-    const linkedEnrichmentCount =
-      await relinkAlmediaEnrichmentCatalogChannels();
+    const automaticEnrichment = await prepareAlmediaYoutubeEnrichments({
+      preferredRequesterUserId: run.requestedByUserId,
+    });
     const baseUrl = resolveBaseUrl();
     const result = await fetchAllCampaigns({
       apiKey: resolveApiKey(),
@@ -254,7 +260,12 @@ export async function syncAlmediaCampaigns(input: {
       campaignCount: unique.length,
       pageCount: result.pages,
       duplicateCount,
-      linkedEnrichmentCount,
+      linkedEnrichmentCount: automaticEnrichment.linkedEnrichmentCount,
+      ingestedChannelCount: automaticEnrichment.ingestedChannelCount,
+      queuedEnrichmentCount: automaticEnrichment.queuedEnrichmentCount,
+      failedEnrichmentCount: automaticEnrichment.failedEnrichmentCount,
+      pendingEnrichmentCount: automaticEnrichment.pendingEnrichmentCount,
+      enrichmentRequesterMissing: automaticEnrichment.requesterUserId === null,
     };
   } catch (error) {
     await prisma.almediaSyncRun.update({

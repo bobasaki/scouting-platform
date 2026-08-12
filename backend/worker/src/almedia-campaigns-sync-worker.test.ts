@@ -24,6 +24,11 @@ vi.mock("@scouting-platform/core", () => ({
     pageCount: 1,
     duplicateCount: 0,
     linkedEnrichmentCount: 0,
+    ingestedChannelCount: 0,
+    queuedEnrichmentCount: 0,
+    failedEnrichmentCount: 0,
+    pendingEnrichmentCount: 0,
+    enrichmentRequesterMissing: false,
   })),
 }));
 
@@ -120,6 +125,11 @@ describe("almedia.campaigns.sync worker", () => {
       pageCount: 1,
       duplicateCount: 0,
       linkedEnrichmentCount: 2,
+      ingestedChannelCount: 0,
+      queuedEnrichmentCount: 0,
+      failedEnrichmentCount: 0,
+      pendingEnrichmentCount: 0,
+      enrichmentRequesterMissing: false,
     });
     const stdout = vi
       .spyOn(process.stdout, "write")

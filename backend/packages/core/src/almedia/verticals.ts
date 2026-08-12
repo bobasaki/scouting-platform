@@ -1,4 +1,8 @@
-import type { AlmediaChannelEnrichment } from "@scouting-platform/contracts";
+import {
+  ALMEDIA_VERTICALS,
+  type AlmediaChannelEnrichment,
+  type AlmediaVertical,
+} from "@scouting-platform/contracts";
 
 /**
  * The controlled vertical vocabulary used across the Almedia workspace, ported
@@ -10,87 +14,9 @@ import type { AlmediaChannelEnrichment } from "@scouting-platform/contracts";
  * derived value wins wherever an enrichment exists.
  */
 
-export const VERTICALS = [
-  "Abandoned Places",
-  "Adventure",
-  "Animals",
-  "Animations",
-  "Anime",
-  "Art",
-  "ASMR",
-  "Astrology",
-  "Aviation",
-  "Books",
-  "Budgeting",
-  "Cars",
-  "Chess",
-  "Commentary",
-  "Conspiracy",
-  "Construction",
-  "Cosplay",
-  "Crimes",
-  "Cybersecurity",
-  "Cycling",
-  "Dance",
-  "DIY",
-  "Documentary",
-  "Editing",
-  "Education",
-  "Engineering",
-  "Entertainment",
-  "Environment",
-  "Family",
-  "Fashion",
-  "Finance",
-  "Fishing",
-  "Fitness",
-  "Food",
-  "Football",
-  "Gaming",
-  "Guitars",
-  "Health",
-  "History",
-  "Home Decor",
-  "Home Renovation",
-  "Humor",
-  "Hunting",
-  "Infotainment",
-  "Interview",
-  "Journalism",
-  "Just Chatting",
-  "Kids",
-  "Lego",
-  "Lifestyle",
-  "Minecraft",
-  "Motivation",
-  "Movies",
-  "Music",
-  "Mystery",
-  "News",
-  "Outdoor",
-  "Painting",
-  "Parenting",
-  "Pets",
-  "Photography",
-  "Plants",
-  "Podcast",
-  "Pokemon Cards",
-  "Politics",
-  "Pop Culture",
-  "Reviews",
-  "Science",
-  "Society",
-  "Sport",
-  "TCG",
-  "Tech",
-  "Travel",
-  "Variety",
-  "Vlog",
-  "Yoga",
-  "Beauty",
-] as const;
+export const VERTICALS = ALMEDIA_VERTICALS;
 
-export type Vertical = (typeof VERTICALS)[number];
+export type Vertical = AlmediaVertical;
 
 export function canonicalVertical(value: string | null | undefined): Vertical | null {
   if (!value) return null;
