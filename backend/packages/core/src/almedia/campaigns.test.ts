@@ -57,12 +57,18 @@ const STARTED_AT = new Date("2026-08-11T08:00:00.000Z");
 describe("syncAlmediaCampaigns", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.ALMEDIA_API_KEY = "alm_test_key";
     prismaMock.almediaSyncRun.findUnique.mockResolvedValue({
       id: SYNC_RUN_ID,
       status: AlmediaSyncRunStatus.QUEUED,
       requestedByUserId: null,
     });
     prismaMock.almediaSyncRun.update.mockResolvedValue({});
+    fetchAllCampaignsMock.mockResolvedValue({
+      agency: "test-agency",
+      campaigns: [],
+      pages: 1,
+    });
   });
 
   it("persists a failed run when catalog relinking aborts", async () => {
@@ -90,7 +96,11 @@ describe("syncAlmediaCampaigns", () => {
         lastError: "catalog relink failed",
       },
     });
-    expect(fetchAllCampaignsMock).not.toHaveBeenCalled();
+    expect(fetchAllCampaignsMock).toHaveBeenCalledTimes(1);
+    expect(prepareYoutubeEnrichmentsMock).toHaveBeenCalledWith({
+      preferredRequesterUserId: null,
+      campaigns: [],
+    });
   });
 });
 

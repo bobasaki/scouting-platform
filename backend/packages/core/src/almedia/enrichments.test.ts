@@ -5,6 +5,9 @@ const prismaMock = vi.hoisted(() => ({
   almediaChannelEnrichment: {
     findMany: vi.fn(),
   },
+  almediaCatalogChannelLink: {
+    findMany: vi.fn(),
+  },
 }));
 
 vi.mock("@scouting-platform/db", () => ({ prisma: prismaMock }));
@@ -45,6 +48,33 @@ const ENRICHMENT = {
 describe("Almedia enrichment catalog links", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.almediaCatalogChannelLink.findMany.mockResolvedValue([]);
+  });
+
+  it("loads catalog-only campaign links without inventing tracker signals", async () => {
+    prismaMock.almediaChannelEnrichment.findMany.mockResolvedValue([]);
+    prismaMock.almediaCatalogChannelLink.findMany.mockResolvedValue([{
+      channelKey: "NEWCREATOR",
+      catalogChannelId: CATALOG_CHANNEL_ID,
+      catalogChannel: {
+        updatedAt: new Date("2026-08-12T00:00:00.000Z"),
+        influencerVertical: "Gaming",
+        enrichment: {
+          status: "COMPLETED",
+          completedAt: new Date("2026-08-12T00:00:00.000Z"),
+          lastEnrichedAt: new Date("2026-08-12T00:00:00.000Z"),
+        },
+      },
+    }]);
+
+    const lookup = await loadAlmediaEnrichmentLookup();
+
+    expect(findCampaignEnrichment(lookup, "NEWCREATOR_YT_R1")).toEqual({
+      enrichment: null,
+      catalogChannelId: CATALOG_CHANNEL_ID,
+      catalogEnrichmentStatus: "completed",
+      catalogInfluencerVertical: "Gaming",
+    });
   });
 
   it("loads the catalog id beside each parsed enrichment", async () => {
