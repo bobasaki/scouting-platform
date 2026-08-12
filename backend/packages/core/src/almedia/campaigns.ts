@@ -256,7 +256,9 @@ export async function syncAlmediaCampaigns(input: {
           pageCount: result.pages,
           duplicateCount,
           completedAt: new Date(),
-          lastError: automaticEnrichment.discoveryError,
+          // Provider discovery is ancillary to the successful campaign sync.
+          // The worker reports its warning without mislabeling this run failed.
+          lastError: null,
         },
       });
     });

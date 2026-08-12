@@ -137,7 +137,7 @@ describe("syncAlmediaCampaigns", () => {
       where: { id: SYNC_RUN_ID },
       data: expect.objectContaining({
         status: AlmediaSyncRunStatus.COMPLETED,
-        lastError: "YouTube API quota exceeded",
+        lastError: null,
       }),
     });
     expect(result.enrichmentDiscoveryError).toBe("YouTube API quota exceeded");
