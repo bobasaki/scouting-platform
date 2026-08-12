@@ -131,6 +131,12 @@ export async function registerAlmediaCampaignsSyncWorker(
             );
           }
 
+          if (result.enrichmentDiscoveryError) {
+            process.stderr.write(
+              `[worker] Almedia YouTube discovery paused: ${result.enrichmentDiscoveryError}\n`,
+            );
+          }
+
           process.stdout.write(
             `[worker] almedia.campaigns.sync ${payload.syncRunId} stored ${result.campaignCount} campaign(s) across ${result.pageCount} page(s)\n`,
           );
