@@ -24,7 +24,7 @@ export const ALMEDIA_ENRICHMENT_LINK_TYPES = {
 } as const;
 
 export type AlmediaEnrichmentLookupValue = Readonly<{
-  enrichment: AlmediaChannelEnrichment;
+  enrichment: AlmediaChannelEnrichment | null;
   catalogChannelId: string | null;
   catalogEnrichmentStatus: ReturnType<typeof resolveChannelEnrichmentStatus> | null;
   catalogInfluencerVertical: string | null;
@@ -77,31 +77,52 @@ export function findChannelEnrichment(
  * malformed row should cost that creator's signals, not the whole workspace.
  */
 export async function loadAlmediaEnrichmentLookup(): Promise<AlmediaEnrichmentLookup> {
-  const rows = await prisma.almediaChannelEnrichment.findMany({
-    select: {
-      channelId: true,
-      catalogChannelId: true,
-      result: true,
-      links: { select: { sourceType: true, sourceKey: true } },
-      catalogChannel: {
-        select: {
-          updatedAt: true,
-          influencerVertical: true,
-          enrichment: {
-            select: {
-              status: true,
-              completedAt: true,
-              lastEnrichedAt: true,
-            },
-          },
-        },
+  const catalogChannelSelect = {
+    updatedAt: true,
+    influencerVertical: true,
+    enrichment: {
+      select: {
+        status: true,
+        completedAt: true,
+        lastEnrichedAt: true,
       },
     },
-  });
+  } as const;
+  const [rows, catalogLinks] = await Promise.all([
+    prisma.almediaChannelEnrichment.findMany({
+      select: {
+        channelId: true,
+        catalogChannelId: true,
+        result: true,
+        links: { select: { sourceType: true, sourceKey: true } },
+        catalogChannel: { select: catalogChannelSelect },
+      },
+    }),
+    prisma.almediaCatalogChannelLink.findMany({
+      select: {
+        channelKey: true,
+        catalogChannelId: true,
+        catalogChannel: { select: catalogChannelSelect },
+      },
+    }),
+  ]);
 
   const byCampaign = new Map<string, AlmediaEnrichmentLookupValue>();
   const byChannelKey = new Map<string, AlmediaEnrichmentLookupValue>();
   let skipped = 0;
+
+  for (const link of catalogLinks) {
+    byChannelKey.set(link.channelKey, {
+      enrichment: null,
+      catalogChannelId: link.catalogChannelId,
+      catalogEnrichmentStatus: resolveChannelEnrichmentStatus({
+        channelUpdatedAt: link.catalogChannel.updatedAt,
+        enrichment: link.catalogChannel.enrichment,
+      }),
+      catalogInfluencerVertical:
+        link.catalogChannel.influencerVertical ?? null,
+    });
+  }
 
   for (const row of rows) {
     const parsed = almediaChannelEnrichmentSchema.safeParse(row.result);
@@ -119,17 +140,21 @@ export async function loadAlmediaEnrichmentLookup(): Promise<AlmediaEnrichmentLo
             ? byChannelKey
             : null;
 
+      const existing = target?.get(link.sourceKey);
+
       target?.set(link.sourceKey, {
         enrichment: parsed.data,
-        catalogChannelId: row.catalogChannelId,
+        catalogChannelId: row.catalogChannelId ?? existing?.catalogChannelId ?? null,
         catalogEnrichmentStatus: row.catalogChannel
           ? resolveChannelEnrichmentStatus({
               channelUpdatedAt: row.catalogChannel.updatedAt,
               enrichment: row.catalogChannel.enrichment,
             })
-          : null,
+          : existing?.catalogEnrichmentStatus ?? null,
         catalogInfluencerVertical:
-          row.catalogChannel?.influencerVertical ?? null,
+          row.catalogChannel?.influencerVertical
+          ?? existing?.catalogInfluencerVertical
+          ?? null,
       });
     }
   }

@@ -308,6 +308,29 @@ describe("joinDeals", () => {
     expect(deal).toMatchObject({ hasEnrichment: true, verticals: ["Gaming"] });
   });
 
+  it("uses a completed catalog vertical without claiming tracker enrichment", () => {
+    const [deal] = joinDeals([campaign()], [], {
+      enrichments: {
+        byCampaign: new Map(),
+        byChannelKey: new Map([["ASMRFIXY", {
+          enrichment: null,
+          catalogChannelId: CATALOG_CHANNEL_ID,
+          catalogEnrichmentStatus: "completed",
+          catalogInfluencerVertical: "Gaming",
+        }]]),
+      },
+      now: NOW,
+    });
+
+    expect(deal).toMatchObject({
+      catalogChannelId: CATALOG_CHANNEL_ID,
+      catalogEnrichmentStatus: "completed",
+      hasEnrichment: false,
+      vertical: "Gaming",
+      verticals: ["Gaming"],
+    });
+  });
+
   it("flags unassigned Instagram aliases for manual vertical input", () => {
     const [instagram] = joinDeals(
       [campaign({ platform: "instagram" })],

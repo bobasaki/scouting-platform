@@ -6,9 +6,16 @@ import {
 } from "@prisma/client";
 import { almediaChannelEnrichmentSchema } from "@scouting-platform/contracts";
 import { prisma } from "@scouting-platform/db";
+import {
+  extractYoutubeVideoId,
+  fetchYoutubeVideoChannels,
+  type AlmediaCampaign,
+} from "@scouting-platform/integrations";
 
+import { getUserYoutubeApiKey } from "../auth";
 import { requestChannelLlmEnrichment } from "../enrichment";
 import { resolveChannelEnrichmentStatus } from "../enrichment/status";
+import { campaignBaseKey } from "./channel-key";
 import { relinkAlmediaEnrichmentCatalogChannels } from "./enrichments";
 
 const YOUTUBE_CHANNEL_ID_PATTERN = /^UC[A-Za-z0-9_-]{22}$/u;
@@ -19,6 +26,7 @@ export const ALMEDIA_AUTO_ENRICHMENT_MAX_BATCH_SIZE = 25;
 export type PrepareAlmediaYoutubeEnrichmentsResult = Readonly<{
   requesterUserId: string | null;
   ingestedChannelCount: number;
+  discoveredChannelCount: number;
   linkedEnrichmentCount: number;
   queuedEnrichmentCount: number;
   pendingEnrichmentCount: number;
@@ -35,6 +43,7 @@ type CreatedChannelRow = Readonly<{
   id: string;
   youtubeChannelId: string;
 }>;
+type ExistingCatalogLinkRow = Readonly<{ channelKey: string }>;
 type CatalogAlmediaEnrichmentRow = Readonly<{
   catalogChannelId: string | null;
   catalogChannel: {
@@ -53,33 +62,55 @@ type CatalogAlmediaEnrichmentRow = Readonly<{
  * this orchestration module. These narrow wrappers preserve checked query args
  * while fixing each result shape at the select boundary.
  */
-const credentialQueries = prisma.userProviderCredential as unknown as {
-  findFirst(args: Prisma.UserProviderCredentialFindFirstArgs): Promise<UserIdRow | null>;
-};
-const syncRunQueries = prisma.almediaSyncRun as unknown as {
-  findFirst(args: Prisma.AlmediaSyncRunFindFirstArgs): Promise<RecentRunRow | null>;
-};
-const almediaEnrichmentQueries = prisma.almediaChannelEnrichment as unknown as {
-  findMany(
-    args: Prisma.AlmediaChannelEnrichmentFindManyArgs,
-  ): Promise<UnlinkedAlmediaEnrichmentRow[]>;
-};
-const channelIdQueries = prisma.channel as unknown as {
-  findMany(args: Prisma.ChannelFindManyArgs): Promise<YoutubeChannelIdRow[]>;
-};
-const createdChannelQueries = prisma.channel as unknown as {
-  findMany(args: Prisma.ChannelFindManyArgs): Promise<CreatedChannelRow[]>;
-};
-const catalogEnrichmentQueries = prisma.almediaChannelEnrichment as unknown as {
-  findMany(
-    args: Prisma.AlmediaChannelEnrichmentFindManyArgs,
-  ): Promise<CatalogAlmediaEnrichmentRow[]>;
-};
-const channelMutations = prisma.channel as unknown as {
-  createMany(args: Prisma.ChannelCreateManyArgs): Promise<unknown>;
-};
-const auditMutations = prisma.auditEvent as unknown as {
-  createMany(args: Prisma.AuditEventCreateManyArgs): Promise<unknown>;
+const delegates = {
+  get credentials() {
+    return prisma.userProviderCredential as unknown as {
+      findFirst(args: Prisma.UserProviderCredentialFindFirstArgs): Promise<UserIdRow | null>;
+    };
+  },
+  get syncRuns() {
+    return prisma.almediaSyncRun as unknown as {
+      findFirst(args: Prisma.AlmediaSyncRunFindFirstArgs): Promise<RecentRunRow | null>;
+    };
+  },
+  get unlinkedAlmediaEnrichments() {
+    return prisma.almediaChannelEnrichment as unknown as {
+      findMany(args: Prisma.AlmediaChannelEnrichmentFindManyArgs): Promise<UnlinkedAlmediaEnrichmentRow[]>;
+    };
+  },
+  get catalogAlmediaEnrichments() {
+    return prisma.almediaChannelEnrichment as unknown as {
+      findMany(args: Prisma.AlmediaChannelEnrichmentFindManyArgs): Promise<CatalogAlmediaEnrichmentRow[]>;
+    };
+  },
+  get channelIds() {
+    return prisma.channel as unknown as {
+      findMany(args: Prisma.ChannelFindManyArgs): Promise<YoutubeChannelIdRow[]>;
+    };
+  },
+  get createdChannels() {
+    return prisma.channel as unknown as {
+      findMany(args: Prisma.ChannelFindManyArgs): Promise<CreatedChannelRow[]>;
+    };
+  },
+  get catalogLinks() {
+    return prisma.almediaCatalogChannelLink as unknown as {
+      findMany(args: Prisma.AlmediaCatalogChannelLinkFindManyArgs): Promise<
+        Array<ExistingCatalogLinkRow | CatalogAlmediaEnrichmentRow>
+      >;
+      createMany(args: Prisma.AlmediaCatalogChannelLinkCreateManyArgs): Promise<{ count: number }>;
+    };
+  },
+  get channels() {
+    return prisma.channel as unknown as {
+      createMany(args: Prisma.ChannelCreateManyArgs): Promise<unknown>;
+    };
+  },
+  get audits() {
+    return prisma.auditEvent as unknown as {
+      createMany(args: Prisma.AuditEventCreateManyArgs): Promise<unknown>;
+    };
+  },
 };
 
 function normalizeBatchSize(value: number | undefined): number {
@@ -94,7 +125,7 @@ function normalizeBatchSize(value: number | undefined): number {
 }
 
 async function credentialedAdmin(userId: string): Promise<string | null> {
-  const credential = await credentialQueries.findFirst({
+  const credential = await delegates.credentials.findFirst({
     where: {
       userId,
       provider: CredentialProvider.YOUTUBE_DATA_API,
@@ -122,7 +153,7 @@ export async function resolveAlmediaEnrichmentRequester(
     }
   }
 
-  const recentRun = await syncRunQueries.findFirst({
+  const recentRun = await delegates.syncRuns.findFirst({
     where: {
       requestedByUserId: { not: null },
       requestedByUser: {
@@ -141,7 +172,7 @@ export async function resolveAlmediaEnrichmentRequester(
     return recentRun.requestedByUserId;
   }
 
-  const fallback = await credentialQueries.findFirst({
+  const fallback = await delegates.credentials.findFirst({
     where: {
       provider: CredentialProvider.YOUTUBE_DATA_API,
       user: { isActive: true, role: Role.ADMIN },
@@ -157,7 +188,7 @@ export async function resolveAlmediaEnrichmentRequester(
 async function ingestMissingAlmediaChannels(
   actorUserId: string | null,
 ): Promise<number> {
-  const unlinked = await almediaEnrichmentQueries.findMany({
+  const unlinked = await delegates.unlinkedAlmediaEnrichments.findMany({
     where: { catalogChannelId: null },
     select: { channelId: true, result: true },
   });
@@ -180,7 +211,7 @@ async function ingestMissingAlmediaChannels(
     return 0;
   }
 
-  const existing = await channelIdQueries.findMany({
+  const existing = await delegates.channelIds.findMany({
     where: {
       youtubeChannelId: { in: candidates.map((candidate) => candidate.youtubeChannelId) },
     },
@@ -195,9 +226,9 @@ async function ingestMissingAlmediaChannels(
     return 0;
   }
 
-  await channelMutations.createMany({ data: missing, skipDuplicates: true });
+  await delegates.channels.createMany({ data: missing, skipDuplicates: true });
 
-  const created = await createdChannelQueries.findMany({
+  const created = await delegates.createdChannels.findMany({
     where: {
       youtubeChannelId: { in: missing.map((candidate) => candidate.youtubeChannelId) },
     },
@@ -205,7 +236,7 @@ async function ingestMissingAlmediaChannels(
   });
 
   if (created.length > 0) {
-    await auditMutations.createMany({
+    await delegates.audits.createMany({
       data: created.map((channel) => ({
         actorUserId,
         action: "almedia.channel.auto_ingested",
@@ -219,6 +250,167 @@ async function ingestMissingAlmediaChannels(
   return missing.length;
 }
 
+function isYoutubeCampaign(campaign: AlmediaCampaign): boolean {
+  const platform = campaign.platform.trim().toLowerCase();
+  return platform === "yt" || platform.includes("youtube");
+}
+
+/**
+ * Resolve live campaign video URLs to catalog channels. The creator-key link
+ * is stored separately from tracker enrichment documents so current feed rows
+ * can use the platform enrichment pipeline immediately.
+ */
+async function discoverCampaignCatalogChannels(
+  campaigns: readonly AlmediaCampaign[],
+  requesterUserId: string | null,
+): Promise<number> {
+  if (!requesterUserId) {
+    return 0;
+  }
+
+  type CampaignVideoCandidate = {
+    campaign: AlmediaCampaign;
+    videoId: string;
+  };
+  const byChannelKey = new Map<string, CampaignVideoCandidate[]>();
+
+  for (const campaign of campaigns) {
+    const videoId = campaign.videoUrl
+      ? extractYoutubeVideoId(campaign.videoUrl)
+      : null;
+    const channelKey = campaignBaseKey(campaign.campaignName);
+
+    if (
+      isYoutubeCampaign(campaign)
+      && videoId
+      && channelKey
+    ) {
+      const candidates = byChannelKey.get(channelKey) ?? [];
+
+      if (!candidates.some((candidate) => candidate.videoId === videoId)) {
+        candidates.push({ campaign, videoId });
+        byChannelKey.set(channelKey, candidates);
+      }
+    }
+  }
+
+  if (byChannelKey.size === 0) {
+    return 0;
+  }
+
+  const existingLinks = await delegates.catalogLinks.findMany({
+    where: { channelKey: { in: [...byChannelKey.keys()] } },
+    select: { channelKey: true },
+  }) as ExistingCatalogLinkRow[];
+
+  for (const link of existingLinks) {
+    byChannelKey.delete(link.channelKey);
+  }
+
+  if (byChannelKey.size === 0) {
+    return 0;
+  }
+
+  const apiKey = await getUserYoutubeApiKey(requesterUserId);
+
+  if (!apiKey) {
+    return 0;
+  }
+
+  const resolvedByVideoId = await fetchYoutubeVideoChannels({
+    apiKey,
+    videoIds: [...byChannelKey.values()].flatMap((candidates) =>
+      candidates.map((candidate) => candidate.videoId)),
+  });
+  const resolvedChannels = new Map<string, {
+    title: string;
+    youtubeChannelId: string;
+  }>();
+
+  for (const resolved of resolvedByVideoId.values()) {
+    resolvedChannels.set(resolved.channelId, {
+      title: resolved.channelTitle,
+      youtubeChannelId: resolved.channelId,
+    });
+  }
+
+  if (resolvedChannels.size === 0) {
+    return 0;
+  }
+
+  const existingChannels = await delegates.createdChannels.findMany({
+    where: { youtubeChannelId: { in: [...resolvedChannels.keys()] } },
+    select: { id: true, youtubeChannelId: true },
+  });
+  const existingChannelIds = new Set(
+    existingChannels.map((channel) => channel.youtubeChannelId),
+  );
+  const missingChannels = [...resolvedChannels.values()].filter(
+    (channel) => !existingChannelIds.has(channel.youtubeChannelId),
+  );
+
+  if (missingChannels.length > 0) {
+    await delegates.channels.createMany({
+      data: missingChannels.map((channel) => ({
+        youtubeChannelId: channel.youtubeChannelId,
+        title: channel.title,
+        youtubeUrl: `https://www.youtube.com/channel/${channel.youtubeChannelId}`,
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  const catalogChannels = await delegates.createdChannels.findMany({
+    where: { youtubeChannelId: { in: [...resolvedChannels.keys()] } },
+    select: { id: true, youtubeChannelId: true },
+  });
+  const catalogIdByYoutubeId = new Map(
+    catalogChannels.map((channel) => [channel.youtubeChannelId, channel.id]),
+  );
+  const links = [...byChannelKey.entries()].flatMap(([channelKey, candidates]) => {
+    const candidate = candidates.find(({ videoId }) => resolvedByVideoId.has(videoId));
+    const resolved = candidate
+      ? resolvedByVideoId.get(candidate.videoId)
+      : null;
+    const catalogChannelId = resolved
+      ? catalogIdByYoutubeId.get(resolved.channelId)
+      : null;
+
+    return catalogChannelId && candidate ? [{
+      channelKey,
+      catalogChannelId,
+      sourceCampaignName: candidate.campaign.campaignName,
+      sourceVideoUrl: candidate.campaign.videoUrl,
+    }] : [];
+  });
+
+  if (links.length === 0) {
+    return 0;
+  }
+
+  const createdLinks = await delegates.catalogLinks.createMany({
+    data: links,
+    skipDuplicates: true,
+  });
+  const newlyCreatedChannels = catalogChannels.filter(
+    (channel) => !existingChannelIds.has(channel.youtubeChannelId),
+  );
+
+  if (newlyCreatedChannels.length > 0) {
+    await delegates.audits.createMany({
+      data: newlyCreatedChannels.map((channel) => ({
+        actorUserId: requesterUserId,
+        action: "almedia.channel.campaign_discovered",
+        entityType: "channel",
+        entityId: channel.id,
+        metadata: { youtubeChannelId: channel.youtubeChannelId },
+      })),
+    });
+  }
+
+  return createdLinks.count;
+}
+
 type CatalogEnrichmentCandidate = Readonly<{
   channelId: string;
   updatedAt: Date;
@@ -230,25 +422,30 @@ type CatalogEnrichmentCandidate = Readonly<{
 }>;
 
 async function listEnrichmentCandidates(): Promise<CatalogEnrichmentCandidate[]> {
-  const rows = await catalogEnrichmentQueries.findMany({
-    where: { catalogChannelId: { not: null } },
-    select: {
-      catalogChannelId: true,
-      catalogChannel: {
-        select: {
-          id: true,
-          updatedAt: true,
-          enrichment: {
-            select: {
-              status: true,
-              completedAt: true,
-              lastEnrichedAt: true,
-            },
+  const catalogSelect = {
+    catalogChannelId: true,
+    catalogChannel: {
+      select: {
+        id: true,
+        updatedAt: true,
+        enrichment: {
+          select: {
+            status: true,
+            completedAt: true,
+            lastEnrichedAt: true,
           },
         },
       },
     },
-  });
+  } as const;
+  const [legacyRows, campaignRows] = await Promise.all([
+    delegates.catalogAlmediaEnrichments.findMany({
+      where: { catalogChannelId: { not: null } },
+      select: catalogSelect,
+    }),
+    delegates.catalogLinks.findMany({ select: catalogSelect }) as Promise<CatalogAlmediaEnrichmentRow[]>,
+  ]);
+  const rows = [...legacyRows, ...campaignRows];
   const byChannelId = new Map<string, CatalogEnrichmentCandidate>();
 
   for (const row of rows) {
@@ -282,12 +479,17 @@ async function listEnrichmentCandidates(): Promise<CatalogEnrichmentCandidate[]>
 export async function prepareAlmediaYoutubeEnrichments(input: {
   preferredRequesterUserId?: string | null;
   batchSize?: number;
+  campaigns?: readonly AlmediaCampaign[];
 } = {}): Promise<PrepareAlmediaYoutubeEnrichmentsResult> {
   const requesterUserId = await resolveAlmediaEnrichmentRequester(
     input.preferredRequesterUserId,
   );
   const ingestedChannelCount = await ingestMissingAlmediaChannels(requesterUserId);
   const linkedEnrichmentCount = await relinkAlmediaEnrichmentCatalogChannels();
+  const discoveredChannelCount = await discoverCampaignCatalogChannels(
+    input.campaigns ?? [],
+    requesterUserId,
+  );
   const candidates = await listEnrichmentCandidates();
   const batch = candidates.slice(0, normalizeBatchSize(input.batchSize));
   let queuedEnrichmentCount = 0;
@@ -307,6 +509,7 @@ export async function prepareAlmediaYoutubeEnrichments(input: {
   return {
     requesterUserId,
     ingestedChannelCount,
+    discoveredChannelCount,
     linkedEnrichmentCount,
     queuedEnrichmentCount,
     pendingEnrichmentCount: Math.max(0, candidates.length - queuedEnrichmentCount),

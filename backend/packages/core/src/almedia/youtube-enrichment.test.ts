@@ -1,10 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { prismaMock, relinkMock, requestEnrichmentMock } = vi.hoisted(() => ({
+const {
+  fetchVideoChannelsMock,
+  getYoutubeApiKeyMock,
+  prismaMock,
+  relinkMock,
+  requestEnrichmentMock,
+} = vi.hoisted(() => ({
+  fetchVideoChannelsMock: vi.fn(),
+  getYoutubeApiKeyMock: vi.fn(),
   prismaMock: {
     userProviderCredential: { findFirst: vi.fn() },
     almediaSyncRun: { findFirst: vi.fn() },
     almediaChannelEnrichment: { findMany: vi.fn() },
+    almediaCatalogChannelLink: { findMany: vi.fn(), createMany: vi.fn() },
     channel: { findMany: vi.fn(), createMany: vi.fn() },
     auditEvent: { createMany: vi.fn() },
   },
@@ -13,6 +22,15 @@ const { prismaMock, relinkMock, requestEnrichmentMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("@scouting-platform/db", () => ({ prisma: prismaMock }));
+vi.mock("@scouting-platform/integrations", () => ({
+  extractYoutubeVideoId: (value: string) => value.includes("abcdefghijk")
+    ? "abcdefghijk"
+    : value.includes("lmnopqrstuv")
+      ? "lmnopqrstuv"
+      : null,
+  fetchYoutubeVideoChannels: fetchVideoChannelsMock,
+}));
+vi.mock("../auth", () => ({ getUserYoutubeApiKey: getYoutubeApiKeyMock }));
 vi.mock("../enrichment", () => ({
   requestChannelLlmEnrichment: requestEnrichmentMock,
 }));
@@ -59,6 +77,9 @@ describe("Almedia automatic YouTube enrichment", () => {
     prismaMock.almediaSyncRun.findFirst.mockResolvedValue(null);
     prismaMock.channel.createMany.mockResolvedValue({ count: 1 });
     prismaMock.auditEvent.createMany.mockResolvedValue({ count: 1 });
+    prismaMock.almediaCatalogChannelLink.findMany.mockResolvedValue([]);
+    prismaMock.almediaCatalogChannelLink.createMany.mockResolvedValue({ count: 1 });
+    getYoutubeApiKeyMock.mockResolvedValue("youtube-key");
     relinkMock.mockResolvedValue(1);
     requestEnrichmentMock.mockResolvedValue({
       channelId: CATALOG_CHANNEL_ID,
@@ -110,10 +131,143 @@ describe("Almedia automatic YouTube enrichment", () => {
     expect(result).toEqual({
       requesterUserId: ADMIN_ID,
       ingestedChannelCount: 1,
+      discoveredChannelCount: 0,
       linkedEnrichmentCount: 1,
       queuedEnrichmentCount: 1,
       pendingEnrichmentCount: 0,
     });
+  });
+
+  it("discovers live campaign creators, stores catalog links, and queues them", async () => {
+    prismaMock.almediaChannelEnrichment.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    prismaMock.channel.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{
+        id: CATALOG_CHANNEL_ID,
+        youtubeChannelId: YOUTUBE_CHANNEL_ID,
+      }]);
+    fetchVideoChannelsMock.mockResolvedValue(new Map([["abcdefghijk", {
+      videoId: "abcdefghijk",
+      channelId: YOUTUBE_CHANNEL_ID,
+      channelTitle: "Campaign Creator",
+    }]]));
+    prismaMock.almediaCatalogChannelLink.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{
+        catalogChannelId: CATALOG_CHANNEL_ID,
+        catalogChannel: {
+          id: CATALOG_CHANNEL_ID,
+          updatedAt: new Date("2026-08-12T00:00:00.000Z"),
+          enrichment: null,
+        },
+      }]);
+
+    const result = await prepareAlmediaYoutubeEnrichments({
+      preferredRequesterUserId: ADMIN_ID,
+      campaigns: [{
+        campaignName: "CAMPAIGNCREATOR_YT_R1",
+        campaignSource: "agency",
+        platform: "youtube",
+        country: "US",
+        publishedAt: new Date("2026-08-12T00:00:00.000Z"),
+        cost: null,
+        expectedCpm: null,
+        viewCount: null,
+        signupsPct: null,
+        roasD7pD14: null,
+        roasReturn: null,
+        returnPct: null,
+        appuD14: null,
+        d7Purchases: null,
+        channelName: "Campaign Creator",
+        videoUrl: "https://youtu.be/abcdefghijk",
+      }],
+    });
+
+    expect(prismaMock.almediaCatalogChannelLink.createMany).toHaveBeenCalledWith({
+      data: [{
+        channelKey: "CAMPAIGNCREATOR",
+        catalogChannelId: CATALOG_CHANNEL_ID,
+        sourceCampaignName: "CAMPAIGNCREATOR_YT_R1",
+        sourceVideoUrl: "https://youtu.be/abcdefghijk",
+      }],
+      skipDuplicates: true,
+    });
+    expect(result.discoveredChannelCount).toBe(1);
+    expect(requestEnrichmentMock).toHaveBeenCalledWith({
+      channelId: CATALOG_CHANNEL_ID,
+      requestedByUserId: ADMIN_ID,
+    });
+  });
+
+  it("tries later campaign rounds when the first video no longer resolves", async () => {
+    prismaMock.almediaChannelEnrichment.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    prismaMock.channel.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{
+        id: CATALOG_CHANNEL_ID,
+        youtubeChannelId: YOUTUBE_CHANNEL_ID,
+      }]);
+    fetchVideoChannelsMock.mockResolvedValue(new Map([["lmnopqrstuv", {
+      videoId: "lmnopqrstuv",
+      channelId: YOUTUBE_CHANNEL_ID,
+      channelTitle: "Campaign Creator",
+    }]]));
+    prismaMock.almediaCatalogChannelLink.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+
+    const campaignBase = {
+      campaignSource: "agency",
+      platform: "youtube" as const,
+      country: "US",
+      publishedAt: new Date("2026-08-12T00:00:00.000Z"),
+      cost: null,
+      expectedCpm: null,
+      viewCount: null,
+      signupsPct: null,
+      roasD7pD14: null,
+      roasReturn: null,
+      returnPct: null,
+      appuD14: null,
+      d7Purchases: null,
+      channelName: "Campaign Creator",
+    };
+
+    const result = await prepareAlmediaYoutubeEnrichments({
+      preferredRequesterUserId: ADMIN_ID,
+      campaigns: [
+        {
+          ...campaignBase,
+          campaignName: "CAMPAIGNCREATOR_YT_R1",
+          videoUrl: "https://youtu.be/abcdefghijk",
+        },
+        {
+          ...campaignBase,
+          campaignName: "CAMPAIGNCREATOR_YT_R2",
+          videoUrl: "https://youtu.be/lmnopqrstuv",
+        },
+      ],
+    });
+
+    expect(fetchVideoChannelsMock).toHaveBeenCalledWith({
+      apiKey: "youtube-key",
+      videoIds: ["abcdefghijk", "lmnopqrstuv"],
+    });
+    expect(prismaMock.almediaCatalogChannelLink.createMany).toHaveBeenCalledWith({
+      data: [{
+        channelKey: "CAMPAIGNCREATOR",
+        catalogChannelId: CATALOG_CHANNEL_ID,
+        sourceCampaignName: "CAMPAIGNCREATOR_YT_R2",
+        sourceVideoUrl: "https://youtu.be/lmnopqrstuv",
+      }],
+      skipDuplicates: true,
+    });
+    expect(result.discoveredChannelCount).toBe(1);
   });
 
   it("records system audit events when ingestion has no credentialed admin", async () => {

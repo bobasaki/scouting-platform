@@ -15,6 +15,7 @@ type InstagramVerticalInputRow = Readonly<{
   platform: string;
   country: string | null;
   videoUrl: string | null;
+  creatorUrl: string;
   campaignCount: number;
 }>;
 
@@ -31,6 +32,28 @@ function safeExternalUrl(value: string | null): string | null {
   }
 }
 
+const CAMPAIGN_SUFFIX = /_[A-Z0-9]+_R\d+(?:_?[A-Z0-9]+)*$/iu;
+const INSTAGRAM_HANDLE = /^[A-Za-z0-9._]{1,30}$/u;
+
+function instagramProfileUrl(deal: AlmediaDeal): string {
+  const channelName = deal.channelName.trim().replace(/^@/u, "");
+  const campaignCreator = deal.campaignName
+    ?.replace(CAMPAIGN_SUFFIX, "")
+    .trim()
+    .replace(/^@/u, "") ?? "";
+  const looksLikeCampaignName = CAMPAIGN_SUFFIX.test(channelName);
+  const candidate = looksLikeCampaignName || channelName === deal.campaignName
+    ? campaignCreator
+    : channelName;
+  const handle = INSTAGRAM_HANDLE.test(candidate)
+    ? candidate
+    : INSTAGRAM_HANDLE.test(campaignCreator)
+      ? campaignCreator
+      : deal.channelKey.toLowerCase();
+
+  return `https://www.instagram.com/${handle}/`;
+}
+
 /** One actionable row per creator, even when several campaign rounds need the value. */
 export function instagramVerticalInputRows(
   deals: readonly AlmediaDeal[],
@@ -45,20 +68,26 @@ export function instagramVerticalInputRows(
     const existing = byChannelKey.get(deal.channelKey);
 
     if (existing) {
+      const videoUrl = existing.videoUrl ?? safeExternalUrl(deal.videoUrl);
+
       byChannelKey.set(deal.channelKey, {
         ...existing,
         campaignCount: existing.campaignCount + (deal.hasCampaign ? 1 : 0),
-        videoUrl: existing.videoUrl ?? safeExternalUrl(deal.videoUrl),
+        videoUrl,
+        creatorUrl: videoUrl ?? existing.creatorUrl,
       });
       continue;
     }
+
+    const videoUrl = safeExternalUrl(deal.videoUrl);
 
     byChannelKey.set(deal.channelKey, {
       channelKey: deal.channelKey,
       channelName: deal.channelName,
       platform: deal.platform ?? "instagram",
       country: deal.country,
-      videoUrl: safeExternalUrl(deal.videoUrl),
+      videoUrl,
+      creatorUrl: videoUrl ?? instagramProfileUrl(deal),
       campaignCount: deal.hasCampaign ? 1 : 0,
     });
   }
@@ -167,19 +196,17 @@ export function AlmediaInstagramVerticalQueue({
             return (
               <tr key={row.channelKey}>
                 <td>
-                  {row.videoUrl ? (
-                    <a
-                      className="almedia-link"
-                      href={row.videoUrl}
-                      rel="noopener noreferrer"
-                      target="_blank"
-                      title={`Open an Instagram campaign video for ${row.channelName}`}
-                    >
-                      <strong>{row.channelName} ↗</strong>
-                    </a>
-                  ) : (
-                    <strong>{row.channelName}</strong>
-                  )}
+                  <a
+                    className="almedia-link"
+                    href={row.creatorUrl}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                    title={row.videoUrl
+                      ? `Open an Instagram campaign video for ${row.channelName}`
+                      : `Open the Instagram profile for ${row.channelName}`}
+                  >
+                    <strong>{row.channelName} ↗</strong>
+                  </a>
                   <span className="almedia-subnote">
                     Instagram · {row.channelKey}
                   </span>

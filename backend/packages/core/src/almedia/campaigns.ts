@@ -158,6 +158,7 @@ export interface AlmediaSyncResult {
   duplicateCount: number;
   linkedEnrichmentCount: number;
   ingestedChannelCount: number;
+  discoveredChannelCount: number;
   queuedEnrichmentCount: number;
   pendingEnrichmentCount: number;
   enrichmentRequesterMissing: boolean;
@@ -201,15 +202,16 @@ export async function syncAlmediaCampaigns(input: {
   });
 
   try {
-    const automaticEnrichment = await prepareAlmediaYoutubeEnrichments({
-      preferredRequesterUserId: run.requestedByUserId,
-    });
     const baseUrl = resolveBaseUrl();
     const result = await fetchAllCampaigns({
       apiKey: resolveApiKey(),
       ...(baseUrl === undefined ? {} : { baseUrl }),
     });
     const { unique, duplicateCount } = dedupeCampaigns(result.campaigns);
+    const automaticEnrichment = await prepareAlmediaYoutubeEnrichments({
+      preferredRequesterUserId: run.requestedByUserId,
+      campaigns: unique,
+    });
 
     if (duplicateCount > 0) {
       process.stderr.write(
@@ -266,6 +268,7 @@ export async function syncAlmediaCampaigns(input: {
       duplicateCount,
       linkedEnrichmentCount: automaticEnrichment.linkedEnrichmentCount,
       ingestedChannelCount: automaticEnrichment.ingestedChannelCount,
+      discoveredChannelCount: automaticEnrichment.discoveredChannelCount,
       queuedEnrichmentCount: automaticEnrichment.queuedEnrichmentCount,
       pendingEnrichmentCount: automaticEnrichment.pendingEnrichmentCount,
       enrichmentRequesterMissing: automaticEnrichment.requesterUserId === null,

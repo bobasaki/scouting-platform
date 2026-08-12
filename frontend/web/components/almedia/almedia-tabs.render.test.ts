@@ -444,6 +444,30 @@ describe("almedia tabs render", () => {
     expect(html).not.toContain("javascript:");
   });
 
+  it("links creators to their Instagram profile when the feed has no video URL", () => {
+    const instagramDeal = deal({
+      channelKey: "HAPPYMOM3",
+      channelName: "__HAPPYMOM3__",
+      campaignName: "__HAPPYMOM3___IGS_R1",
+      platform: "instagram",
+      videoUrl: null,
+      vertical: null,
+      verticals: [],
+      needsVerticalInput: true,
+    });
+    const [row] = instagramVerticalInputRows([instagramDeal]);
+    const html = renderToStaticMarkup(
+      createElement(AlmediaInstagramVerticalQueue, {
+        deals: [instagramDeal],
+        onMutated: () => undefined,
+      }),
+    );
+
+    expect(row?.creatorUrl).toBe("https://www.instagram.com/__HAPPYMOM3__/");
+    expect(html).toContain("https://www.instagram.com/__HAPPYMOM3__/");
+    expect(html).toContain("Open the Instagram profile for __HAPPYMOM3__");
+  });
+
   it("shows automatic YouTube status and a manual pending action", () => {
     const pending = deal({
       catalogEnrichmentStatus: "missing",
