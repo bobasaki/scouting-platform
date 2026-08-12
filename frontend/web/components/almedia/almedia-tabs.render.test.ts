@@ -412,6 +412,29 @@ describe("almedia tabs render", () => {
     ).toBe(newestBooking.id);
   });
 
+  it("does not offer a synthetic booking write for an unbooked Instagram creator", () => {
+    const instagramDeal = deal({
+      channelKey: "UNBOOKEDIG",
+      channelName: "Unbooked IG",
+      platform: "instagram",
+      vertical: null,
+      verticals: [],
+      needsVerticalInput: true,
+      hasBooking: false,
+    });
+    const html = renderToStaticMarkup(
+      createElement(AlmediaInsightsTab, {
+        bookings: [],
+        deals: [instagramDeal],
+        options: EMPTY_OPTIONS,
+      }),
+    );
+
+    expect(instagramVerticalInputRows([instagramDeal], [])[0]?.bookingId).toBeNull();
+    expect(html).toContain("Add this creator in Bookings first");
+    expect(html).not.toContain("Vertical for Unbooked IG");
+  });
+
   it("shows automatic YouTube status and a manual pending action", () => {
     const pending = deal({
       catalogEnrichmentStatus: "missing",

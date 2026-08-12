@@ -7,10 +7,7 @@ import {
 } from "@scouting-platform/contracts";
 import React, { useMemo, useState } from "react";
 
-import {
-  createAlmediaBooking,
-  updateAlmediaBooking,
-} from "../../lib/almedia-api";
+import { updateAlmediaBooking } from "../../lib/almedia-api";
 import { DataTable } from "../ui/DataTable";
 
 type InstagramVerticalInputRow = Readonly<{
@@ -103,25 +100,14 @@ export function AlmediaInstagramVerticalQueue({
   function save(row: InstagramVerticalInputRow): void {
     const vertical = drafts[row.channelKey];
 
-    if (!vertical || savingKey !== null) {
+    if (!vertical || !row.bookingId || savingKey !== null) {
       return;
     }
 
     setSavingKey(row.channelKey);
     setError(null);
 
-    const request = row.bookingId
-      ? updateAlmediaBooking(row.bookingId, { vertical })
-      : createAlmediaBooking({
-          channelName: row.channelName,
-          channelKey: row.channelKey,
-          platform: row.platform,
-          vertical,
-          country: row.country,
-          videoUrl: row.videoUrl,
-        });
-
-    void request
+    void updateAlmediaBooking(row.bookingId, { vertical })
       .then(() => {
         setDrafts((current) => {
           const next = { ...current };
@@ -194,29 +180,35 @@ export function AlmediaInstagramVerticalQueue({
                 <td>{row.country ?? "—"}</td>
                 <td className="almedia-numeric">{row.campaignCount}</td>
                 <td>
-                  <select
-                    aria-label={`Vertical for ${row.channelName}`}
-                    disabled={savingKey !== null}
-                    onChange={(event) => {
-                      setDrafts((current) => ({
-                        ...current,
-                        [row.channelKey]: event.target.value,
-                      }));
-                    }}
-                    value={selected}
-                  >
-                    <option value="">Choose vertical…</option>
-                    {ALMEDIA_VERTICALS.map((vertical) => (
-                      <option key={vertical} value={vertical}>
-                        {vertical}
-                      </option>
-                    ))}
-                  </select>
+                  {row.bookingId ? (
+                    <select
+                      aria-label={`Vertical for ${row.channelName}`}
+                      disabled={savingKey !== null}
+                      onChange={(event) => {
+                        setDrafts((current) => ({
+                          ...current,
+                          [row.channelKey]: event.target.value,
+                        }));
+                      }}
+                      value={selected}
+                    >
+                      <option value="">Choose vertical…</option>
+                      {ALMEDIA_VERTICALS.map((vertical) => (
+                        <option key={vertical} value={vertical}>
+                          {vertical}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="almedia-subnote">
+                      Add this creator in Bookings first
+                    </span>
+                  )}
                 </td>
                 <td>
                   <button
                     className="workspace-button workspace-button--small"
-                    disabled={!selected || savingKey !== null}
+                    disabled={!row.bookingId || !selected || savingKey !== null}
                     onClick={() => {
                       save(row);
                     }}

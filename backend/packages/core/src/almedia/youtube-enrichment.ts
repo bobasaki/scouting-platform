@@ -269,7 +269,9 @@ async function listEnrichmentCandidates(): Promise<CatalogEnrichmentCandidate[]>
       enrichment: candidate.enrichment,
     });
 
-    return status === "missing" || status === "stale" || status === "cancelled";
+    // Cancellation is an explicit admin decision. Only a user-triggered manual
+    // request may retry it; hourly sync must not silently resume provider use.
+    return status === "missing" || status === "stale";
   });
 }
 

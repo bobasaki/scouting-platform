@@ -167,6 +167,31 @@ describe("Almedia automatic YouTube enrichment", () => {
     );
   });
 
+  it("leaves cancelled enrichments for an explicit manual retry", async () => {
+    prismaMock.almediaChannelEnrichment.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          catalogChannelId: CATALOG_CHANNEL_ID,
+          catalogChannel: {
+            id: CATALOG_CHANNEL_ID,
+            updatedAt: new Date("2026-08-11T00:00:00.000Z"),
+            enrichment: {
+              status: "CANCELLED",
+              completedAt: null,
+              lastEnrichedAt: null,
+            },
+          },
+        },
+      ]);
+
+    const result = await prepareAlmediaYoutubeEnrichments();
+
+    expect(requestEnrichmentMock).not.toHaveBeenCalled();
+    expect(result.queuedEnrichmentCount).toBe(0);
+    expect(result.pendingEnrichmentCount).toBe(0);
+  });
+
   it("ingests safely but leaves work pending when no admin key exists", async () => {
     prismaMock.userProviderCredential.findFirst.mockResolvedValue(null);
     prismaMock.almediaChannelEnrichment.findMany
