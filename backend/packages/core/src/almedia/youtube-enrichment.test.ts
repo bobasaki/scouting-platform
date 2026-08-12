@@ -29,6 +29,15 @@ vi.mock("@scouting-platform/integrations", () => ({
       ? "lmnopqrstuv"
       : null,
   fetchYoutubeVideoChannels: fetchVideoChannelsMock,
+  YoutubeVideoChannelProviderError: class YoutubeVideoChannelProviderError extends Error {
+    constructor(
+      readonly code: string,
+      readonly status: number,
+      message: string,
+    ) {
+      super(message);
+    }
+  },
 }));
 vi.mock("../auth", () => ({ getUserYoutubeApiKey: getYoutubeApiKeyMock }));
 vi.mock("../enrichment", () => ({
@@ -37,6 +46,8 @@ vi.mock("../enrichment", () => ({
 vi.mock("./enrichments", () => ({
   relinkAlmediaEnrichmentCatalogChannels: relinkMock,
 }));
+
+import { YoutubeVideoChannelProviderError } from "@scouting-platform/integrations";
 
 import { prepareAlmediaYoutubeEnrichments } from "./youtube-enrichment";
 
@@ -130,12 +141,55 @@ describe("Almedia automatic YouTube enrichment", () => {
     });
     expect(result).toEqual({
       requesterUserId: ADMIN_ID,
+      discoveryError: null,
       ingestedChannelCount: 1,
       discoveredChannelCount: 0,
       linkedEnrichmentCount: 1,
       queuedEnrichmentCount: 1,
       pendingEnrichmentCount: 0,
     });
+  });
+
+  it("keeps campaign refresh usable when provider discovery is paused", async () => {
+    prismaMock.almediaChannelEnrichment.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    prismaMock.almediaCatalogChannelLink.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    fetchVideoChannelsMock.mockRejectedValue(new YoutubeVideoChannelProviderError(
+      "YOUTUBE_QUOTA_EXCEEDED",
+      429,
+      "YouTube API quota exceeded",
+    ));
+
+    const result = await prepareAlmediaYoutubeEnrichments({
+      preferredRequesterUserId: ADMIN_ID,
+      campaigns: [{
+        campaignName: "CAMPAIGNCREATOR_YT_R1",
+        campaignSource: "agency",
+        platform: "youtube",
+        country: "US",
+        publishedAt: null,
+        cost: null,
+        expectedCpm: null,
+        viewCount: null,
+        signupsPct: null,
+        roasD7pD14: null,
+        roasReturn: null,
+        returnPct: null,
+        appuD14: null,
+        d7Purchases: null,
+        channelName: "Campaign Creator",
+        videoUrl: "https://youtu.be/abcdefghijk",
+      }],
+    });
+
+    expect(result).toMatchObject({
+      discoveredChannelCount: 0,
+      discoveryError: "YouTube API quota exceeded",
+    });
+    expect(prismaMock.channel.createMany).not.toHaveBeenCalled();
   });
 
   it("discovers live campaign creators, stores catalog links, and queues them", async () => {
@@ -268,6 +322,64 @@ describe("Almedia automatic YouTube enrichment", () => {
       skipDuplicates: true,
     });
     expect(result.discoveredChannelCount).toBe(1);
+  });
+
+  it("defers ambiguous creator keys that resolve to different channels", async () => {
+    const otherYoutubeChannelId = "UCbbbbbbbbbbbbbbbbbbbbbb";
+    prismaMock.almediaChannelEnrichment.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    prismaMock.almediaCatalogChannelLink.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    fetchVideoChannelsMock.mockResolvedValue(new Map([
+      ["abcdefghijk", {
+        videoId: "abcdefghijk",
+        channelId: YOUTUBE_CHANNEL_ID,
+        channelTitle: "First Creator",
+      }],
+      ["lmnopqrstuv", {
+        videoId: "lmnopqrstuv",
+        channelId: otherYoutubeChannelId,
+        channelTitle: "Different Creator",
+      }],
+    ]));
+    const campaignBase = {
+      campaignSource: "agency",
+      platform: "youtube" as const,
+      country: "US",
+      publishedAt: null,
+      cost: null,
+      expectedCpm: null,
+      viewCount: null,
+      signupsPct: null,
+      roasD7pD14: null,
+      roasReturn: null,
+      returnPct: null,
+      appuD14: null,
+      d7Purchases: null,
+      channelName: "Campaign Creator",
+    };
+
+    const result = await prepareAlmediaYoutubeEnrichments({
+      preferredRequesterUserId: ADMIN_ID,
+      campaigns: [
+        {
+          ...campaignBase,
+          campaignName: "CAMPAIGNCREATOR_YT_R1",
+          videoUrl: "https://youtu.be/abcdefghijk",
+        },
+        {
+          ...campaignBase,
+          campaignName: "CAMPAIGNCREATOR_YT_R2",
+          videoUrl: "https://youtu.be/lmnopqrstuv",
+        },
+      ],
+    });
+
+    expect(result.discoveredChannelCount).toBe(0);
+    expect(prismaMock.channel.createMany).not.toHaveBeenCalled();
+    expect(prismaMock.almediaCatalogChannelLink.createMany).not.toHaveBeenCalled();
   });
 
   it("records system audit events when ingestion has no credentialed admin", async () => {

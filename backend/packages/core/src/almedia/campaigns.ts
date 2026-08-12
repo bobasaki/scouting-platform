@@ -162,6 +162,7 @@ export interface AlmediaSyncResult {
   queuedEnrichmentCount: number;
   pendingEnrichmentCount: number;
   enrichmentRequesterMissing: boolean;
+  enrichmentDiscoveryError: string | null;
 }
 
 /**
@@ -255,6 +256,8 @@ export async function syncAlmediaCampaigns(input: {
           pageCount: result.pages,
           duplicateCount,
           completedAt: new Date(),
+          // Provider discovery is ancillary to the successful campaign sync.
+          // The worker reports its warning without mislabeling this run failed.
           lastError: null,
         },
       });
@@ -272,6 +275,7 @@ export async function syncAlmediaCampaigns(input: {
       queuedEnrichmentCount: automaticEnrichment.queuedEnrichmentCount,
       pendingEnrichmentCount: automaticEnrichment.pendingEnrichmentCount,
       enrichmentRequesterMissing: automaticEnrichment.requesterUserId === null,
+      enrichmentDiscoveryError: automaticEnrichment.discoveryError,
     };
   } catch (error) {
     await prisma.almediaSyncRun.update({

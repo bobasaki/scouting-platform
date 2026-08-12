@@ -10,6 +10,7 @@ import {
   extractYoutubeVideoId,
   fetchYoutubeVideoChannels,
   type AlmediaCampaign,
+  YoutubeVideoChannelProviderError,
 } from "@scouting-platform/integrations";
 
 import { getUserYoutubeApiKey } from "../auth";
@@ -25,6 +26,7 @@ export const ALMEDIA_AUTO_ENRICHMENT_MAX_BATCH_SIZE = 25;
 
 export type PrepareAlmediaYoutubeEnrichmentsResult = Readonly<{
   requesterUserId: string | null;
+  discoveryError: string | null;
   ingestedChannelCount: number;
   discoveredChannelCount: number;
   linkedEnrichmentCount: number;
@@ -322,15 +324,47 @@ async function discoverCampaignCatalogChannels(
     videoIds: [...byChannelKey.values()].flatMap((candidates) =>
       candidates.map((candidate) => candidate.videoId)),
   });
+  const resolutionByChannelKey = new Map<string, {
+    candidate: CampaignVideoCandidate;
+    channelId: string;
+    channelTitle: string;
+  }>();
+
+  for (const [channelKey, candidates] of byChannelKey) {
+    const resolvedCandidates = candidates.flatMap((candidate) => {
+      const resolved = resolvedByVideoId.get(candidate.videoId);
+      return resolved ? [{ candidate, resolved }] : [];
+    });
+    const channelIds = new Set(
+      resolvedCandidates.map(({ resolved }) => resolved.channelId),
+    );
+
+    // A normalized creator key must never be permanently linked by feed order
+    // when campaign rounds point at different YouTube channels.
+    if (channelIds.size !== 1) {
+      continue;
+    }
+
+    const resolvedCandidate = resolvedCandidates[0];
+
+    if (resolvedCandidate) {
+      resolutionByChannelKey.set(channelKey, {
+        candidate: resolvedCandidate.candidate,
+        channelId: resolvedCandidate.resolved.channelId,
+        channelTitle: resolvedCandidate.resolved.channelTitle,
+      });
+    }
+  }
+
   const resolvedChannels = new Map<string, {
     title: string;
     youtubeChannelId: string;
   }>();
 
-  for (const resolved of resolvedByVideoId.values()) {
-    resolvedChannels.set(resolved.channelId, {
-      title: resolved.channelTitle,
-      youtubeChannelId: resolved.channelId,
+  for (const resolution of resolutionByChannelKey.values()) {
+    resolvedChannels.set(resolution.channelId, {
+      title: resolution.channelTitle,
+      youtubeChannelId: resolution.channelId,
     });
   }
 
@@ -367,22 +401,18 @@ async function discoverCampaignCatalogChannels(
   const catalogIdByYoutubeId = new Map(
     catalogChannels.map((channel) => [channel.youtubeChannelId, channel.id]),
   );
-  const links = [...byChannelKey.entries()].flatMap(([channelKey, candidates]) => {
-    const candidate = candidates.find(({ videoId }) => resolvedByVideoId.has(videoId));
-    const resolved = candidate
-      ? resolvedByVideoId.get(candidate.videoId)
-      : null;
-    const catalogChannelId = resolved
-      ? catalogIdByYoutubeId.get(resolved.channelId)
-      : null;
+  const links = [...resolutionByChannelKey.entries()].flatMap(
+    ([channelKey, resolution]) => {
+      const catalogChannelId = catalogIdByYoutubeId.get(resolution.channelId);
 
-    return catalogChannelId && candidate ? [{
-      channelKey,
-      catalogChannelId,
-      sourceCampaignName: candidate.campaign.campaignName,
-      sourceVideoUrl: candidate.campaign.videoUrl,
-    }] : [];
-  });
+      return catalogChannelId ? [{
+        channelKey,
+        catalogChannelId,
+        sourceCampaignName: resolution.candidate.campaign.campaignName,
+        sourceVideoUrl: resolution.candidate.campaign.videoUrl,
+      }] : [];
+    },
+  );
 
   if (links.length === 0) {
     return 0;
@@ -486,10 +516,23 @@ export async function prepareAlmediaYoutubeEnrichments(input: {
   );
   const ingestedChannelCount = await ingestMissingAlmediaChannels(requesterUserId);
   const linkedEnrichmentCount = await relinkAlmediaEnrichmentCatalogChannels();
-  const discoveredChannelCount = await discoverCampaignCatalogChannels(
-    input.campaigns ?? [],
-    requesterUserId,
-  );
+  let discoveredChannelCount = 0;
+  let discoveryError: string | null = null;
+
+  try {
+    discoveredChannelCount = await discoverCampaignCatalogChannels(
+      input.campaigns ?? [],
+      requesterUserId,
+    );
+  } catch (error) {
+    if (!(error instanceof YoutubeVideoChannelProviderError)) {
+      throw error;
+    }
+
+    // Campaign snapshots are the primary sync payload. A quota/auth/network
+    // outage pauses catalog discovery without leaving the workspace stale.
+    discoveryError = error.message;
+  }
   const candidates = await listEnrichmentCandidates();
   const batch = candidates.slice(0, normalizeBatchSize(input.batchSize));
   let queuedEnrichmentCount = 0;
@@ -508,6 +551,7 @@ export async function prepareAlmediaYoutubeEnrichments(input: {
 
   return {
     requesterUserId,
+    discoveryError,
     ingestedChannelCount,
     discoveredChannelCount,
     linkedEnrichmentCount,
