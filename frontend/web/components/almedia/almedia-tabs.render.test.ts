@@ -383,6 +383,35 @@ describe("almedia tabs render", () => {
     expect(html).toContain("Gaming");
   });
 
+  it("targets the newest duplicate booking for Instagram vertical updates", () => {
+    const instagramDeal = deal({
+      channelKey: "IGCREATOR",
+      channelName: "IG Creator",
+      platform: "instagram",
+      vertical: null,
+      verticals: [],
+      needsVerticalInput: true,
+    });
+    const newestBooking = {
+      ...BOOKING,
+      id: "11111111-1111-4111-8111-111111111111",
+      channelKey: "IGCREATOR",
+      platform: "instagram",
+      vertical: null,
+    };
+    const oldestBooking = {
+      ...newestBooking,
+      id: "22222222-2222-4222-8222-222222222222",
+    };
+
+    expect(
+      instagramVerticalInputRows(
+        [instagramDeal],
+        [newestBooking, oldestBooking],
+      )[0]?.bookingId,
+    ).toBe(newestBooking.id);
+  });
+
   it("shows automatic YouTube status and a manual pending action", () => {
     const pending = deal({
       catalogEnrichmentStatus: "missing",

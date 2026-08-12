@@ -21,7 +21,6 @@ export type PrepareAlmediaYoutubeEnrichmentsResult = Readonly<{
   ingestedChannelCount: number;
   linkedEnrichmentCount: number;
   queuedEnrichmentCount: number;
-  failedEnrichmentCount: number;
   pendingEnrichmentCount: number;
 }>;
 
@@ -198,25 +197,23 @@ async function ingestMissingAlmediaChannels(
 
   await channelMutations.createMany({ data: missing, skipDuplicates: true });
 
-  if (actorUserId) {
-    const created = await createdChannelQueries.findMany({
-      where: {
-        youtubeChannelId: { in: missing.map((candidate) => candidate.youtubeChannelId) },
-      },
-      select: { id: true, youtubeChannelId: true },
-    });
+  const created = await createdChannelQueries.findMany({
+    where: {
+      youtubeChannelId: { in: missing.map((candidate) => candidate.youtubeChannelId) },
+    },
+    select: { id: true, youtubeChannelId: true },
+  });
 
-    if (created.length > 0) {
-      await auditMutations.createMany({
-        data: created.map((channel) => ({
-          actorUserId,
-          action: "almedia.channel.auto_ingested",
-          entityType: "channel",
-          entityId: channel.id,
-          metadata: { youtubeChannelId: channel.youtubeChannelId },
-        })),
-      });
-    }
+  if (created.length > 0) {
+    await auditMutations.createMany({
+      data: created.map((channel) => ({
+        actorUserId,
+        action: "almedia.channel.auto_ingested",
+        entityType: "channel",
+        entityId: channel.id,
+        metadata: { youtubeChannelId: channel.youtubeChannelId },
+      })),
+    });
   }
 
   return missing.length;
@@ -292,19 +289,16 @@ export async function prepareAlmediaYoutubeEnrichments(input: {
   const candidates = await listEnrichmentCandidates();
   const batch = candidates.slice(0, normalizeBatchSize(input.batchSize));
   let queuedEnrichmentCount = 0;
-  let failedEnrichmentCount = 0;
 
   if (requesterUserId) {
     for (const candidate of batch) {
-      try {
-        await requestChannelLlmEnrichment({
-          channelId: candidate.channelId,
-          requestedByUserId: requesterUserId,
-        });
-        queuedEnrichmentCount += 1;
-      } catch {
-        failedEnrichmentCount += 1;
-      }
+      // Do not swallow setup/queue failures: the surrounding Almedia sync owns a
+      // durable status + lastError record and will persist the failed attempt.
+      await requestChannelLlmEnrichment({
+        channelId: candidate.channelId,
+        requestedByUserId: requesterUserId,
+      });
+      queuedEnrichmentCount += 1;
     }
   }
 
@@ -313,7 +307,6 @@ export async function prepareAlmediaYoutubeEnrichments(input: {
     ingestedChannelCount,
     linkedEnrichmentCount,
     queuedEnrichmentCount,
-    failedEnrichmentCount,
     pendingEnrichmentCount: Math.max(0, candidates.length - queuedEnrichmentCount),
   };
 }

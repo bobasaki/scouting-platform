@@ -112,9 +112,59 @@ describe("Almedia automatic YouTube enrichment", () => {
       ingestedChannelCount: 1,
       linkedEnrichmentCount: 1,
       queuedEnrichmentCount: 1,
-      failedEnrichmentCount: 0,
       pendingEnrichmentCount: 0,
     });
+  });
+
+  it("records system audit events when ingestion has no credentialed admin", async () => {
+    prismaMock.userProviderCredential.findFirst.mockResolvedValue(null);
+    prismaMock.almediaChannelEnrichment.findMany
+      .mockResolvedValueOnce([
+        {
+          channelId: YOUTUBE_CHANNEL_ID,
+          result: ENRICHMENT,
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    prismaMock.channel.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { id: CATALOG_CHANNEL_ID, youtubeChannelId: YOUTUBE_CHANNEL_ID },
+      ]);
+
+    await prepareAlmediaYoutubeEnrichments();
+
+    expect(prismaMock.auditEvent.createMany).toHaveBeenCalledWith({
+      data: [{
+        actorUserId: null,
+        action: "almedia.channel.auto_ingested",
+        entityType: "channel",
+        entityId: CATALOG_CHANNEL_ID,
+        metadata: { youtubeChannelId: YOUTUBE_CHANNEL_ID },
+      }],
+    });
+  });
+
+  it("propagates queue setup failures to the durable sync owner", async () => {
+    prismaMock.almediaChannelEnrichment.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          catalogChannelId: CATALOG_CHANNEL_ID,
+          catalogChannel: {
+            id: CATALOG_CHANNEL_ID,
+            updatedAt: new Date("2026-08-11T00:00:00.000Z"),
+            enrichment: null,
+          },
+        },
+      ]);
+    requestEnrichmentMock.mockRejectedValueOnce(
+      new Error("Assigned YouTube API key is required"),
+    );
+
+    await expect(prepareAlmediaYoutubeEnrichments()).rejects.toThrow(
+      "Assigned YouTube API key is required",
+    );
   });
 
   it("ingests safely but leaves work pending when no admin key exists", async () => {

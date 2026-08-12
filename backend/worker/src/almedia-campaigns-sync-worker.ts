@@ -127,12 +127,6 @@ export async function registerAlmediaCampaignsSyncWorker(
             );
           }
 
-          if (result.failedEnrichmentCount > 0) {
-            process.stderr.write(
-              `[worker] Almedia YouTube enrichment failed to queue ${result.failedEnrichmentCount} channel(s)\n`,
-            );
-          }
-
           process.stdout.write(
             `[worker] almedia.campaigns.sync ${payload.syncRunId} stored ${result.campaignCount} campaign(s) across ${result.pageCount} page(s)\n`,
           );

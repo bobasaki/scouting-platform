@@ -28,9 +28,16 @@ export function instagramVerticalInputRows(
   deals: readonly AlmediaDeal[],
   bookings: readonly Booking[],
 ): InstagramVerticalInputRow[] {
-  const bookingByChannelKey = new Map(
-    bookings.map((booking) => [booking.channelKey, booking] as const),
-  );
+  const bookingByChannelKey = new Map<string, Booking>();
+
+  // listBookings is newest-first; retain the first record so saves update the
+  // same booking that joinDeals uses to derive the creator's current vertical.
+  for (const booking of bookings) {
+    if (!bookingByChannelKey.has(booking.channelKey)) {
+      bookingByChannelKey.set(booking.channelKey, booking);
+    }
+  }
+
   const byChannelKey = new Map<string, InstagramVerticalInputRow>();
 
   for (const deal of deals) {

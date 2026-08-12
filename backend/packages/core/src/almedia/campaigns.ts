@@ -154,7 +154,6 @@ export interface AlmediaSyncResult {
   linkedEnrichmentCount: number;
   ingestedChannelCount: number;
   queuedEnrichmentCount: number;
-  failedEnrichmentCount: number;
   pendingEnrichmentCount: number;
   enrichmentRequesterMissing: boolean;
 }
@@ -263,7 +262,6 @@ export async function syncAlmediaCampaigns(input: {
       linkedEnrichmentCount: automaticEnrichment.linkedEnrichmentCount,
       ingestedChannelCount: automaticEnrichment.ingestedChannelCount,
       queuedEnrichmentCount: automaticEnrichment.queuedEnrichmentCount,
-      failedEnrichmentCount: automaticEnrichment.failedEnrichmentCount,
       pendingEnrichmentCount: automaticEnrichment.pendingEnrichmentCount,
       enrichmentRequesterMissing: automaticEnrichment.requesterUserId === null,
     };
