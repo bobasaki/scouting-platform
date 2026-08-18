@@ -6,19 +6,23 @@ import {
 import { listBookingInvoices, upsertBookingInvoice } from "@scouting-platform/core";
 import { NextResponse } from "next/server";
 
-import { requireAdminSession, toRouteErrorResponse } from "../../../../lib/api";
+import {
+  requireAdminSession,
+  requireAuthenticatedSession,
+  toRouteErrorResponse,
+} from "../../../../lib/api";
 
 /**
  * Invoice snapshots are hand-recorded as bills go out, so like bookings they are
- * served uncached — an admin who just marked a campaign invoiced must see it on
+ * served uncached — a user who just received an updated invoice must see it on
  * the next poll. Nothing derived is cached off them either: the billing model is
  * recomputed client-side from the deal set on every load.
  */
 export async function GET(): Promise<NextResponse> {
-  const admin = await requireAdminSession();
+  const session = await requireAuthenticatedSession();
 
-  if (!admin.ok) {
-    return admin.response;
+  if (!session.ok) {
+    return session.response;
   }
 
   try {

@@ -14,11 +14,11 @@ import {
   LOGIN_ROUTE,
 } from "../../../lib/access-control";
 import { getSession } from "../../../lib/cached-auth";
+import { isAppRole } from "../../../lib/navigation";
 
 /**
- * Admin-only Almedia tracking workspace. The data itself loads client-side so
- * the three tabs share one snapshot and one refresh; this shell only enforces
- * access.
+ * Signed-in Almedia tracking workspace. The data itself loads client-side so
+ * the tabs share one snapshot; admin-only controls are enabled explicitly.
  */
 
 function AlmediaFallback() {
@@ -42,7 +42,10 @@ export default async function AlmediaPage() {
     return null;
   }
 
-  if (!canAccessNavigationKey("almedia", getRoleFromSession(session))) {
+  if (
+    !isAppRole(session.user.role) ||
+    !canAccessNavigationKey("almedia", getRoleFromSession(session))
+  ) {
     redirect(FORBIDDEN_ROUTE);
     return null;
   }
@@ -50,7 +53,7 @@ export default async function AlmediaPage() {
   return (
     <section className="page-section">
       <Suspense fallback={<AlmediaFallback />}>
-        <AlmediaWorkspace />
+        <AlmediaWorkspace isAdmin={session.user.role === "admin"} />
       </Suspense>
     </section>
   );

@@ -83,8 +83,9 @@ Set these on `scouting-worker`:
 
 ### Almedia campaign tracking
 
-The admin-only `/almedia` view reads a snapshot of the Almedia agency-data feed
-out of Postgres. Only `scouting-worker` calls the Almedia API, so the key MUST
+The signed-in `/almedia` view reads a snapshot of the Almedia agency-data feed
+out of Postgres. Admins retain the refresh and hand-maintained editing controls.
+Only `scouting-worker` calls the Almedia API, so the key MUST
 be set on the worker and MUST NOT be set on `scouting-web` — and never as a
 `NEXT_PUBLIC_*` variable.
 

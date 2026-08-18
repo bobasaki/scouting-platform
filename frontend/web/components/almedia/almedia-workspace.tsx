@@ -74,7 +74,9 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-export function AlmediaWorkspace() {
+export function AlmediaWorkspace({
+  isAdmin = false,
+}: Readonly<{ isAdmin?: boolean }> = {}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const activeTab = resolveAlmediaTab(searchParams);
@@ -192,14 +194,16 @@ export function AlmediaWorkspace() {
                 : `Updated ${timeAgo(data?.fetchedAt ?? null)}`}
               {data ? ` · ${data.deals.deals.length} deals` : ""}
             </p>
-            <button
-              className="workspace-button"
-              disabled={isRefreshing || requestState.status === "loading"}
-              onClick={handleRefresh}
-              type="button"
-            >
-              {isRefreshing ? "Syncing…" : "Refresh"}
-            </button>
+            {isAdmin ? (
+              <button
+                className="workspace-button"
+                disabled={isRefreshing || requestState.status === "loading"}
+                onClick={handleRefresh}
+                type="button"
+              >
+                {isRefreshing ? "Syncing…" : "Refresh"}
+              </button>
+            ) : null}
           </div>
         }
         crumbs={[{ label: "Almedia" }]}
@@ -258,6 +262,7 @@ export function AlmediaWorkspace() {
             {activeTab === "insights" ? (
               <AlmediaInsightsTab
                 deals={data.deals.deals}
+                isAdmin={isAdmin}
                 onMutated={handleWorkspaceMutated}
                 options={data.deals.options}
                 scorecard={data.scorecard}
@@ -267,6 +272,7 @@ export function AlmediaWorkspace() {
               <AlmediaBookingsTab
                 bookings={data.bookings.bookings}
                 deals={data.deals.deals}
+                isAdmin={isAdmin}
                 onMutated={handleWorkspaceMutated}
               />
             ) : null}
@@ -282,6 +288,7 @@ export function AlmediaWorkspace() {
             {activeTab === "invoices" ? (
               <AlmediaInvoicesTab
                 deals={data.deals.deals}
+                isAdmin={isAdmin}
                 invoices={data.invoices.invoices}
                 onMutated={handleWorkspaceMutated}
               />

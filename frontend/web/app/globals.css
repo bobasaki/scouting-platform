@@ -13367,6 +13367,8 @@ select {
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
+  min-width: 0;
+  width: 100%;
 }
 
 .almedia-tabs {

@@ -319,6 +319,7 @@ function KpiCard({
 
 type AlmediaInsightsTabProps = Readonly<{
   deals: readonly AlmediaDeal[];
+  isAdmin?: boolean;
   options: AlmediaDimensionOptions;
   onMutated?: () => void;
   /** Feeds the analyst's plan evidence; null when the scorecard is unavailable. */
@@ -327,6 +328,7 @@ type AlmediaInsightsTabProps = Readonly<{
 
 export function AlmediaInsightsTab({
   deals,
+  isAdmin = true,
   onMutated = () => undefined,
   options,
   scorecard = null,
@@ -343,7 +345,9 @@ export function AlmediaInsightsTab({
 
   return (
     <div className="almedia-insights">
-      <AlmediaInstagramVerticalQueue deals={deals} onMutated={onMutated} />
+      {isAdmin ? (
+        <AlmediaInstagramVerticalQueue deals={deals} onMutated={onMutated} />
+      ) : null}
       <AlmediaYoutubeEnrichmentPanel deals={deals} onMutated={onMutated} />
 
       <div className="almedia-filter-bar">
@@ -444,31 +448,33 @@ export function AlmediaInsightsTab({
       />
 
       <div className="almedia-widget-grid">
-        <AlmediaWidgetCard
-          eyebrow="Grounded on the data in view"
-          info={
-            <>
-              <p>
-                Ask questions in plain language about <strong>exactly what the
-                filters above have selected</strong>. Every answer is built from a
-                snapshot of those deals, so it can only cite numbers you can see.
-              </p>
-              <p>
-                Return-tier calls come from <em>matured</em> campaigns only, and the
-                snapshot says how much it left out — so a shortlist is never presented
-                as the whole picture.
-              </p>
-            </>
-          }
-          title="AI analyst"
-          wide
-        >
-          <AlmediaAnalystWidget
-            deals={filtered}
-            filters={filters}
-            scorecard={scorecard}
-          />
-        </AlmediaWidgetCard>
+        {isAdmin ? (
+          <AlmediaWidgetCard
+            eyebrow="Grounded on the data in view"
+            info={
+              <>
+                <p>
+                  Ask questions in plain language about <strong>exactly what the
+                  filters above have selected</strong>. Every answer is built from a
+                  snapshot of those deals, so it can only cite numbers you can see.
+                </p>
+                <p>
+                  Return-tier calls come from <em>matured</em> campaigns only, and the
+                  snapshot says how much it left out — so a shortlist is never presented
+                  as the whole picture.
+                </p>
+              </>
+            }
+            title="AI analyst"
+            wide
+          >
+            <AlmediaAnalystWidget
+              deals={filtered}
+              filters={filters}
+              scorecard={scorecard}
+            />
+          </AlmediaWidgetCard>
+        ) : null}
 
         {WIDGETS.map((widget) => (
           <AlmediaWidgetCard

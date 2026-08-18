@@ -15,7 +15,8 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("../../../components/almedia/almedia-workspace", () => ({
-  AlmediaWorkspace: () => "Almedia workspace shell",
+  AlmediaWorkspace: ({ isAdmin }: { isAdmin: boolean }) =>
+    isAdmin ? "Almedia admin workspace" : "Almedia shared workspace",
 }));
 
 import AlmediaPage from "./page";
@@ -44,15 +45,15 @@ describe("almedia page", () => {
     expect(result).toBeNull();
   });
 
-  it("redirects authenticated non-admin users to forbidden", async () => {
+  it("renders the Almedia workspace for authenticated non-admin users", async () => {
     getSessionMock.mockResolvedValueOnce({
       user: { id: "user-1", role: "user" },
     });
 
-    const result = await AlmediaPage();
+    const html = renderToStaticMarkup(await AlmediaPage());
 
-    expect(redirectMock).toHaveBeenCalledWith("/forbidden");
-    expect(result).toBeNull();
+    expect(redirectMock).not.toHaveBeenCalled();
+    expect(html).toContain("Almedia shared workspace");
   });
 
   it("redirects users with unknown roles to forbidden", async () => {
@@ -75,6 +76,6 @@ describe("almedia page", () => {
     const html = renderToStaticMarkup(await AlmediaPage());
 
     expect(redirectMock).not.toHaveBeenCalled();
-    expect(html).toContain("Almedia workspace shell");
+    expect(html).toContain("Almedia admin workspace");
   });
 });

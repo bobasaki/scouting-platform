@@ -7,18 +7,23 @@ import { createBooking, listBookings } from "@scouting-platform/core";
 import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
-import { requireAdminSession, toRouteErrorResponse } from "../../../../lib/api";
+import {
+  requireAdminSession,
+  requireAuthenticatedSession,
+  toRouteErrorResponse,
+} from "../../../../lib/api";
 import { ALMEDIA_CACHE_TAG } from "../../../../lib/cached-data";
 
 /**
  * The booking tracker is hand-maintained, so this list is served uncached — an
- * admin who just saved a row must see it on the next poll, not 30 seconds later.
+ * authenticated user must see an updated row on the next poll, not 30 seconds
+ * later.
  */
 export async function GET(): Promise<NextResponse> {
-  const admin = await requireAdminSession();
+  const session = await requireAuthenticatedSession();
 
-  if (!admin.ok) {
-    return admin.response;
+  if (!session.ok) {
+    return session.response;
   }
 
   try {

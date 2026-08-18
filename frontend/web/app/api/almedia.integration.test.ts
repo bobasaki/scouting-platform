@@ -37,6 +37,7 @@ integration("almedia API integration", () => {
   let prisma: PrismaClient;
   let dealsRoute: typeof import("./almedia/deals/route");
   let campaignsRoute: typeof import("./almedia/campaigns/route");
+  let bookingsRoute: typeof import("./almedia/bookings/route");
   let creatorVerticalsRoute: typeof import("./almedia/creator-verticals/route");
   let scorecardRoute: typeof import("./almedia/scorecard/route");
   let syncRoute: typeof import("./almedia/sync/route");
@@ -55,6 +56,7 @@ integration("almedia API integration", () => {
 
     dealsRoute = await import("./almedia/deals/route");
     campaignsRoute = await import("./almedia/campaigns/route");
+    bookingsRoute = await import("./almedia/bookings/route");
     creatorVerticalsRoute = await import("./almedia/creator-verticals/route");
     scorecardRoute = await import("./almedia/scorecard/route");
     syncRoute = await import("./almedia/sync/route");
@@ -167,23 +169,29 @@ integration("almedia API integration", () => {
     });
   }
 
-  it("gates every Almedia read behind an admin session", async () => {
+  it("allows every signed-in user to read Almedia while keeping admin actions gated", async () => {
     const admin = await createUser("admin@example.com", Role.ADMIN);
     const user = await createUser("manager@example.com", Role.USER);
 
-    const handlers = [
+    const readHandlers = [
       dealsRoute.GET,
       campaignsRoute.GET,
       scorecardRoute.GET,
-      syncRoute.POST,
+      bookingsRoute.GET,
       invoicesRoute.GET,
-      analystRoute.GET,
     ];
 
-    for (const handler of handlers) {
+    for (const handler of readHandlers) {
       currentSessionUser = null;
       expect((await handler()).status).toBe(401);
 
+      currentSessionUser = { id: user.id, role: "user" };
+      expect((await handler()).status).toBe(200);
+    }
+
+    const adminHandlers = [syncRoute.POST, analystRoute.GET];
+
+    for (const handler of adminHandlers) {
       currentSessionUser = { id: user.id, role: "user" };
       expect((await handler()).status).toBe(403);
     }

@@ -73,10 +73,12 @@ function getErrorMessage(error: unknown, fallback: string): string {
 export function AlmediaBookingsTab({
   deals = [],
   bookings,
+  isAdmin = true,
   onMutated,
 }: Readonly<{
   deals?: readonly AlmediaDeal[];
   bookings: readonly Booking[];
+  isAdmin?: boolean;
   onMutated: () => void;
 }>) {
   const [editor, setEditor] = useState<EditorState>({ mode: "closed" });
@@ -254,17 +256,19 @@ export function AlmediaBookingsTab({
           {visibleBookings.length} of {bookings.length}
         </p>
 
-        <button
-          className="workspace-button"
-          disabled={editor.mode === "create"}
-          onClick={() => {
-            setEditor({ mode: "create" });
-            setMutationError(null);
-          }}
-          type="button"
-        >
-          New booking
-        </button>
+        {isAdmin ? (
+          <button
+            className="workspace-button"
+            disabled={editor.mode === "create"}
+            onClick={() => {
+              setEditor({ mode: "create" });
+              setMutationError(null);
+            }}
+            type="button"
+          >
+            New booking
+          </button>
+        ) : null}
       </div>
 
       {mutationError ? (
@@ -273,7 +277,7 @@ export function AlmediaBookingsTab({
         </p>
       ) : null}
 
-      {editor.mode === "closed" ? null : (
+      {!isAdmin || editor.mode === "closed" ? null : (
         <AlmediaBookingForm
           booking={editor.mode === "edit" ? editor.booking : null}
           isSaving={isSaving}
@@ -288,7 +292,11 @@ export function AlmediaBookingsTab({
 
       {bookings.length === 0 ? (
         <EmptyState
-          description="Nothing is booked yet. Add the first creator and the Insights and Scorecard tabs start filling in as the Almedia feed matches it."
+          description={
+            isAdmin
+              ? "Nothing is booked yet. Add the first creator and the Insights and Scorecard tabs start filling in as the Almedia feed matches it."
+              : "Nothing is booked yet. Once an admin adds the first creator, the Insights and Scorecard tabs will start filling in."
+          }
           title="No bookings yet"
         />
       ) : visibleBookings.length === 0 ? (
@@ -313,9 +321,11 @@ export function AlmediaBookingsTab({
                 External
               </th>
               <th scope="col">Contract</th>
-              <th scope="col">
-                <span className="sr-only">Actions</span>
-              </th>
+              {isAdmin ? (
+                <th scope="col">
+                  <span className="sr-only">Actions</span>
+                </th>
+              ) : null}
             </tr>
           </thead>
           <tbody>
@@ -359,34 +369,36 @@ export function AlmediaBookingsTab({
                     {formatBudget(booking.extBudget, booking.currency)}
                   </td>
                   <td>{booking.contractSigned ? "Signed" : "—"}</td>
-                  <td>
-                    <div className="almedia-bookings__row-actions">
-                      <button
-                        className="workspace-button workspace-button--small workspace-button--secondary"
-                        onClick={() => {
-                          setEditor({ mode: "edit", booking });
-                          setPendingDeleteId(null);
-                          setMutationError(null);
-                        }}
-                        type="button"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className={
-                          pendingDeleteId === booking.id
-                            ? "workspace-button workspace-button--small almedia-booking-delete almedia-booking-delete--armed"
-                            : "workspace-button workspace-button--small workspace-button--secondary almedia-booking-delete"
-                        }
-                        onClick={() => {
-                          handleDelete(booking.id);
-                        }}
-                        type="button"
-                      >
-                        {pendingDeleteId === booking.id ? "Confirm" : "Delete"}
-                      </button>
-                    </div>
-                  </td>
+                  {isAdmin ? (
+                    <td>
+                      <div className="almedia-bookings__row-actions">
+                        <button
+                          className="workspace-button workspace-button--small workspace-button--secondary"
+                          onClick={() => {
+                            setEditor({ mode: "edit", booking });
+                            setPendingDeleteId(null);
+                            setMutationError(null);
+                          }}
+                          type="button"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className={
+                            pendingDeleteId === booking.id
+                              ? "workspace-button workspace-button--small almedia-booking-delete almedia-booking-delete--armed"
+                              : "workspace-button workspace-button--small workspace-button--secondary almedia-booking-delete"
+                          }
+                          onClick={() => {
+                            handleDelete(booking.id);
+                          }}
+                          type="button"
+                        >
+                          {pendingDeleteId === booking.id ? "Confirm" : "Delete"}
+                        </button>
+                      </div>
+                    </td>
+                  ) : null}
                 </tr>
               );
             })}

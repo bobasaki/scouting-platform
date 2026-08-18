@@ -1,14 +1,18 @@
 import { almediaScorecardResponseSchema } from "@scouting-platform/contracts";
 import type { NextResponse } from "next/server";
 
-import { cachedJson, requireAdminSession, toRouteErrorResponse } from "../../../../lib/api";
+import {
+  cachedJson,
+  requireAuthenticatedSession,
+  toRouteErrorResponse,
+} from "../../../../lib/api";
 import { getCachedAlmediaScorecard } from "../../../../lib/cached-data";
 
 export async function GET(): Promise<NextResponse> {
-  const admin = await requireAdminSession();
+  const session = await requireAuthenticatedSession();
 
-  if (!admin.ok) {
-    return admin.response;
+  if (!session.ok) {
+    return session.response;
   }
 
   try {

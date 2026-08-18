@@ -131,7 +131,7 @@ type WorkspaceState = {
 };
 
 function renderWorkspace(
-  options?: Partial<WorkspaceState> & { runEffects?: boolean },
+  options?: Partial<WorkspaceState> & { isAdmin?: boolean; runEffects?: boolean },
 ) {
   const setters = {
     setRequestState: vi.fn(),
@@ -163,7 +163,7 @@ function renderWorkspace(
     }
   });
 
-  const element = AlmediaWorkspace();
+  const element = AlmediaWorkspace({ isAdmin: options?.isAdmin ?? true });
 
   return { cleanups, element, setters };
 }
@@ -274,6 +274,28 @@ describe("almedia workspace behavior", () => {
 
     expect(setters.setIsRefreshing).toHaveBeenCalledWith(false);
     expect(setters.setReloadToken).toHaveBeenCalledWith(expect.any(Function));
+  });
+
+  it("keeps refresh and management props out of the shared user view", () => {
+    const { element } = renderWorkspace({
+      isAdmin: false,
+      runEffects: false,
+      requestState: {
+        status: "ready",
+        error: null,
+        data: {
+          deals: DEALS,
+          campaigns: CAMPAIGNS,
+          scorecard: SCORECARD,
+          bookings: BOOKINGS,
+          invoices: INVOICES,
+          fetchedAt: new Date("2026-08-11T09:00:00.000Z"),
+        },
+      },
+    });
+
+    expect(findRefreshButton(element)).toBeUndefined();
+    expect(findByComponentName(element, "AlmediaInsightsTab")?.props.isAdmin).toBe(false);
   });
 
   it("hands the scorecard to the insights tab so the analyst has plan evidence", () => {

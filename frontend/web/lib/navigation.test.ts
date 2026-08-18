@@ -38,12 +38,14 @@ describe("navigation config", () => {
 
   it("stores role visibility metadata per entry", () => {
     const adminEntry = APP_NAVIGATION_ITEMS.find((item) => item.key === "admin");
+    const almediaEntry = APP_NAVIGATION_ITEMS.find((item) => item.key === "almedia");
     const catalogEntry = APP_NAVIGATION_ITEMS.find((item) => item.key === "catalog");
     const adminOnlyEntry = APP_NAVIGATION_ITEMS.find((item) => item.key === "admin");
 
     expect(catalogEntry).toBeDefined();
     expect(adminOnlyEntry).toBeDefined();
     expect(adminEntry?.visibleTo).toEqual(["admin"]);
+    expect(almediaEntry?.visibleTo).toEqual(["user", "admin"]);
     expect(isNavItemVisibleToRole(catalogEntry!, "user")).toBe(true);
     expect(isNavItemVisibleToRole(adminOnlyEntry!, "user")).toBe(false);
   });
@@ -62,6 +64,7 @@ describe("navigation config", () => {
       "catalog",
       "database",
       "feedback",
+      "almedia",
     ]);
     expect(getNavigationForRole("admin").map((item) => item.key)).toEqual([
       "dashboard",
@@ -78,19 +81,19 @@ describe("navigation config", () => {
     const globalOrder = APP_NAVIGATION_ITEMS.map((item) => item.key);
 
     expect(getNavigationForRole("user").map((item) => item.key)).toEqual(
-      globalOrder.filter((key) => key !== "almedia" && key !== "admin")
+      globalOrder.filter((key) => key !== "admin")
     );
     expect(getNavigationForRole("admin").map((item) => item.key)).toEqual(globalOrder);
   });
 
-  it("keeps Almedia admin-only and placed just before Admin", () => {
+  it("keeps Almedia shared and placed just before Admin", () => {
     const almediaEntry = APP_NAVIGATION_ITEMS.find((item) => item.key === "almedia");
     const keys = APP_NAVIGATION_ITEMS.map((item) => item.key);
 
-    expect(almediaEntry?.visibleTo).toEqual(["admin"]);
+    expect(almediaEntry?.visibleTo).toEqual(["user", "admin"]);
     expect(almediaEntry?.href).toBe("/almedia");
     expect(keys.indexOf("almedia")).toBe(keys.indexOf("admin") - 1);
-    expect(isNavItemVisibleToRole(almediaEntry!, "user")).toBe(false);
+    expect(isNavItemVisibleToRole(almediaEntry!, "user")).toBe(true);
   });
 
   it("validates and resolves known roles", () => {

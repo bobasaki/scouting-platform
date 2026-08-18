@@ -25,12 +25,12 @@ describe("app navigation", () => {
     expect(html).toContain('href="/catalog"');
     expect(html).toContain('href="/database"');
     expect(html).toContain('href="/feedback"');
+    expect(html).toContain('href="/almedia"');
     expect(html).not.toContain('href="/admin"');
-    expect(html).not.toContain('href="/almedia"');
     expect(html).not.toContain(">Workspace<");
     expect(html).not.toContain(">Admin<");
-    expect(html).not.toContain(">Almedia<");
-    expect(linkCount).toBe(5);
+    expect(html).toContain(">Almedia<");
+    expect(linkCount).toBe(6);
   });
 
   it("renders admin link for admin role", () => {

@@ -143,6 +143,7 @@ function InvoiceMonthCard({ entry }: Readonly<{ entry: InvoiceMonth }>) {
 }
 
 type BatchMemberRowProps = Readonly<{
+  isAdmin: boolean;
   member: BatchMember;
   isBusy: boolean;
   onToggleInclude: (member: BatchMember) => void;
@@ -151,6 +152,7 @@ type BatchMemberRowProps = Readonly<{
 }>;
 
 function BatchMemberRow({
+  isAdmin,
   member,
   isBusy,
   onToggleInclude,
@@ -224,24 +226,26 @@ function BatchMemberRow({
         {formatAmount(member.cost)}
       </strong>
 
-      <button
-        className={
-          invoice === null
-            ? "workspace-button workspace-button--small workspace-button--secondary"
-            : "workspace-button workspace-button--small"
-        }
-        disabled={isBusy}
-        onClick={() => {
-          if (invoice === null) {
-            onRecord(member);
-          } else {
-            onUnrecord(invoice);
+      {isAdmin ? (
+        <button
+          className={
+            invoice === null
+              ? "workspace-button workspace-button--small workspace-button--secondary"
+              : "workspace-button workspace-button--small"
           }
-        }}
-        type="button"
-      >
-        {invoice === null ? "Mark invoiced" : "Undo"}
-      </button>
+          disabled={isBusy}
+          onClick={() => {
+            if (invoice === null) {
+              onRecord(member);
+            } else {
+              onUnrecord(invoice);
+            }
+          }}
+          type="button"
+        >
+          {invoice === null ? "Mark invoiced" : "Undo"}
+        </button>
+      ) : null}
     </li>
   );
 }
@@ -277,6 +281,7 @@ function FeeChip({ batch }: Readonly<{ batch: InvoiceBatch }>) {
 type BatchRowProps = Readonly<{
   batch: InvoiceBatch;
   busyCampaign: string | null;
+  isAdmin: boolean;
   onToggleInclude: (member: BatchMember) => void;
   onRecord: (member: BatchMember) => void;
   onUnrecord: (invoice: BookingInvoice) => void;
@@ -285,6 +290,7 @@ type BatchRowProps = Readonly<{
 function BatchRow({
   batch,
   busyCampaign,
+  isAdmin,
   onToggleInclude,
   onRecord,
   onUnrecord,
@@ -360,6 +366,7 @@ function BatchRow({
           {batch.members.map((member) => (
             <BatchMemberRow
               isBusy={busyCampaign === member.campaignName}
+              isAdmin={isAdmin}
               key={member.campaignName}
               member={member}
               onRecord={onRecord}
@@ -375,12 +382,14 @@ function BatchRow({
 
 type AlmediaInvoicesTabProps = Readonly<{
   deals: readonly AlmediaDeal[];
+  isAdmin?: boolean;
   invoices: readonly BookingInvoice[];
   onMutated: () => void;
 }>;
 
 export function AlmediaInvoicesTab({
   deals,
+  isAdmin = true,
   invoices,
   onMutated,
 }: AlmediaInvoicesTabProps) {
@@ -666,6 +675,7 @@ export function AlmediaInvoicesTab({
                 <BatchRow
                   batch={batch}
                   busyCampaign={busyCampaign}
+                  isAdmin={isAdmin}
                   key={batch.month}
                   onRecord={handleRecord}
                   onToggleInclude={handleToggleInclude}

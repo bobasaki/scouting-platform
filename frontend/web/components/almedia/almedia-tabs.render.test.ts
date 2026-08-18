@@ -579,6 +579,21 @@ describe("almedia tabs render", () => {
     expect(empty).toContain("No bookings yet");
   });
 
+  it("renders bookings read-only for non-admin users", () => {
+    const html = renderToStaticMarkup(
+      createElement(AlmediaBookingsTab, {
+        bookings: [BOOKING],
+        isAdmin: false,
+        onMutated: () => undefined,
+      }),
+    );
+
+    expect(html).toContain("ASMR Fixy");
+    expect(html).not.toContain("New booking");
+    expect(html).not.toContain(">Edit<");
+    expect(html).not.toContain(">Delete<");
+  });
+
   it("renders the invoices tab with both billing lenses", () => {
     const html = renderToStaticMarkup(
       createElement(AlmediaInvoicesTab, {
@@ -613,6 +628,21 @@ describe("almedia tabs render", () => {
 
     expect(html).toContain("What is still to invoice?");
     expect(html).toContain("No invoice activity for this month");
+  });
+
+  it("renders invoice data without write controls for non-admin users", () => {
+    const html = renderToStaticMarkup(
+      createElement(AlmediaInvoicesTab, {
+        deals: DEALS,
+        invoices: [INVOICE],
+        isAdmin: false,
+        onMutated: () => undefined,
+      }),
+    );
+
+    expect(html).toContain("By invoice month");
+    expect(html).not.toContain("Mark invoiced");
+    expect(html).not.toContain(">Undo<");
   });
 
   it("renders the scorecard tab for populated and empty plans", () => {

@@ -59,7 +59,7 @@ export const APP_NAVIGATION_ITEMS: readonly AppNavigationItem[] = [
     key: "almedia",
     label: "Almedia",
     href: "/almedia",
-    visibleTo: ["admin"]
+    visibleTo: ["user", "admin"]
   },
   {
     key: "admin",
