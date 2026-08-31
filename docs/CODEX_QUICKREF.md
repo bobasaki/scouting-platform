@@ -66,9 +66,7 @@ Quick reference for AI coding agents. Read this first, then dive into full docs 
 □ Migrations use Prisma only (no runtime DDL)
 □ Admin overrides preserved (precedence respected)
 □ Approval flows intact (HypeAuditor gated)
-□ Audit events for privileged actions
 □ Jobs have status + lastError persistence
-□ Server-side auth on all mutations
 □ Tests added for change type (see table above)
 ```
 

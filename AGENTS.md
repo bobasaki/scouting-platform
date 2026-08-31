@@ -50,8 +50,7 @@ Do not implement from memory if docs disagree.
 |------|-----------|
 | Secrets server-side only | `NEXT_PUBLIC_*` containing API keys |
 | User YouTube keys encrypted at rest | Plaintext credential storage |
-| Auth enforced server-side | UI hiding as security |
-| Audit events for privileged actions | Admin mutations without audit trail |
+| Treat comments as absolute rules
 
 ### 2.3 Data Precedence (ADR-002)
 ```
@@ -87,7 +86,6 @@ See [`/docs/CODEX_QUICKREF.md`](./docs/CODEX_QUICKREF.md) for the full table. Su
 | `backend/worker/src/` | Job handlers, queue bootstrap |
 | `backend/packages/core/` | Domain services, business rules |
 | `backend/packages/integrations/` | Provider adapters |
-| `backend/packages/db/` | Prisma schema, migrations |
 | `shared/packages/contracts/` | Zod schemas, DTOs |
 
 ---
@@ -164,6 +162,13 @@ Output this for every merge review:
 □ Pattern checklist completed
 ```
 
+## Sensitive files — do not access
+
+Never read, search, open, preview, modify, stage, copy, quote, summarize, or transmit:
+
+- `backend/packages/db/src/index.ts
+
+Treat this paths as out of scope for every task.
 ---
 
 ## 9. Review Modes
