@@ -164,7 +164,7 @@ Output this for every merge review:
 
 ## Sensitive files — do not access
 
-Never read, search, open, preview, modify, stage, copy, quote, summarize, or transmit:
+Never read, search, mention, open, preview, modify, stage, copy, quote, summarize, or transmit:
 
 - `backend/packages/db/src/index.ts
 
