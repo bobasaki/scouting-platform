@@ -108,8 +108,22 @@ export function assertSafeTestDatabaseConfiguration(options = {}) {
   }
 }
 
+function warnWhenIntegrationSuitesWillSkip() {
+  if (process.env.DATABASE_URL_TEST?.trim()) {
+    return;
+  }
+
+  process.stderr.write(
+    "\n[test-db-guard] WARNING: DATABASE_URL_TEST is not set — every *.integration.test.ts suite "
+      + "will be SKIPPED, so a green run only covers unit tests. Run the full suite with the local "
+      + "env loaded: sh scripts/with-local-env.sh pnpm test (DATABASE_URL_TEST lives in .env, "
+      + "documented in .env.example).\n\n",
+  );
+}
+
 export function setup() {
   assertSafeTestDatabaseConfiguration();
+  warnWhenIntegrationSuitesWillSkip();
 }
 
 export default setup;

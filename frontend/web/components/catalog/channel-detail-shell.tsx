@@ -14,6 +14,7 @@ import {
   fetchChannelDetail,
   requestChannelEnrichment,
 } from "../../lib/channels-api";
+import { isOptimizedImageHost } from "../../lib/image-hosts";
 import { AdminChannelManualEditPanel } from "./admin-channel-manual-edit-panel";
 
 type ChannelDetailShellProps = Readonly<{
@@ -588,6 +589,7 @@ function renderReadyState(
                 className="creator-profile__avatar channel-detail-shell__thumbnail"
                 height={120}
                 src={channel.thumbnailUrl}
+                unoptimized={!isOptimizedImageHost(channel.thumbnailUrl)}
                 width={120}
               />
             ) : (

@@ -11,6 +11,7 @@ import Link from "next/link";
 import React, { useEffect, useState } from "react";
 
 import { ApiRequestError, fetchRunStatus } from "../../lib/runs-api";
+import { isOptimizedImageHost } from "../../lib/image-hosts";
 import { getExportPreviewHref } from "../../lib/navigation";
 import { EmptyState } from "../ui/EmptyState";
 import { ErrorState } from "../ui/ErrorState";
@@ -270,6 +271,7 @@ function renderResultCard(
             className="run-detail__result-thumbnail"
             height={64}
             src={result.channel.thumbnailUrl}
+            unoptimized={!isOptimizedImageHost(result.channel.thumbnailUrl)}
             width={64}
           />
         ) : (
